@@ -1,7 +1,8 @@
-(ns eventual.promise
+(ns manifold.promise
   (:refer-clojure :exclude [realized? promise future])
   (:require
-    [eventual.utils :as utils])
+    [manifold.utils :as utils]
+    [manifold.time :as time])
   (:import
     [java.util
      LinkedList]
@@ -14,9 +15,6 @@
     [java.util.concurrent.atomic
      AtomicBoolean
      AtomicInteger]
-    [java.util.concurrent.locks
-     ReentrantLock
-     Lock]
     [clojure.lang
      IPending
      IBlockingDeref
@@ -25,7 +23,7 @@
 (set! *warn-on-reflection* true)
 
 (defprotocol Promisable
-  (^:private to-promise [_] "Provides a conversion mechanism to Eventual promises."))
+  (^:private to-promise [_] "Provides a conversion mechanism to manifold promises."))
 
 ;; implies IDeref, IBlockingDeref, IPending
 (definterface IPromise
@@ -33,24 +31,24 @@
   (onRealized [on-success on-error]))
 
 (definline realized?
-  "Returns true if the Eventual promise is realized."
+  "Returns true if the manifold promise is realized."
   [x]
-  `(.realized ~(with-meta x {:tag "eventual.promise.IPromise"})))
+  `(.realized ~(with-meta x {:tag "manifold.promise.IPromise"})))
 
 (definline on-realized
-  "Registers callbacks with the Eventual promise for both success and error outcomes."
+  "Registers callbacks with the manifold promise for both success and error outcomes."
   [x on-success on-error]
-  `(.onRealized ~(with-meta x {:tag "eventual.promise.IPromise"}) ~on-success ~on-error))
+  `(.onRealized ~(with-meta x {:tag "manifold.promise.IPromise"}) ~on-success ~on-error))
 
 (definline promise?
-  "Returns true if the object is an instance of an Eventual promise."
+  "Returns true if the object is an instance of an manifold promise."
   [x]
   `(instance? IPromise ~x))
 
 (let [^ConcurrentHashMap classes (ConcurrentHashMap.)]
   (add-watch #'Promisable ::memoization (fn [& _] (.clear classes)))
   (defn promisable?
-    "Returns true if the object can be turned into an Eventual promise."
+    "Returns true if the object can be turned into an manifold promise."
     [x]
     (let [cls (class x)
           val (.get classes cls)]
@@ -225,16 +223,8 @@
   [^IMutablePromise promise listener]
   (.cancelListener promise listener))
 
-(defmacro ^:private with-lock [lock & body]
-  `(let [^Lock lock# ~lock]
-     (.lock lock#)
-     (try
-       ~@body
-       (finally
-         (.unlock lock#)))))
-
 (defmacro ^:private set-promise [val token success? claimed?]
-  `(with-lock ~'lock
+  `(utils/with-lock ~'lock
      (if (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
                  ~@(when claimed?
@@ -262,7 +252,9 @@
 (defmacro ^:private deref-promise [timeout-value & await-args]
   `(condp identical? ~'state
      ::success ~'val
-     ::error   (throw ~'val)
+     ::error   (if (instance? Throwable ~'val)
+                 (throw ~'val)
+                 (throw (ex-info "" {:error ~'val})))
      (let [latch# (CountDownLatch. 1)
             f# (fn [_#] (.countDown latch#))]
         (try
@@ -279,7 +271,7 @@
   [^:volatile-mutable val
    ^:volatile-mutable state
    ^:unsynchronized-mutable claim-token
-   ^Lock lock
+   lock
    ^LinkedList listeners
    ^:volatile-mutable mta
    ^:volatile-mutable consumed?]
@@ -288,21 +280,21 @@
   (meta [_] mta)
   clojure.lang.IReference
   (resetMeta [_ m]
-    (with-lock lock
+    (utils/with-lock lock
       (set! mta m)))
   (alterMeta [_ f args]
-    (with-lock lock
+    (utils/with-lock lock
       (set! mta (apply f mta args))))
 
   IMutablePromise
   (claim [_]
-    (with-lock lock
+    (utils/with-lock lock
       (when (identical? state ::unset)
         (set! state ::claimed)
         (set! claim-token (Object.)))))
   (addListener [_ listener]
     (set! consumed? true)
-    (when-let [f (with-lock lock
+    (when-let [f (utils/with-lock lock
                    (condp identical? state
                      ::success #(.onSuccess ^IPromiseListener listener val)
                      ::error   #(.onError ^IPromiseListener listener val)
@@ -312,7 +304,7 @@
       (f))
     true)
   (cancelListener [_ listener]
-    (with-lock lock
+    (utils/with-lock lock
       (let [state state]
         (if (or (identical? ::unset state)
               (identical? ::set state))
@@ -438,10 +430,14 @@
   clojure.lang.IBlockingDeref
   (deref [this]
     (set! consumed? true)
-    (throw error))
+    (if (instance? Throwable error)
+      (throw error)
+      (throw (ex-info "" {:error error}))))
   (deref [this time timeout-value]
     (set! consumed? true)
-    (throw error))
+    (if (instance? Throwable error)
+      (throw error)
+      (throw (ex-info "" {:error error}))))
 
   (toString [_] (str "ERROR: " (pr-str error))))
 
@@ -449,7 +445,7 @@
   "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
    via `on-realized`."
   []
-  (Promise. nil ::unset nil (ReentrantLock.) (LinkedList.) nil false))
+  (Promise. nil ::unset nil (utils/mutex) (LinkedList.) nil false))
 
 (defn success-promise
   "A promise which already contains a realized value"
@@ -461,33 +457,6 @@
   [error]
   (ErrorPromise. error nil false))
 
-(defn connect
-  "Conveys the realized value of `a` into `b`."
-  [a b]
-  (let [a (->promise a)]
-    (assert a "source `a` must be promisable")
-    (assert (instance? IPromise b) "sink `b` must be an Eventual promise")
-    (if (realized? b)
-      false
-      (do
-        (on-realized a
-          #(success! b %)
-          #(error! b %))
-        true))))
-
-(defmacro future
-  "Equivalent to Clojure's `future`, but returns an Eventual promise."
-  [& body]
-  `(let [p# (promise)]
-     (clojure.core/future
-       (try
-         (success! p# (do ~@body))
-         (catch Throwable e#
-           (error! p# e#))))
-     p#))
-
-;;;
-
 (defn- unwrap [x]
   (if (promisable? x)
     (let [p (->promise x)]
@@ -498,6 +467,34 @@
             p'))
         p))
     x))
+
+(defn connect
+  "Conveys the realized value of `a` into `b`."
+  [a b]
+  (assert (instance? IPromise b) "sink `b` must be an manifold promise")
+  (let [a (unwrap a)]
+    (if (not (instance? IPromise a))
+      (success! b a)
+      (if (realized? b)
+        false
+        (do
+          (on-realized a
+            #(success! b %)
+            #(error! b %))
+          true)))))
+
+(defmacro future
+  "Equivalent to Clojure's `future`, but returns an manifold promise."
+  [& body]
+  `(let [p# (promise)]
+     (clojure.core/future
+       (try
+         (success! p# (do ~@body))
+         (catch Throwable e#
+           (error! p# e#))))
+     p#))
+
+;;;
 
 (defn chain
   "Composes functions, left to right, over the value `x`, returning a promise containing
@@ -618,3 +615,35 @@
               (.decrementAndGet counter)))
 
           (recur (unchecked-inc idx) (rest s)))))))
+
+(defn timeout
+  "Takes a promise, and returns a promise that will be realized as `timeout-value` (or a
+   TimeoutException if none is specified) if the original promise is not realized within
+   `interval` milliseconds."
+  ([promise interval]
+     (let [p (promise)]
+       (connect promise p)
+       (time/in interval
+         #(error! p
+            (TimeoutException.
+              (str "timed out after " interval " milliseconds"))))
+       p))
+  ([promise interval timeout-value]
+     (let [p (promise)]
+       (connect promise p)
+       (time/in interval #(success! p timeout-value))
+       p)))
+
+(utils/when-core-async
+  (extend-protocol Promisable
+
+    clojure.core.async.impl.channels.ManyToManyChannel
+    (to-promise [ch]
+      (let [p (promise)]
+        (a/go
+          (if-let [x (<! ch)]
+            (if (instance? Throwable x)
+              (error! p x)
+              (success! p x))
+            (success! p nil)))
+        p))))

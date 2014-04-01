@@ -1,4 +1,4 @@
-(ns eventual.test-utils
+(ns manifold.test-utils
   (:require
     [criterium.core :as c]))
 

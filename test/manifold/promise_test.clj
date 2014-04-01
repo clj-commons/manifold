@@ -1,9 +1,9 @@
-(ns eventual.promise-test
+(ns manifold.promise-test
   (:refer-clojure :exclude [promise realized? future])
   (:require
     [clojure.test :refer :all]
-    [eventual.test-utils :refer :all]
-    [eventual.promise :refer :all]))
+    [manifold.test-utils :refer :all]
+    [manifold.promise :refer :all]))
 
 (defmacro defer [& body]
   `(future

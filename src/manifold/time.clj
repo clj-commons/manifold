@@ -1,7 +1,6 @@
-(ns eventual.time
+(ns manifold.time
   (:require
-    [eventual.promise :as p]
-    [eventual.utils :as utils]
+    [manifold.utils :as utils]
     [clojure.string :as str])
   (:import
     [java.util
@@ -61,7 +60,7 @@
                    "s" (seconds 1)])]
 
   (defn format-duration
-    "Takes a duration in milliseconds, and returns a formatted string 
+    "Takes a duration in milliseconds, and returns a formatted string
      describing the interval, i.e. '5d 3h 1m'"
     [n]
     (loop [s "", n n, intervals intervals]
@@ -91,7 +90,7 @@
                              (map
                                #(->> (take % units) (map unit->calendar-unit))
                                (range (count units))))]
-  
+
   (defn floor
     "Takes a `timestamp`, and rounds it down to the nearest even multiple of the `unit`.
 
@@ -116,26 +115,34 @@
       (.add cal (unit->calendar-unit unit) value)
       (.getTimeInMillis cal))))
 
+;;;
+
+(in-ns 'manifold.promise)
+(clojure.core/declare success! error! promise)
+(in-ns 'manifold.time)
+
+;;;
+
 (let [scheduler     (ScheduledThreadPoolExecutor.
                       1
-                      (utils/thread-factory (constantly "eventual-scheduler-queue")))
+                      (utils/thread-factory (constantly "manifold-scheduler-queue")))
       num-cores     (.availableProcessors (Runtime/getRuntime))
       cnt           (atom 0)
       executor      (Executors/newFixedThreadPool
                       num-cores
-                      (utils/thread-factory #(str "eventual-scheduler-" (swap! cnt inc))))]
+                      (utils/thread-factory #(str "manifold-scheduler-" (swap! cnt inc))))]
 
   (defn in
-    "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a promise 
+    "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a promise
      representing the returned value of the function."
     [^double interval f]
-    (let [p (p/promise)
+    (let [p (manifold.promise/promise)
           f (fn []
               (let [f (fn []
                         (try
-                          (p/success! p (f))
+                          (manifold.promise/success! p (f))
                           (catch Throwable e
-                            (p/error! p e))))]
+                            (manifold.promise/error! p e))))]
                 (.execute executor ^Runnable f)))]
       (.schedule scheduler
         ^Runnable f
@@ -144,11 +151,11 @@
       p))
 
   (defn every
-    "Schedules no-arg function `f` to be invoked every `period` milliseconds, after `initial-delay` 
+    "Schedules no-arg function `f` to be invoked every `period` milliseconds, after `initial-delay`
      milliseconds, which defaults to `0`.  Returns a zero-argument function which, when invoked,
-     cancels the repeated invocation.  
+     cancels the repeated invocation.
 
-     If the invocation of `f` ever throws an exception, repeated invocation is automatically 
+     If the invocation of `f` ever throws an exception, repeated invocation is automatically
      cancelled."
     ([period f]
        (every period 0 f))
@@ -172,25 +179,7 @@
              (.cancel future false)))))))
 
 (defn at
-  "Schedules no-arg function  `f` to be invoked at `timestamp`, which is the milliseconds 
+  "Schedules no-arg function  `f` to be invoked at `timestamp`, which is the milliseconds
    since the epoch.  Returns a promise representing the returned value of the function."
   [timestamp f]
   (in (max 0 (- timestamp (System/currentTimeMillis))) f))
-
-(defn timeout
-  "Takes a promise, and returns a promise that will be realized as `timeout-value` (or a
-   TimeoutException if none is specified) if the original promise is not realized within 
-   `interval` milliseconds."
-  ([promise interval]
-     (let [p (p/promise)]
-       (p/connect promise p)
-       (in interval
-         #(p/error! p
-            (TimeoutException.
-              (str "timed out after " interval " milliseconds"))))
-       p))
-  ([promise interval timeout-value]
-     (let [p (p/promise)]
-       (p/connect promise p)
-       (in interval #(p/success! p timeout-value))
-       p)))
