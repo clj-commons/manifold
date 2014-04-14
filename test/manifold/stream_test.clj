@@ -52,6 +52,13 @@
   (dotimes [i 1e3]
     (async/<!! ch)))
 
+(defn core-async-blocking-benchmark [ch]
+  (future
+    (dotimes [i 1e3]
+      (async/>!! ch i)))
+  (dotimes [i 1e3]
+    (async/<!! ch)))
+
 (defn stream-benchmark [s]
   (future
     (dotimes [i 1e3]
@@ -74,13 +81,19 @@
       (blocking-queue-benchmark q)))
   (let [ch (async/chan 1024)]
     (bench "core.async channel throughput w/ 1024 buffer"
-      (core-async-benchmark ch)))
+      (core-async-benchmark ch))
+    (bench "core.async blocking channel throughput w/ 1024 buffer"
+      (core-async-blocking-benchmark ch)))
   (let [ch (async/chan 1)]
     (bench "core.async channel throughput w/ 1 buffer"
-      (core-async-benchmark ch)))
+      (core-async-benchmark ch))
+    (bench "core.async blocking channel throughput w/ 1 buffer"
+      (core-async-blocking-benchmark ch)))
   (let [ch (async/chan)]
     (bench "core.async channel throughput w/ no buffer"
-      (core-async-benchmark ch))))
+      (core-async-benchmark ch))
+    (bench "core.async blocking channel throughput w/ no buffer"
+      (core-async-blocking-benchmark ch))))
 
 (deftest ^:benchmark benchmark-streams
   (let [s (stream 1024)]

@@ -45,9 +45,9 @@
   [x]
   `(instance? IStream ~x))
 
-(definline synchronous?
-  "Returns true if the stream behaves synchronously, using thread blocking to provide
-   backpressure."
+(definline ^:private synchronous?
+  "Returns true if the underlying abstraction behaves synchronously, using thread blocking
+   to provide backpressure."
   [x]
   `(.isSynchronous ~(with-meta x {:tag "manifold.stream.IStream"})))
 
@@ -86,13 +86,15 @@
   (defn streamable?
     "Returns true if the object can be turned into a Manifold stream."
     [x]
-    (let [cls (class x)
-          val (.get classes cls)]
-      (if (nil? val)
-        (let [val (satisfies? Streamable x)]
-          (.put classes cls val)
-          val)
-        val))))
+    (if (nil? x)
+      false
+      (let [cls (class x)
+            val (.get classes cls)]
+        (if (nil? val)
+          (let [val (satisfies? Streamable x)]
+            (.put classes cls val)
+            val)
+          val)))))
 
 (defn put!
   "Puts a value into a stream, returning a promise that yields `true` if it succeeds,

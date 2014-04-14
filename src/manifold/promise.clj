@@ -30,7 +30,7 @@
   (^boolean realized [])
   (onRealized [on-success on-error]))
 
-(definline realized?
+(definline ^:private realized?
   "Returns true if the manifold promise is realized."
   [x]
   `(.realized ~(with-meta x {:tag "manifold.promise.IPromise"})))
@@ -50,16 +50,18 @@
   (defn promisable?
     "Returns true if the object can be turned into a Manifold promise."
     [x]
-    (let [cls (class x)
-          val (.get classes cls)]
-      (if (nil? val)
-        (let [val (or (instance? IPromise x)
-                    (instance? Future x)
-                    (instance? IDeref x)
-                    (satisfies? Promisable x))]
-          (.put classes cls val)
-          val)
-        val))))
+    (if (nil? x)
+      false
+      (let [cls (class x)
+            val (.get classes cls)]
+        (if (nil? val)
+          (let [val (or (instance? IPromise x)
+                      (instance? Future x)
+                      (instance? IDeref x)
+                      (satisfies? Promisable x))]
+            (.put classes cls val)
+            val)
+          val)))))
 
 ;; TODO: do some sort of periodic sampling so multiple futures can share a thread
 (defn- register-future-callbacks [x on-success on-error]
@@ -321,7 +323,9 @@
 
   clojure.lang.IFn
   (invoke [this x]
-    (success! this x))
+    (if (success! this x)
+      this
+      nil))
 
   IPromise
   (realized [_]
@@ -374,7 +378,7 @@
   (error [_ x token] false)
 
   clojure.lang.IFn
-  (invoke [this x] false)
+  (invoke [this x] nil)
 
   IPromise
   (realized [_] true)
@@ -417,7 +421,7 @@
   (error [_ x token] false)
 
   clojure.lang.IFn
-  (invoke [this x] false)
+  (invoke [this x] nil)
 
   IPromise
   (realized [_] true)
@@ -461,9 +465,18 @@
   (if (promisable? x)
     (let [p (->promise x)]
       (if (realized? p)
-        (let [p' @p]
-          (if (promisable? p')
+        (let [p' (try
+                   @p
+                   (catch Throwable _
+                     ::error))]
+          (cond
+            (identical? ::error p')
+            p
+
+            (promisable? p')
             (recur p')
+
+            :else
             p'))
         p))
     x))
@@ -543,7 +556,8 @@
      (let [x' (chain x f g h)
            p (promise)]
        (on-realized x'
-         #(connect (apply chain % fs) p)
+         #(utils/without-overflow
+            (connect (apply chain % fs) p))
          #(error! p %))
        p)))
 
@@ -620,19 +634,19 @@
   "Takes a promise, and returns a promise that will be realized as `timeout-value` (or a
    TimeoutException if none is specified) if the original promise is not realized within
    `interval` milliseconds."
-  ([promise interval]
-     (let [p (promise)]
-       (connect promise p)
+  ([p interval]
+     (let [p' (promise)]
+       (connect p p')
        (time/in interval
-         #(error! p
+         #(error! p'
             (TimeoutException.
               (str "timed out after " interval " milliseconds"))))
-       p))
-  ([promise interval timeout-value]
-     (let [p (promise)]
-       (connect promise p)
-       (time/in interval #(success! p timeout-value))
-       p)))
+       p'))
+  ([p interval timeout-value]
+     (let [p' (promise)]
+       (connect p p')
+       (time/in interval #(success! p' timeout-value))
+       p')))
 
 (utils/when-core-async
   (extend-protocol Promisable
