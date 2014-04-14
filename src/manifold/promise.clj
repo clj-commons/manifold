@@ -41,14 +41,14 @@
   `(.onRealized ~(with-meta x {:tag "manifold.promise.IPromise"}) ~on-success ~on-error))
 
 (definline promise?
-  "Returns true if the object is an instance of an manifold promise."
+  "Returns true if the object is an instance of a Manifold promise."
   [x]
   `(instance? IPromise ~x))
 
 (let [^ConcurrentHashMap classes (ConcurrentHashMap.)]
   (add-watch #'Promisable ::memoization (fn [& _] (.clear classes)))
   (defn promisable?
-    "Returns true if the object can be turned into an manifold promise."
+    "Returns true if the object can be turned into a Manifold promise."
     [x]
     (let [cls (class x)
           val (.get classes cls)]
@@ -471,7 +471,7 @@
 (defn connect
   "Conveys the realized value of `a` into `b`."
   [a b]
-  (assert (instance? IPromise b) "sink `b` must be an manifold promise")
+  (assert (instance? IPromise b) "sink `b` must be a Manifold promise")
   (let [a (unwrap a)]
     (if (not (instance? IPromise a))
       (success! b a)
@@ -484,7 +484,7 @@
           true)))))
 
 (defmacro future
-  "Equivalent to Clojure's `future`, but returns an manifold promise."
+  "Equivalent to Clojure's `future`, but returns a Manifold promise."
   [& body]
   `(let [p# (promise)]
      (clojure.core/future
