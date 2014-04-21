@@ -13,7 +13,7 @@ Full documentation can be found [here](http://ideolalia.com/manifold).
 
 ### deferreds
 
-A deferred in Manifold is similar to a Clojure PROMISe:
+A deferred in Manifold is similar to a Clojure promise:
 
 ```clj
 > (require '[manifold.deferred :as p])
