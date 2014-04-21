@@ -117,8 +117,8 @@
 
 ;;;
 
-(in-ns 'manifold.promise)
-(clojure.core/declare success! error! promise)
+(in-ns 'manifold.deferred)
+(clojure.core/declare success! error! deferred)
 (in-ns 'manifold.time)
 
 ;;;
@@ -133,22 +133,22 @@
                       (utils/thread-factory #(str "manifold-scheduler-" (swap! cnt inc))))]
 
   (defn in
-    "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a promise
+    "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred
      representing the returned value of the function."
     [^double interval f]
-    (let [p (manifold.promise/promise)
+    (let [d (manifold.deferred/deferred)
           f (fn []
               (let [f (fn []
                         (try
-                          (manifold.promise/success! p (f))
+                          (manifold.deferred/success! d (f))
                           (catch Throwable e
-                            (manifold.promise/error! p e))))]
+                            (manifold.deferred/error! d e))))]
                 (.execute executor ^Runnable f)))]
       (.schedule scheduler
         ^Runnable f
         (long (* interval 1e3))
         TimeUnit/MICROSECONDS)
-      p))
+      d))
 
   (defn every
     "Schedules no-arg function `f` to be invoked every `period` milliseconds, after `initial-delay`
@@ -180,6 +180,6 @@
 
 (defn at
   "Schedules no-arg function  `f` to be invoked at `timestamp`, which is the milliseconds
-   since the epoch.  Returns a promise representing the returned value of the function."
+   since the epoch.  Returns a deferred representing the returned value of the function."
   [timestamp f]
   (in (max 0 (- timestamp (System/currentTimeMillis))) f))

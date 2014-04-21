@@ -1,6 +1,6 @@
 (ns manifold.stream
   (:require
-    [manifold.promise :as p]
+    [manifold.deferred :as d]
     [manifold.utils :as utils]
     [manifold.time :as time])
   (:import
@@ -18,7 +18,7 @@
 ;;;
 
 (defprotocol Streamable
-  (to-stream [_] "Provides a conversion mechanism to manifold streams."))
+  (^:private to-stream [_] "Provides a conversion mechanism to manifold streams."))
 
 (definterface IStream
   (isSynchronous []))
@@ -97,7 +97,7 @@
           val)))))
 
 (defn put!
-  "Puts a value into a stream, returning a promise that yields `true` if it succeeds,
+  "Puts a value into a stream, returning a deferred that yields `true` if it succeeds,
    and `false` if it fails.  Guaranteed to be non-blocking."
   {:inline (fn [sink x]
              `(.put ~(with-meta sink {:tag "manifold.stream.IEventSink"}) ~x false))}
@@ -122,7 +122,7 @@
      (.put sink x false timeout timeout-val)))
 
 (defn take!
-  "Takes a value from a stream, returning a promise that yields the value when it
+  "Takes a value from a stream, returning a deferred that yields the value when it
    is available, or `nil` if the take fails.  Guaranteed to be non-blocking.
 
    A special `default-val` may be specified, if it is important to differentiate
@@ -138,7 +138,7 @@
      (.take source false default-val)))
 
 (defn try-take!
-  "Takes a value from a stream, returning a promise that yields the value if it is
+  "Takes a value from a stream, returning a deferred that yields the value if it is
    available within `timeout` milliseconds, or `nil` if it fails or times out.
    Guaranteed to be non-blocking.
 
@@ -187,10 +187,10 @@
 
 ;;;
 
-(deftype Production [promise token])
-(deftype Consumption [message promise token])
-(deftype Producer [message promise])
-(deftype Consumer [promise default-val])
+(deftype Production [deferred token])
+(deftype Consumption [message deferred token])
+(deftype Producer [message deferred])
+(deftype Consumer [deferred default-val])
 
 (defn- invoke-callbacks [^BlockingQueue callbacks]
   (loop []
@@ -228,7 +228,7 @@
           (.drainTo consumers l)
           (doseq [^Consumer c l]
             (try
-              (p/success! (.promise c) (.default-val c))
+              (d/success! (.deferred c) (.default-val c))
               (catch Throwable e
                 ;; todo: log something
                 ))))
@@ -263,50 +263,50 @@
 
               ;; closed, return << false >>
               (and closed?
-                (p/success-promise false))
+                (d/success-deferred false))
 
               ;; see if there are any unclaimed consumers left
               (loop [^Consumer c (.poll consumers 0 TimeUnit/NANOSECONDS)]
                 (when c
-                  (if-let [token (p/claim! (.promise c))]
-                    (Production. (.promise c) token)
+                  (if-let [token (d/claim! (.deferred c))]
+                    (Production. (.deferred c) token)
                     (recur (.poll consumers 0 TimeUnit/NANOSECONDS)))))
 
               ;; see if we can enqueue into the buffer
               (and
                 messages
                 (.offer messages msg 0 TimeUnit/NANOSECONDS)
-                (p/success-promise true))
+                (d/success-deferred true))
 
               ;; add to the producers queue
               (if (and timeout (<= timeout 0))
-                (p/success-promise timeout-val)
-                (let [p (p/promise)]
+                (d/success-deferred timeout-val)
+                (let [d (d/deferred)]
                   (when timeout
-                    (time/in timeout #(p/success! p timeout-val)))
-                  (let [pr (Producer. msg p)]
+                    (time/in timeout #(d/success! d timeout-val)))
+                  (let [pr (Producer. msg d)]
                     (if (.offer producers pr 0 TimeUnit/NANOSECONDS)
-                      p
+                      d
                       pr))))))]
       (cond
         (instance? Producer result)
         (do
           (.put producers result)
-          (let [p (.promise ^Producer result)]
+          (let [d (.deferred ^Producer result)]
             (if blocking?
-              @p
-              p)))
+              @d
+              d)))
 
         (instance? Production result)
         (let [^Production result result]
           (try
-            (p/success! (.promise result) msg (.token result))
+            (d/success! (.deferred result) msg (.token result))
             (catch Throwable e
               ;; todo: log something
               ))
           (if blocking?
             true
-            (p/success-promise true)))
+            (d/success-deferred true)))
 
         :else
         (if blocking?
@@ -334,13 +334,13 @@
                 (when (and closed? (drained? this))
                   (invoke-callbacks drained-callbacks))
 
-                (p/success-promise msg))
+                (d/success-deferred msg))
 
               ;; see if there are any unclaimed producers left
               (loop [^Producer p (.poll producers 0 TimeUnit/NANOSECONDS)]
                 (when p
-                  (if-let [token (p/claim! (.promise p))]
-                    (let [c (Consumption. (.message p) (.promise p) token)]
+                  (if-let [token (d/claim! (.deferred p))]
+                    (let [c (Consumption. (.message p) (.deferred p) token)]
 
                       ;; check if we're drained
                       (when (and closed? (drained? this))
@@ -351,17 +351,17 @@
 
               ;; closed, return << default-val >>
               (and closed?
-                (p/success-promise default-val))
+                (d/success-deferred default-val))
 
               ;; add to the consumers queue
               (if (and timeout (<= timeout 0))
-                (p/success-promise timeout-val)
-                (let [p (p/promise)]
+                (d/success-deferred timeout-val)
+                (let [d (d/deferred)]
                   (when timeout
-                    (time/in timeout #(p/success! p timeout-val)))
-                  (let [c (Consumer. p default-val)]
+                    (time/in timeout #(d/success! d timeout-val)))
+                  (let [c (Consumer. d default-val)]
                     (if (.offer consumers c 0 TimeUnit/NANOSECONDS)
-                      p
+                      d
                       c))))))]
 
       (cond
@@ -369,22 +369,22 @@
         (instance? Consumer result)
         (do
           (.put consumers result)
-          (let [p (.promise ^Consumer result)]
+          (let [d (.deferred ^Consumer result)]
             (if blocking?
-              @p
-              p)))
+              @d
+              d)))
 
         (instance? Consumption result)
         (let [^Consumption result result]
           (try
-            (p/success! (.promise result) true (.token result))
+            (d/success! (.deferred result) true (.token result))
             (catch Throwable e
               ;; todo: log something
               ))
           (let [msg (.message result)]
             (if blocking?
               msg
-              (p/success-promise msg))))
+              (d/success-deferred msg))))
 
         :else
         (if blocking?
@@ -421,6 +421,7 @@
 ;;;
 
 (defn ->stream
+  "Converts, is possible, the object to a Manifold stream, or `nil` if not possible."
   [x]
   (cond
     (instance? Stream x) x
@@ -448,15 +449,15 @@
       (time/every period initial-delay
         (fn []
           (try
-            (let [p (put! stream (f))]
-              (if (realized? p)
-                (when-not @p
+            (let [d (put! stream (f))]
+              (if (realized? d)
+                (when-not @d
                   (do
                     (@cancel)
                     (close! stream)))
                 (do
                   (@cancel)
-                  (p/chain p
+                  (d/chain d
                     (fn [x]
                       (if-not x
                         (close! stream)

@@ -1,6 +1,6 @@
 (ns manifold.stream.async
   (:require
-    [manifold.promise :as p]
+    [manifold.deferred :as d]
     [clojure.core.async :as a]
     [manifold.stream :as s]
     [manifold.utils :as utils])
@@ -56,7 +56,7 @@
       closed?
       (if blocking?
         false
-        (p/success-promise false))
+        (d/success-deferred false))
 
       blocking?
       (try
@@ -70,24 +70,24 @@
                 (a/close! ch))))))
 
       :else
-      (let [p  (p/promise)
-            p' (.getAndSet last-put p)
+      (let [d  (d/deferred)
+            d' (.getAndSet last-put d)
             f  (fn [_]
                  (a/go
                    (try
                      (a/>! ch x)
                      (utils/without-overflow
-                       (p/success! p true))
+                       (d/success! d true))
                      (finally
                        (when (zero? (.decrementAndGet pending-puts))
                          (locking this
                            (when (s/closed? this)
                              (a/close! ch))))))))]
         (.incrementAndGet pending-puts)
-        (if (realized? p')
+        (if (realized? d')
           (f nil)
-          (p/on-realized p' f f))
-        p)))
+          (d/on-realized d' f f))
+        d)))
 
   (put [this x blocking? timeout timeout-val]
 
@@ -99,10 +99,10 @@
 
       (if blocking?
         false
-        (p/success-promise false))
+        (d/success-deferred false))
 
-      (let [p  (p/promise)
-            p' (.getAndSet last-put p)
+      (let [d  (d/deferred)
+            d' (.getAndSet last-put d)
             f  (fn [_]
                  (a/go
                    (try
@@ -111,19 +111,19 @@
                                     (a/timeout timeout) timeout-val
                                     :priority true)]
                        (utils/without-overflow
-                         (p/success! p result)))
+                         (d/success! d result)))
                      (finally
                        (when (zero? (.decrementAndGet pending-puts))
                          (locking this
                            (when (s/closed? this)
                              (a/close! ch))))))))]
         (.incrementAndGet pending-puts)
-        (if (realized? p')
+        (if (realized? d')
           (f nil)
-          (p/on-realized p' f f))
+          (d/on-realized d' f f))
         (if blocking?
-          @p
-          p))))
+          @d
+          d))))
 
   IEventSource
   (take [this blocking? default-val]
@@ -136,27 +136,27 @@
             default-val)
           x))
 
-      (let [p  (p/promise)
-            p' (.getAndSet last-take p)
+      (let [d  (d/deferred)
+            d' (.getAndSet last-take d)
             f  (fn [_]
                  (a/go
                    (let [x (a/<! ch)]
                      (utils/without-overflow
-                       (p/success! p
+                       (d/success! d
                          (if (nil? x)
                            (do
                              (s/close! this)
                              (utils/invoke-callbacks drained-callbacks)
                              default-val)
                            x))))))]
-        (if (realized? p')
+        (if (realized? d')
           (f nil)
-          (p/on-realized p' f f))
-        p)))
+          (d/on-realized d' f f))
+        d)))
 
   (take [this blocking? default-val timeout timeout-val]
-    (let [p  (p/promise)
-          p' (.getAndSet last-take p)
+    (let [d  (d/deferred)
+          d' (.getAndSet last-take d)
           f  (fn [_]
                (a/go
                  (let [result (a/alt!
@@ -169,13 +169,13 @@
                                 (a/timeout timeout) timeout-val
                                 :priority true)]
                    (utils/without-overflow
-                     (p/success! p result)))))]
-      (if (realized? p')
+                     (d/success! d result)))))]
+      (if (realized? d')
         (f nil)
-        (p/on-realized p' f f))
+        (d/on-realized d' f f))
       (if blocking?
-        @p
-        p)))
+        @d
+        d)))
 
   (setBackpressure [this enabled?])
 
@@ -191,5 +191,5 @@
       (LinkedBlockingQueue.)
       (LinkedBlockingQueue.)
       (AtomicInteger. 0)
-      (AtomicReference. (p/success-promise true))
-      (AtomicReference. (p/success-promise true)))))
+      (AtomicReference. (d/success-deferred true))
+      (AtomicReference. (d/success-deferred true)))))

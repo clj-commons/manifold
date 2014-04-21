@@ -1,6 +1,6 @@
 (ns manifold.stream.queue
   (:require
-    [manifold.promise :as p]
+    [manifold.deferred :as d]
     [manifold.stream :as s]
     [manifold.utils :as utils])
   (:import
@@ -44,7 +44,7 @@
         (do
           (set! closed? true)
           (let [f (fn [_] (.offer queue ::closed))]
-            (p/on-realized (.get last-put) f f))
+            (d/on-realized (.get last-put) f f))
           (utils/invoke-callbacks closed-callbacks)
           true)
         false)))
@@ -57,24 +57,24 @@
 
       (.put queue x)
 
-      (let [p  (p/promise)
-            p' (.getAndSet last-put p)
+      (let [d  (d/deferred)
+            d' (.getAndSet last-put d)
             f  (fn [_]
                  (locking this
                    (or
                      (and closed?
-                       (p/success! p false))
+                       (d/success! d false))
 
                      (and (.offer queue x)
-                       (p/success! p true))
+                       (d/success! d true))
 
                      (utils/defer
                        (.put queue x)
-                       (p/success! p true)))))]
-        (if (realized? p')
+                       (d/success! d true)))))]
+        (if (realized? d')
           (f nil)
-          (p/on-realized p' f f))
-        p)))
+          (d/on-realized d' f f))
+        d)))
 
   (put [this x blocking? timeout timeout-val]
 
@@ -82,28 +82,28 @@
       (.put this x blocking?)
       (assert (not (nil? x)) "BlockingQueue cannot take `nil` as a message"))
 
-    (let [p  (p/promise)
-          p' (.getAndSet last-put p)
+    (let [d  (d/deferred)
+          d' (.getAndSet last-put d)
           f  (fn [_]
                (locking this
                  (or
                    (and closed?
-                     (p/success! p false))
+                     (d/success! d false))
 
                    (and (.offer queue x)
-                     (p/success! p true))
+                     (d/success! d true))
 
                    (utils/defer
-                     (p/success! p
+                     (d/success! d
                        (if (.offer queue x timeout TimeUnit/MILLISECONDS)
                          true
                          timeout-val))))))]
-      (if (realized? p')
+      (if (realized? d')
         (f nil)
-        (p/on-realized p' f f))
+        (d/on-realized d' f f))
       (if blocking?
-        @p
-        p)))
+        @d
+        d)))
 
   IEventSource
   (onDrained [this f]
@@ -133,16 +133,16 @@
               default-val)
             msg)
           timeout-val))
-      (let [p  (p/promise)
-            p' (.getAndSet last-take p)
+      (let [d  (d/deferred)
+            d' (.getAndSet last-take d)
             f  (fn [_]
                  (locking this
                    (or
                      (and (.get drained?)
-                       (p/success! p default-val))
+                       (d/success! d default-val))
 
                      (when-let [msg (.poll queue)]
-                       (p/success! p
+                       (d/success! d
                          (if (identical? msg ::closed)
                            (do
                              (.offer queue ::closed)
@@ -150,7 +150,7 @@
                            msg)))
 
                      (utils/defer
-                       (p/success! p
+                       (d/success! d
                          (if-let [msg (if timeout
                                         (.poll queue timeout TimeUnit/MILLISECONDS)
                                         (.take queue))]
@@ -162,12 +162,12 @@
                                default-val)
                              msg)
                            timeout-val))))))]
-        (if (realized? p')
+        (if (realized? d')
           (f nil)
-          (p/on-realized p' f f))
+          (d/on-realized d' f f))
         (if blocking?
-          @p
-          p))))
+          @d
+          d))))
   (setBackpressure [this enabled?]
     )
   (connect [this sink options]))
@@ -183,5 +183,5 @@
       (AtomicBoolean. false)
       (LinkedBlockingQueue.)
       (LinkedBlockingQueue.)
-      (AtomicReference. (p/success-promise true))
-      (AtomicReference. (p/success-promise true)))))
+      (AtomicReference. (d/success-deferred true))
+      (AtomicReference. (d/success-deferred true)))))

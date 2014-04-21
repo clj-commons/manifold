@@ -1,5 +1,5 @@
-(ns manifold.promise
-  (:refer-clojure :exclude [realized? promise future])
+(ns manifold.deferred
+  (:refer-clojure :exclude [realized?])
   (:require
     [manifold.utils :as utils]
     [manifold.time :as time])
@@ -22,43 +22,43 @@
 
 (set! *warn-on-reflection* true)
 
-(defprotocol Promisable
-  (^:private to-promise [_] "Provides a conversion mechanism to manifold promises."))
+(defprotocol Deferrable
+  (^:private to-deferred [_] "Provides a conversion mechanism to manifold deferreds."))
 
 ;; implies IDeref, IBlockingDeref, IPending
-(definterface IPromise
+(definterface IDeferred
   (^boolean realized [])
   (onRealized [on-success on-error]))
 
 (definline ^:private realized?
-  "Returns true if the manifold promise is realized."
+  "Returns true if the manifold deferred is realized."
   [x]
-  `(.realized ~(with-meta x {:tag "manifold.promise.IPromise"})))
+  `(.realized ~(with-meta x {:tag "manifold.deferred.IDeferred"})))
 
 (definline on-realized
-  "Registers callbacks with the manifold promise for both success and error outcomes."
+  "Registers callbacks with the manifold deferred for both success and error outcomes."
   [x on-success on-error]
-  `(.onRealized ~(with-meta x {:tag "manifold.promise.IPromise"}) ~on-success ~on-error))
+  `(.onRealized ~(with-meta x {:tag "manifold.deferred.IDeferred"}) ~on-success ~on-error))
 
-(definline promise?
-  "Returns true if the object is an instance of a Manifold promise."
+(definline deferred?
+  "Returns true if the object is an instance of a Manifold deferred."
   [x]
-  `(instance? IPromise ~x))
+  `(instance? IDeferred ~x))
 
 (let [^ConcurrentHashMap classes (ConcurrentHashMap.)]
-  (add-watch #'Promisable ::memoization (fn [& _] (.clear classes)))
-  (defn promisable?
-    "Returns true if the object can be turned into a Manifold promise."
+  (add-watch #'Deferrable ::memoization (fn [& _] (.clear classes)))
+  (defn deferrable?
+    "Returns true if the object can be turned into a Manifold deferred."
     [x]
     (if (nil? x)
       false
       (let [cls (class x)
             val (.get classes cls)]
         (if (nil? val)
-          (let [val (or (instance? IPromise x)
+          (let [val (or (instance? IDeferred x)
                       (instance? Future x)
                       (instance? IDeref x)
-                      (satisfies? Promisable x))]
+                      (satisfies? Deferrable x))]
             (.put classes cls val)
             val)
           val)))))
@@ -80,12 +80,12 @@
         (catch Throwable e
           (on-error e))))))
 
-(defn ->promise
-  "Transforms `x` into an async-promise, or returns `nil` if no such transformation is
+(defn ->deferred
+  "Transforms `x` into an async-deferred, or returns `nil` if no such transformation is
    possible."
   [x]
   (condp instance? x
-    IPromise
+    IDeferred
     x
 
     Future
@@ -103,7 +103,7 @@
         IPending
         (isRealized [this]
           (realized? this))
-        IPromise
+        IDeferred
         (realized [_]
           (or (.isDone x) (.isCancelled x)))
         (onRealized [_ on-success on-error]
@@ -122,7 +122,7 @@
         IPending
         (isRealized [_]
           (.isRealized ^IPending x))
-        IPromise
+        IDeferred
         (realized [_]
           (.isRealized ^IPending x))
         (onRealized [_ on-success on-error]
@@ -152,7 +152,7 @@
           IPending
           (isRealized [_]
             (not (.get pending?)))
-          IPromise
+          IDeferred
           (realized [_]
             (not (.get pending?)))
           (onRealized [f on-success on-error]
@@ -164,17 +164,17 @@
                 (finally
                   (.set pending? false))))))))
 
-    (when (promisable? x)
-      (to-promise x))))
+    (when (deferrable? x)
+      (to-deferred x))))
 
 ;;;
 
-(definterface IPromiseListener
+(definterface IDeferredListener
   (onSuccess [x])
   (onError [err]))
 
 (deftype Listener [on-success on-error]
-  IPromiseListener
+  IDeferredListener
   (onSuccess [_ x] (on-success x))
   (onError [_ err] (on-error err))
   (equals [this x] (identical? this x))
@@ -187,7 +187,7 @@
   ([on-success on-error]
      (Listener. on-success on-error)))
 
-(definterface IMutablePromise
+(definterface IMutableDeferred
   (success [x])
   (success [x claim-token])
   (error [x])
@@ -198,34 +198,34 @@
 
 (defn success!
   "Equivalent to `deliver`, but allows a `claim-token` to be passed in."
-  ([^IMutablePromise promise x]
-     (.success promise x))
-  ([^IMutablePromise promise x claim-token]
-     (.success promise x claim-token)))
+  ([^IMutableDeferred deferred x]
+     (.success deferred x))
+  ([^IMutableDeferred deferred x claim-token]
+     (.success deferred x claim-token)))
 
 (defn error!
-  "Puts the promise into an error state."
-  ([^IMutablePromise promise x]
-     (.error promise x))
-  ([^IMutablePromise promise x claim-token]
-     (.error promise x claim-token)))
+  "Puts the deferred into an error state."
+  ([^IMutableDeferred deferred x]
+     (.error deferred x))
+  ([^IMutableDeferred deferred x claim-token]
+     (.error deferred x claim-token)))
 
 (defn claim!
-  "Attempts to claim the promise for future updates.  If successful, a claim token is returned, otherwise returns `nil`."
-  [^IMutablePromise promise]
-  (.claim promise))
+  "Attempts to claim the deferred for future updates.  If successful, a claim token is returned, otherwise returns `nil`."
+  [^IMutableDeferred deferred]
+  (.claim deferred))
 
 (defn add-listener!
   "Registers a listener which can be cancelled via `cancel-listener!`.  Unless this is useful, prefer `on-realized`."
-  [^IMutablePromise promise listener]
-  (.addListener promise listener))
+  [^IMutableDeferred deferred listener]
+  (.addListener deferred listener))
 
 (defn cancel-listener!
   "Cancels a listener which has been registered via `add-listener!`."
-  [^IMutablePromise promise listener]
-  (.cancelListener promise listener))
+  [^IMutableDeferred deferred listener]
+  (.cancelListener deferred listener))
 
-(defmacro ^:private set-promise [val token success? claimed?]
+(defmacro ^:private set-deferred [val token success? claimed?]
   `(utils/with-lock ~'lock
      (if (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
@@ -239,7 +239,7 @@
            (if (.isEmpty ~'listeners)
              nil
              (do
-               (~(if success? `.onSuccess `.onError) ^IPromiseListener (.pop ~'listeners) ~val)
+               (~(if success? `.onSuccess `.onError) ^IDeferredListener (.pop ~'listeners) ~val)
                (recur))))
          true
          (finally
@@ -247,11 +247,11 @@
        ~(if claimed?
          `(throw (IllegalStateException.
                    (if (identical? ~'claim-token ~token)
-                     "promise isn't claimed"
+                     "deferred isn't claimed"
                      "invalid claim-token")))
          false))))
 
-(defmacro ^:private deref-promise [timeout-value & await-args]
+(defmacro ^:private deref-deferred [timeout-value & await-args]
   `(condp identical? ~'state
      ::success ~'val
      ::error   (if (instance? Throwable ~'val)
@@ -269,7 +269,7 @@
               `((catch TimeoutException _#
                   ~timeout-value)))))))
 
-(deftype Promise
+(deftype Deferred
   [^:volatile-mutable val
    ^:volatile-mutable state
    ^:unsynchronized-mutable claim-token
@@ -288,7 +288,7 @@
     (utils/with-lock lock
       (set! mta (apply f mta args))))
 
-  IMutablePromise
+  IMutableDeferred
   (claim [_]
     (utils/with-lock lock
       (when (identical? state ::unset)
@@ -298,8 +298,8 @@
     (set! consumed? true)
     (when-let [f (utils/with-lock lock
                    (condp identical? state
-                     ::success #(.onSuccess ^IPromiseListener listener val)
-                     ::error   #(.onError ^IPromiseListener listener val)
+                     ::success #(.onSuccess ^IDeferredListener listener val)
+                     ::error   #(.onError ^IDeferredListener listener val)
                      (do
                        (.add listeners listener)
                        nil)))]
@@ -313,13 +313,13 @@
           (.remove listeners listener)
           false))))
   (success [_ x]
-    (set-promise x nil true false))
+    (set-deferred x nil true false))
   (success [_ x token]
-    (set-promise x token true true))
+    (set-deferred x token true true))
   (error [_ x]
-    (set-promise x nil false false))
+    (set-deferred x nil false false))
   (error [_ x token]
-    (set-promise x token false true))
+    (set-deferred x token false true))
 
   clojure.lang.IFn
   (invoke [this x]
@@ -327,7 +327,7 @@
       this
       nil))
 
-  IPromise
+  IDeferred
   (realized [_]
     (let [state state]
       (or (identical? ::success state)
@@ -342,10 +342,10 @@
   clojure.lang.IBlockingDeref
   (deref [this]
     (set! consumed? true)
-    (deref-promise nil))
+    (deref-deferred nil))
   (deref [this time timeout-value]
     (set! consumed? true)
-    (deref-promise timeout-value time TimeUnit/MILLISECONDS))
+    (deref-deferred timeout-value time TimeUnit/MILLISECONDS))
 
   (toString [_]
     (condp state
@@ -353,7 +353,7 @@
       ::error (str "ERROR: " (pr-str val))
       "...")))
 
-(deftype SuccessPromise
+(deftype SuccessDeferred
   [val
    ^:volatile-mutable mta]
 
@@ -366,10 +366,10 @@
     (locking this
       (set! mta (apply f mta args))))
 
-  IMutablePromise
+  IMutableDeferred
   (claim [_] false)
   (addListener [_ listener]
-    (.onSuccess ^IPromiseListener listener val)
+    (.onSuccess ^IDeferredListener listener val)
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -380,7 +380,7 @@
   clojure.lang.IFn
   (invoke [this x] nil)
 
-  IPromise
+  IDeferred
   (realized [_] true)
   (onRealized [this on-success on-error] (on-success val))
 
@@ -394,7 +394,7 @@
 
   (toString [_] (pr-str val)))
 
-(deftype ErrorPromise
+(deftype ErrorDeferred
   [^Throwable error
    ^:volatile-mutable mta
    ^:volatile-mutable consumed?]
@@ -408,11 +408,11 @@
     (locking this
       (set! mta (apply f mta args))))
 
-  IMutablePromise
+  IMutableDeferred
   (claim [_] false)
   (addListener [_ listener]
     (set! consumed? true)
-    (.onError ^IPromiseListener listener error)
+    (.onError ^IDeferredListener listener error)
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -423,7 +423,7 @@
   clojure.lang.IFn
   (invoke [this x] nil)
 
-  IPromise
+  IDeferred
   (realized [_] true)
   (onRealized [this on-success on-error] (on-error error))
 
@@ -445,48 +445,48 @@
 
   (toString [_] (str "ERROR: " (pr-str error))))
 
-(defn promise
-  "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
+(defn deferred
+  "Equivalent to Clojure's `deferred`, but also allows asynchronous callbacks to be registered
    via `on-realized`."
   []
-  (Promise. nil ::unset nil (utils/mutex) (LinkedList.) nil false))
+  (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false))
 
-(defn success-promise
-  "A promise which already contains a realized value"
+(defn success-deferred
+  "A deferred which already contains a realized value"
   [val]
-  (SuccessPromise. val nil))
+  (SuccessDeferred. val nil))
 
-(defn error-promise
-  "A promise which already contains a realized error"
+(defn error-deferred
+  "A deferred which already contains a realized error"
   [error]
-  (ErrorPromise. error nil false))
+  (ErrorDeferred. error nil false))
 
 (defn- unwrap [x]
-  (if (promisable? x)
-    (let [p (->promise x)]
-      (if (realized? p)
-        (let [p' (try
-                   @p
+  (if (deferrable? x)
+    (let [d (->deferred x)]
+      (if (realized? d)
+        (let [d' (try
+                   @d
                    (catch Throwable _
                      ::error))]
           (cond
-            (identical? ::error p')
-            p
+            (identical? ::error d')
+            d
 
-            (promisable? p')
-            (recur p')
+            (deferrable? d')
+            (recur d')
 
             :else
-            p'))
-        p))
+            d'))
+        d))
     x))
 
 (defn connect
   "Conveys the realized value of `a` into `b`."
   [a b]
-  (assert (instance? IPromise b) "sink `b` must be a Manifold promise")
+  (assert (instance? IDeferred b) "sink `b` must be a Manifold deferred")
   (let [a (unwrap a)]
-    (if (not (instance? IPromise a))
+    (if (not (instance? IDeferred a))
       (success! b a)
       (if (realized? b)
         false
@@ -496,25 +496,25 @@
             #(error! b %))
           true)))))
 
-(defmacro future
-  "Equivalent to Clojure's `future`, but returns a Manifold promise."
+(defmacro defer
+  "Equivalent to Clojure's `future`, but returns a Manifold deferred."
   [& body]
-  `(let [p# (promise)]
+  `(let [d# (deferred)]
      (clojure.core/future
        (try
-         (success! p# (do ~@body))
+         (success! d# (do ~@body))
          (catch Throwable e#
-           (error! p# e#))))
-     p#))
+           (error! d# e#))))
+     d#))
 
 ;;;
 
 (defn chain
-  "Composes functions, left to right, over the value `x`, returning a promise containing
+  "Composes functions, left to right, over the value `x`, returning a deferred containing
    the result.  When composing, either `x` or the returned values may be values which can
-   be converted to a promise, causing the composition to be paused.
+   be converted to a deferred, causing the composition to be paused.
 
-   The returned promise will only be realized once all functions have been applied and their
+   The returned deferred will only be realized once all functions have been applied and their
    return values realized.
 
        @(chain 1 inc #(future (inc %))) => 3
@@ -531,35 +531,35 @@
   ([x f g h]
      (try
        (let [x' (unwrap x)]
-         (if (promise? x')
-           (let [p (promise)]
+         (if (deferred? x')
+           (let [d (deferred)]
              (on-realized x'
                #(let [x (chain % f g h)]
-                  (if (promise? x)
-                    (connect x p)
-                    (success! p x)))
-               #(error! p %))
-             p)
+                  (if (deferred? x)
+                    (connect x d)
+                    (success! d x)))
+               #(error! d %))
+             d)
            (let [x'' (f x')]
-             (if (and (not (identical? x x'')) (promisable? x''))
+             (if (and (not (identical? x x'')) (deferrable? x''))
                (chain x'' g h identity)
                (let [x''' (g x'')]
-                 (if (and (not (identical? x'' x''')) (promisable? x'''))
+                 (if (and (not (identical? x'' x''')) (deferrable? x'''))
                    (chain x''' h identity identity)
                    (let [x'''' (h x''')]
-                     (if (and (not (identical? x''' x'''')) (promisable? x''''))
+                     (if (and (not (identical? x''' x'''')) (deferrable? x''''))
                        (chain x'''' identity identity identity)
-                       (success-promise x'''')))))))))
+                       (success-deferred x'''')))))))))
        (catch Throwable e
-         (error-promise e))))
+         (error-deferred e))))
   ([x f g h & fs]
      (let [x' (chain x f g h)
-           p (promise)]
+           d (deferred)]
        (on-realized x'
          #(utils/without-overflow
-            (connect (apply chain % fs) p))
-         #(error! p %))
-       p)))
+            (connect (apply chain % fs) d))
+         #(error! d %))
+       d)))
 
 (defn catch
   "An equivalent of the catch clause, which takes an `error-handler` function that will be invoked
@@ -567,63 +567,63 @@
    `error-class` is specified, only exceptions of that type will be caught.  If not, all exceptions
    will be caught.
 
-       (-> p
+       (-> d
          (chain f g h)
          (catch IOException #(str \"oh no, IO: \" (.getMessage %)))
          (catch             #(str \"something unexpected: \" (.getMessage %))))
 
     "
-  ([p error-handler]
-     (catch p Throwable error-handler))
-  ([p error-class error-handler]
-     (if-not (promisable? p)
-       (throw (IllegalArgumentException. "'catch' expects a value that can be treated as a promise."))
-       (let [p' (promise)]
-         (on-realized p
-           #(success! p' %)
+  ([d error-handler]
+     (catch d Throwable error-handler))
+  ([d error-class error-handler]
+     (if-not (deferrable? d)
+       (throw (IllegalArgumentException. "'catch' expects a value that can be treated as a deferred."))
+       (let [d' (deferred)]
+         (on-realized d
+           #(success! d' %)
            #(try
               (if (instance? error-class %)
-                (success! p' (error-handler %))
-                (error! p' %))
+                (success! d' (error-handler %))
+                (error! d' %))
               (catch Throwable e
-                (error! p' e))))
-         p'))))
+                (error! d' e))))
+         d'))))
 
 (defn zip
-  "Takes a list of values, some of which may be promises, and returns a promise that will yield a list
+  "Takes a list of values, some of which may be deferreds, and returns a deferred that will yield a list
    of realized values.
 
         @(zip 1 2 3) => [1 2 3]
         @(zip (future 1) 2 3) => [1 2 3]
 
   "
-  [& promise-or-values]
-  (let [cnt (count promise-or-values)
+  [& deferred-or-values]
+  (let [cnt (count deferred-or-values)
         ^objects ary (object-array cnt)
         counter (AtomicInteger. cnt)
-        p (promise)]
-    (loop [idx 0, s promise-or-values]
+        d (deferred)]
+    (loop [idx 0, s deferred-or-values]
 
       (if (empty? s)
 
         ;; no further results, decrement the counter one last time
         ;; and return the result if everything else has been realized
         (if (zero? (.get counter))
-          (success-promise (seq ary))
-          p)
+          (success-deferred (seq ary))
+          d)
 
         (let [x (first s)]
-          (if-let [x' (->promise x)]
+          (if-let [x' (->deferred x)]
 
             (on-realized x'
               (fn [val]
                 (aset ary idx val)
                 (when (zero? (.decrementAndGet counter))
-                  (success! p (seq ary))))
+                  (success! d (seq ary))))
               (fn [err]
-                (error! p err)))
+                (error! d err)))
 
-            ;; not promisable - set, decrement, and recur
+            ;; not deferrable - set, decrement, and recur
             (do
               (aset ary idx x)
               (.decrementAndGet counter)))
@@ -631,33 +631,33 @@
           (recur (unchecked-inc idx) (rest s)))))))
 
 (defn timeout
-  "Takes a promise, and returns a promise that will be realized as `timeout-value` (or a
-   TimeoutException if none is specified) if the original promise is not realized within
+  "Takes a deferred, and returns a deferred that will be realized as `timeout-value` (or a
+   TimeoutException if none is specified) if the original deferred is not realized within
    `interval` milliseconds."
-  ([p interval]
-     (let [p' (promise)]
-       (connect p p')
+  ([d interval]
+     (let [d' (deferred)]
+       (connect d d')
        (time/in interval
-         #(error! p'
+         #(error! d'
             (TimeoutException.
               (str "timed out after " interval " milliseconds"))))
-       p'))
-  ([p interval timeout-value]
-     (let [p' (promise)]
-       (connect p p')
-       (time/in interval #(success! p' timeout-value))
-       p')))
+       d'))
+  ([d interval timeout-value]
+     (let [d' (deferred)]
+       (connect d d')
+       (time/in interval #(success! d' timeout-value))
+       d')))
 
 (utils/when-core-async
-  (extend-protocol Promisable
+  (extend-protocol Deferrable
 
     clojure.core.async.impl.channels.ManyToManyChannel
-    (to-promise [ch]
-      (let [p (promise)]
+    (to-deferred [ch]
+      (let [d (deferred)]
         (a/go
           (if-let [x (<! ch)]
             (if (instance? Throwable x)
-              (error! p x)
-              (success! p x))
-            (success! p nil)))
-        p))))
+              (error! d x)
+              (success! d x))
+            (success! d nil)))
+        d))))
