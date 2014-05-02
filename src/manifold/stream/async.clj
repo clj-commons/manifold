@@ -2,6 +2,7 @@
   (:require
     [manifold.deferred :as d]
     [clojure.core.async :as a]
+    [manifold.stream.graph :as g]
     [manifold.stream :as s]
     [manifold.utils :as utils])
   (:import
@@ -11,6 +12,8 @@
     [java.util.concurrent
      BlockingQueue
      LinkedBlockingQueue]
+    [java.util.concurrent.locks
+     Lock]
     [manifold.stream
      IEventSink
      IEventSource
@@ -23,16 +26,24 @@
    ^BlockingQueue drained-callbacks
    ^AtomicInteger pending-puts
    ^AtomicReference last-put
-   ^AtomicReference last-take]
+   ^AtomicReference last-take
+   ^Lock lock]
 
   IStream
   (isSynchronous [_] false)
+
+  (description [_]
+    {:type "core.async"})
+
+  IEventSink
+  (downstream [this]
+    (g/downstream this))
+
   (isClosed [_]
     closed?)
 
-  IEventSink
   (close [this]
-    (locking this
+    (utils/with-lock lock
       (if-not closed?
         (do
           (set! closed? true)
@@ -43,7 +54,7 @@
         false)))
 
   (onClosed [this f]
-    (locking this
+    (utils/with-lock lock
       (if closed?
         (f)
         (.add close-callbacks f))))
@@ -65,7 +76,7 @@
         true
         (finally
           (when (zero? (.decrementAndGet pending-puts))
-            (locking this
+            (utils/with-lock lock
               (when closed?
                 (a/close! ch))))))
 
@@ -80,7 +91,7 @@
                        (d/success! d true))
                      (finally
                        (when (zero? (.decrementAndGet pending-puts))
-                         (locking this
+                         (utils/with-lock lock
                            (when (s/closed? this)
                              (a/close! ch))))))))]
         (.incrementAndGet pending-puts)
@@ -114,7 +125,7 @@
                          (d/success! d result)))
                      (finally
                        (when (zero? (.decrementAndGet pending-puts))
-                         (locking this
+                         (utils/with-lock lock
                            (when (s/closed? this)
                              (a/close! ch))))))))]
         (.incrementAndGet pending-puts)
@@ -126,6 +137,14 @@
           d))))
 
   IEventSource
+
+  (isDrained [this]
+    (utils/with-lock lock
+      (and closed? (zero? (.get pending-puts)))))
+
+  (onDrained [this callback]
+    (.add drained-callbacks callback))
+
   (take [this blocking? default-val]
     (if blocking?
 
@@ -177,9 +196,8 @@
         @d
         d)))
 
-  (setBackpressure [this enabled?])
-
-  (connect [this sink options]))
+  (connector [this sink]
+    nil))
 
 (extend-protocol s/Streamable
 
@@ -192,4 +210,5 @@
       (LinkedBlockingQueue.)
       (AtomicInteger. 0)
       (AtomicReference. (d/success-deferred true))
-      (AtomicReference. (d/success-deferred true)))))
+      (AtomicReference. (d/success-deferred true))
+      (utils/mutex))))

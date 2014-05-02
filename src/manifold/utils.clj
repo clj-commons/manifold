@@ -1,4 +1,8 @@
 (ns manifold.utils
+  (:refer-clojure
+    :exclude [future])
+  (:require
+    [clojure.tools.logging :as log])
   (:import
     [java.util.concurrent
      Executors
@@ -29,26 +33,39 @@
 
 ;;;
 
-(def ^Executor waiting-pool
+(def ^Executor wait-pool
   (let [cnt (atom 0)]
     (Executors/newCachedThreadPool
-      (thread-factory #(str "manifold-waiting-pool-" (swap! cnt inc)) 1e3))))
+      (thread-factory #(str "manifold-wait-" (swap! cnt inc)) 1e2))))
 
-(defmacro defer [& body]
-  `(let [f# (fn [] ~@body)]
-     (.execute waiting-pool ^Runnable f#)
+(defmacro wait-for [& body]
+  `(let [f# (fn []
+              (try
+                ~@body
+                (catch Throwable e#
+                  (log/error e# "error in manifold.utils/wait-for"))))]
+     (.execute wait-pool ^Runnable f#)
      nil))
 
 ;;;
 
 (def ^ThreadLocal stack-depth (ThreadLocal.))
 
-(def ^Executor overflow-protection-pool
+(def ^Executor execute-pool
   (let [cnt (atom 0)]
     (Executors/newCachedThreadPool
-      (thread-factory #(str "manifold-overflow-protection-pool-" (swap! cnt inc))))))
+      (thread-factory #(str "manifold-execute-" (swap! cnt inc))))))
 
 (def ^:const max-depth 50)
+
+(defmacro future [& body]
+  `(let [f# (fn []
+              (try
+                ~@body
+                (catch Throwable e#
+                  (log/error e# "error in manifold.utils/future"))))]
+     (.execute execute-pool ^Runnable f#)
+     nil))
 
 (defmacro without-overflow [& body]
   `(let [depth# (.get stack-depth)
@@ -56,7 +73,7 @@
          f# (fn [] ~@body)]
      (if (> depth'# max-depth)
        (do
-         (.execute overflow-protection-pool ^Runnable f#)
+         (.execute execute-pool ^Runnable f#)
          nil)
        (try
          (.set stack-depth (unchecked-inc (unchecked-long depth'#)))

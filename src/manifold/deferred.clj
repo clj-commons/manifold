@@ -74,7 +74,7 @@
       (on-success @x)
       (catch Throwable e
         (on-error e)))
-    (utils/defer
+    (utils/wait-for
       (try
         (on-success @x)
         (catch Throwable e
@@ -156,7 +156,7 @@
           (realized [_]
             (not (.get pending?)))
           (onRealized [f on-success on-error]
-            (utils/defer
+            (utils/wait-for
               (try
                 (on-success (.deref ^IDeref x))
                 (catch Throwable e

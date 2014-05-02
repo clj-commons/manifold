@@ -16,42 +16,42 @@ Full documentation can be found [here](http://ideolalia.com/manifold).
 A deferred in Manifold is similar to a Clojure promise:
 
 ```clj
-> (require '[manifold.deferred :as p])
+> (require '[manifold.deferred :as d])
 nil
 
-> (def p (d/deferred))
-#'p
+> (def d (d/deferred))
+#'d
 
-> (d/success! p :foo)
+> (d/success! d :foo)
 true
 
-> @p
+> @d
 :foo
 ```
 
 However, similar to Clojure's futures, deferreds in Manifold can also represent errors.  Crucially, they also allow for callbacks to be registered, rather than simply blocking on dereferencing.
 
 ```clj
-> (def p (d/deferred))
-#'p
+> (def d (d/deferred))
+#'d
 
-> (d/error! p (Exception. "boom"))
+> (d/error! d (Exception. "boom"))
 true
 
-> @p
+> @d
 Exception: boom
 ```
 
 ```clj
-> (def p (d/deferred))
-#'p
+> (def d (d/deferred))
+#'d
 
-> (d/on-realized p
+> (d/on-realized d
     (fn [x] (println "success!" x))
     (fn [x] (println "error!" x)))
 true
 
-> (d/success! p :foo)
+> (d/success! d :foo)
 < success! :foo >
 true
 ```
@@ -59,13 +59,13 @@ true
 Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  This is made easier by `manifold.deferred/chain`, which chains together callbacks, left to right:
 
 ```clj
-> (def p (d/deferred))
-#'p
+> (def d (d/deferred))
+#'d
 
-> (d/chain p inc inc inc #(println "x + 3 =" %))
+> (d/chain d inc inc inc #(println "x + 3 =" %))
 #<Deferred: :pending>
 
-> (d/success! p 0)
+> (d/success! d 0)
 < x + 3 = 3 >
 true
 ```
@@ -75,15 +75,15 @@ true
 Values that can be coerced into a deferred include Clojure futures, and core.async channels:
 
 ```clj
-> (def p (d/deferred))
-#'p
+> (def d (d/deferred))
+#'d
 
-> (d/chain p
+> (d/chain d
     #(future (inc %))
     #(println "the future returned" %))
 #<Deferred: :pending>
 
-> (d/success! p 0)
+> (d/success! d 0)
 < the future returned 1 >
 true
         ```
@@ -91,15 +91,15 @@ true
 If any stage in `chain` throws an exception or returns a deferred that yields an error, all subsequent stages are skipped, and the deferred returned by `chain` yields that same error.  To handle these cases, you can use `manifold.deferred/catch`:
 
 ```clj
-> (def p (d/deferred))
+> (def d (d/deferred))
 #p
 
-> (-> p
+> (-> d
     (d/chain dec #(/ 1 %))
     (d/catch Exception #(println "whoops, that didn't work:" %)))
 #<Deferred: :pending>
 
-> (d/success! p 1)
+> (d/success! d 1)
 < whoops, that didn't work: #<ArithmeticException: Divide by zero> >
 true
 ```

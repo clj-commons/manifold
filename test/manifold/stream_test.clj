@@ -15,26 +15,34 @@
   (let [s (->stream (gen))
         vs (range 2e3)]
 
-   (future
-     (doseq [x vs]
-       (put! s x)))
-   (is (= vs (repeatedly (count vs) #(deref (take! s)))))
+    (future
+      (doseq [x vs]
+        (put! s x)))
+    (is (= vs (repeatedly (count vs) #(deref (take! s)))))
 
-   (future
-     (doseq [x vs]
-       (put! s x)))
-   (is (= vs (stream->lazy-seq s 100)))
+    (future
+      (doseq [x vs]
+        (put! s x)))
+    (is (= vs (stream->lazy-seq s 100)))
 
-   (future
-     (doseq [x vs]
-       (put! s x))
-     (close! s))
-   (is (= vs (stream->lazy-seq s)))))
+    (future
+      (doseq [x vs]
+        (put! s x))
+      (close! s))
+    (is (= vs (stream->lazy-seq s)))))
 
 (deftest test-streams
   (run-stream-test stream)
   (run-stream-test #(async/chan 100))
-  (run-stream-test #(ArrayBlockingQueue. 100)))
+  (run-stream-test #(ArrayBlockingQueue. 100))
+  (run-stream-test #(let [s (stream)
+                          s' (stream)]
+                      (connect s s' nil)
+                      (splice s s')))
+  (run-stream-test #(let [s (->stream (ArrayBlockingQueue. 100))
+                          s' (stream)]
+                      (connect s s' nil)
+                      (splice s s'))))
 
 ;;;
 
@@ -92,7 +100,7 @@
   (let [ch (async/chan)]
     (bench "core.async channel throughput w/ no buffer"
       (core-async-benchmark ch))
-    (bench "core.async blocking channel throughput w/ no buffer"
+    (bench "core.async blocking channel throubvghput w/ no buffer"
       (core-async-blocking-benchmark ch))))
 
 (deftest ^:benchmark benchmark-streams
@@ -108,4 +116,12 @@
   (let [s (stream 1)]
     (bench "put! then take!"
       (put! s 1)
-      (take! s))))
+      (take! s)))
+  (let [s (stream 1)]
+    (bench "take! then put!"
+      (take! s)
+      (put! s 1)))
+  (let [s (stream 1)]
+    (consume (fn [_]) s)
+    (bench "put! with consume"
+      (put! s 1))))
