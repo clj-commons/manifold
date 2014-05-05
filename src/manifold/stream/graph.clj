@@ -2,7 +2,8 @@
   (:require
     [manifold.deferred :as d]
     [manifold.utils :as utils]
-    [manifold.stream :as s])
+    [manifold.stream :as s]
+    [clojure.tools.logging :as log])
   (:import
     [java.util
      LinkedList]
@@ -63,17 +64,25 @@
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x source]
-  (let [d (.deferred x)
-        x' @d]
-    (cond
-      (false? x')
-      (do
+  (let [d (.deferred x)]
+    (try
+      (let [x' @d]
+        (cond
+          (true? x')
+          nil
+
+          (false? x')
+          (do
+            (.remove ^CopyOnWriteArrayList (.dsts x) (.dst x))
+            (when (.upstream? x)
+              (s/close! source)))
+
+          (instance? IEventSink x')
+          (s/close! x')))
+      (catch Throwable e
         (.remove ^CopyOnWriteArrayList (.dsts x) (.dst x))
         (when (.upstream? x)
-          (s/close! source)))
-
-      (instance? IEventSink x')
-      (s/close! x'))))
+          (s/close! source))))))
 
 (defn- async-connect
   [^IEventSource source
@@ -89,7 +98,7 @@
                 recur-point
                 (let [^AsyncPut x (async-send d msg dsts)
                       d (.deferred x)]
-                  (if (realized? d)
+                  (if (d/realized? d)
                     (do
                       (handle-async-put x source)
                       (recur))
@@ -112,7 +121,7 @@
 
                 ;; iterate over async-sinks
                 (let [d (.deferred x)]
-                  (if (realized? d)
+                  (if (d/realized? d)
                     (do
                       (handle-async-put x source)
                       (recur))
@@ -120,48 +129,70 @@
                       (fn [_]
                         (handle-async-put x source)
                         (trampoline #(this recur-point msg)))
-                      nil)))))))]
-    ((fn this []
-       #_(monitor-enter source)
-       (let [i (.iterator dsts)]
-         (cond
+                      nil)))))))
 
-           (not (.hasNext i))
-           (do
-             (.remove graph (WeakReference. source))
-             #_(monitor-exit source))
+        weak-ref
+        (WeakReference. source)
 
-           (s/drained? source)
-           (do
-             (.remove graph (WeakReference. source))
-             #_(monitor-exit source)
-             (doseq [^Downstream d (iterator-seq i)]
-               (when (.downstream? d)
-                 (s/close! (.sink d)))))
+        err-callback
+        (fn [err]
+          (log/error err "error in source of 'connect'")
+          (.remove graph weak-ref))]
 
-           :else
-           (do
-             #_(monitor-exit source)
-             (let [d (.take source false ::drained)]
+    (trampoline
+      (fn this
+        ([]
+           (let [d (.take source false ::drained)]
+             (if (d/realized? d)
+               (this @d)
                (d/on-realized d
-                 (fn [msg]
-                   (if (identical? ::drained msg)
+                 (fn [msg] (trampoline #(this msg)))
+                 err-callback))))
+        ([msg]
+           (cond
 
-                     this
+             (identical? ::drained msg)
+             (do
+               (.remove graph weak-ref)
+               (let [i (.iterator dsts)]
+                (loop []
+                  (when (.hasNext i)
+                    (let [^Downstream d (.next i)]
+                      (s/close! (.sink d))
+                      (recur))))))
 
-                     ;; populate deferreds and sync-sinks
-                     (utils/without-overflow
-                       (loop []
-                         (when (.hasNext i)
-                           (let [^Downstream d (.next i)]
-                             (if (s/synchronous? (.sink d))
-                               (.add sync-sinks d)
-                               (.add deferreds (async-send d msg dsts)))
-                             (recur))))))
+             (== 1 (.size dsts))
+             (try
+               (let [dst (.get dsts 0)
+                     ^AsyncPut x (async-send dst msg dsts)
+                     d (.deferred x)]
+                 (if (d/realized? d)
+                   (do
+                     (handle-async-put x source)
+                     this)
+                   (let [f (fn [_]
+                             (handle-async-put x source)
+                             (trampoline this))]
+                     (d/on-realized d f f))))
+               (catch IndexOutOfBoundsException e
+                 (this msg)))
 
-                   (trampoline #(async-propagate this msg)))
-                 nil)
-               nil))))))))
+            :else
+            (let [i (.iterator dsts)]
+              (if (not (.hasNext i))
+                (.remove graph weak-ref)
+
+                (do
+                  (utils/without-overflow
+                    (loop []
+                      (when (.hasNext i)
+                        (let [^Downstream d (.next i)]
+                          (if (s/synchronous? (.sink d))
+                            (.add sync-sinks d)
+                            (.add deferreds (async-send d msg dsts)))
+                          (recur)))))
+
+                  (async-propagate this msg))))))))))
 
 (defn- sync-connect
   [^IEventSource source
@@ -170,7 +201,6 @@
     (let [sync-sinks (LinkedList.)
           deferreds  (LinkedList.)]
       (loop []
-        (monitor-enter source)
         (let [i (.iterator dsts)]
           (if (.hasNext i)
 
@@ -179,13 +209,11 @@
 
                 (do
                   (.remove graph (WeakReference. source))
-                  (monitor-exit source)
                   (doseq [^Downstream d (iterator-seq i)]
                     (when (.downstream? d)
                       (s/close! (.sink d)))))
 
                 (do
-                  (monitor-exit source)
                   (loop []
                     (when (.hasNext i)
                       (let [^Downstream d (.next i)]
@@ -214,8 +242,7 @@
 
             (do
               (s/close! source)
-              (.remove graph (WeakReference. source))
-              (monitor-exit source))))))))
+              (.remove graph (WeakReference. source)))))))))
 
 (defn connect
   ([^IEventSource src
@@ -246,6 +273,5 @@
                  (.add ^CopyOnWriteArrayList dsts d)
                  (if (s/synchronous? src)
                    (sync-connect src dsts)
-                   (async-connect src dsts))
-                 dsts))))
-         nil))))
+                   (async-connect src dsts))))))
+        ))))

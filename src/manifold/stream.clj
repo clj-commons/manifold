@@ -2,6 +2,7 @@
   (:refer-clojure
     :exclude [map filter mapcat reductions reduce partition partition-all])
   (:require
+    [clojure.core :as core]
     [manifold.deferred :as d]
     [manifold.utils :as utils]
     [manifold.time :as time]
@@ -120,12 +121,34 @@
   `(.onDrained ~(with-meta source {:tag "manifold.stream.IEventSource"}) ~callback))
 
 (defn put!
-  "Puts a value into a stream, returning a deferred that yields `true` if it succeeds,
+  "Puts a value into a sink, returning a deferred that yields `true` if it succeeds,
    and `false` if it fails.  Guaranteed to be non-blocking."
   {:inline (fn [sink x]
              `(.put ~(with-meta sink {:tag "manifold.stream.IEventSink"}) ~x false))}
   ([^IEventSink sink x]
      (.put sink x false)))
+
+(defn put-all!
+  "Puts all values into the sink, returning a deferred that yields `true` if all puts
+   are successful, or `false` otherwise.  Guaranteed to be non-blocking."
+  [^IEventSink sink msgs]
+  (loop [msgs msgs]
+    (if (empty? msgs)
+      (d/success-deferred true)
+      (let [d (put! sink (first msgs))]
+        (if (d/realized? d)
+          (let [x (try
+                    (if @d
+                      nil
+                      (d/success-deferred false))
+                    (catch Throwable e
+                      (d/error-deferred e)))]
+            (if (nil? x)
+              (recur (rest msgs))
+              x))
+          (d/chain d
+            (fn [_]
+              (put-all! sink (rest msgs)))))))))
 
 (defn try-put!
   "Puts a value into a stream if the put can successfully be completed in `timeout`
@@ -183,7 +206,8 @@
 
 (defn connect
   {:arglists
-   '[[src
+   '[[src dst]
+     [src
       dst
       {:keys [upstream?
               downstream?
@@ -192,14 +216,16 @@
               description]
        :or {upstream? false
             downstream? true}}]]}
-  [^IEventSource src
-   ^IEventSink dst
-   options]
-  (let [src (->stream src)
-        dst (->stream dst)]
-    (if (and src dst)
-      (manifold.stream.graph/connect src dst options)
-      (throw (IllegalArgumentException. "both arguments to 'connect' must be stream-able")))))
+  ([src dst]
+     (connect src dst nil))
+  ([^IEventSource src
+    ^IEventSink dst
+    options]
+     (let [src (->stream src)
+           dst (->stream dst)]
+       (if (and src dst)
+         (manifold.stream.graph/connect src dst options)
+         (throw (IllegalArgumentException. "both arguments to 'connect' must be stream-able"))))))
 
 ;;;
 
@@ -261,11 +287,10 @@
 
 ;;;
 
-(def ^:private deferred-true (d/success-deferred true))
-
 (deftype Callback
   [f
-   ^IEventSink downstream]
+   ^IEventSink downstream
+   constant-response]
   IStream
   (isSynchronous [_]
     false)
@@ -273,11 +298,21 @@
   (downstream [_]
     nil)
   (put [_ x _]
-    (f x)
-    deferred-true)
+    (try
+      (let [rsp (f x)]
+        (if (nil? constant-response)
+          rsp
+          constant-response))
+      (catch Throwable e
+        (d/error-deferred e))))
   (put [_ x _ _ _]
-    (f x)
-    deferred-true)
+    (try
+      (let [rsp (f x)]
+        (if (nil? constant-response)
+          rsp
+          constant-response))
+      (catch Throwable e
+        (d/error-deferred e))))
   (close [_]
     (when downstream
       (.close downstream)))
@@ -289,9 +324,10 @@
     (when downstream
       (.onClosed downstream callback))))
 
-(defn consume
-  [callback source]
-  (connect source (Callback. callback nil) nil))
+(let [result (d/success-deferred true)]
+  (defn consume
+    [callback source]
+    (connect source (Callback. callback nil result) nil)))
 
 (defn connect-via
   ([src callback dst]
@@ -301,7 +337,7 @@
        (if dst
          (connect
            src
-           (Callback. callback dst)
+           (Callback. callback dst nil)
            (let [options' {:dst' dst}]
              (if options
                (merge options options')
@@ -323,6 +359,24 @@
        (let [x @(try-take! s ::none timeout-interval ::none)]
          (when-not (identical? ::none x)
            (cons x (stream->lazy-seq s timeout-interval)))))))
+
+(defn lazy-seq->stream
+  "Transforms a lazy-sequence into a stream."
+  ([s]
+     (let [s' (stream)]
+       (utils/future
+         (try
+           (loop [s s]
+             (if (empty? s)
+               (close! s')
+               (let [x (first s)]
+                 (.put ^IEventSink s' x true)
+                 (recur (rest s)))))
+           (catch Throwable e
+             (.printStackTrace e)
+             (log/error e "error in lazy-seq->stream")
+             (close! s'))))
+       s')))
 
 (defn- periodically-
   [stream period initial-delay f]
@@ -366,3 +420,64 @@
 (require 'manifold.stream.queue)
 
 ;;;
+
+(declare zip)
+
+(defn map
+  ([f ^IEventSource s]
+     (let [s' (stream)]
+       (connect-via s
+         (fn [msg]
+           (put! s' (f msg)))
+         s')
+       s'))
+  ([f s & rest]
+     (apply zip
+       #(apply f %)
+       s
+       rest)))
+
+(let [some-drained? (partial some #{::drained})]
+  (defn zip
+    ([a]
+       (map vector a))
+    ([a & rest]
+       (let [srcs (list* a rest)
+             intermediates (repeatedly (count srcs) stream)
+             dst (stream)]
+
+         (doseq [[a b] (core/map list srcs intermediates)]
+           (connect-via a #(put! b %) b))
+
+         ((fn this []
+            (d/chain
+              (->> intermediates
+                (core/map #(take! % ::drained))
+                (apply d/zip))
+              (fn [msgs]
+                (if (some-drained? msgs)
+                  (do (close! dst) false)
+                  (put! dst msgs)))
+              (fn [result]
+                (when result
+                  (utils/without-overflow (this)))))))
+         dst))))
+
+(let [response (d/success-deferred true)]
+  (defn filter
+    [pred s]
+    (let [s' (stream)]
+      (connect-via s
+        (fn [msg]
+          (if (pred msg)
+            (put! s' msg)
+            response))
+        s')
+      s')))
+
+(defn mapcat
+  [f s]
+  (let [s' (stream)]
+    (connect-via s
+      (fn [msg]
+        ))))

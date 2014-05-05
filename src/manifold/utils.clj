@@ -72,9 +72,7 @@
          depth'# (if (nil? depth#) 0 depth#)
          f# (fn [] ~@body)]
      (if (> depth'# max-depth)
-       (do
-         (.execute execute-pool ^Runnable f#)
-         nil)
+       (future (f#))
        (try
          (.set stack-depth (unchecked-inc (unchecked-long depth'#)))
          (f#)

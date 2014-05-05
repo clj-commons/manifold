@@ -95,7 +95,7 @@
                            (when (s/closed? this)
                              (a/close! ch))))))))]
         (.incrementAndGet pending-puts)
-        (if (realized? d')
+        (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
         d)))
@@ -129,7 +129,7 @@
                            (when (s/closed? this)
                              (a/close! ch))))))))]
         (.incrementAndGet pending-puts)
-        (if (realized? d')
+        (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
         (if blocking?
@@ -168,7 +168,7 @@
                              (utils/invoke-callbacks drained-callbacks)
                              default-val)
                            x))))))]
-        (if (realized? d')
+        (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
         d)))
@@ -189,7 +189,7 @@
                                 :priority true)]
                    (utils/without-overflow
                      (d/success! d result)))))]
-      (if (realized? d')
+      (if (d/realized? d')
         (f nil)
         (d/on-realized d' f f))
       (if blocking?

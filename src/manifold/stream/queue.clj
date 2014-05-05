@@ -90,7 +90,7 @@
                         (.decrementAndGet pending-puts)
                         (d/success! d true))))))]
         (.incrementAndGet pending-puts)
-        (if (realized? d')
+        (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
         d)))
@@ -122,7 +122,7 @@
                          true
                          timeout-val))))))]
       (.incrementAndGet pending-puts)
-      (if (realized? d')
+      (if (d/realized? d')
         (f nil)
         (d/on-realized d' f f))
       (if blocking?
@@ -193,7 +193,7 @@
                                default-val)
                              msg)
                            timeout-val))))))]
-        (if (realized? d')
+        (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
         (if blocking?

@@ -1,4 +1,6 @@
 (ns manifold.deferred-test
+  (:refer-clojure
+    :exclude (realized?))
   (:require
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]

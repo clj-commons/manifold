@@ -30,7 +30,7 @@
   (^boolean realized [])
   (onRealized [on-success on-error]))
 
-(definline ^:private realized?
+(definline realized?
   "Returns true if the manifold deferred is realized."
   [x]
   `(.realized ~(with-meta x {:tag "manifold.deferred.IDeferred"})))
@@ -175,8 +175,8 @@
 
 (deftype Listener [on-success on-error]
   IDeferredListener
-  (onSuccess [_ x] (on-success x))
-  (onError [_ err] (on-error err))
+  (onSuccess [_ x] (utils/without-overflow (on-success x)))
+  (onError [_ err] (utils/without-overflow (on-error err)))
   (equals [this x] (identical? this x))
   (hashCode [_] (System/identityHashCode on-success)))
 
@@ -345,13 +345,7 @@
     (deref-deferred nil))
   (deref [this time timeout-value]
     (set! consumed? true)
-    (deref-deferred timeout-value time TimeUnit/MILLISECONDS))
-
-  (toString [_]
-    (condp state
-      ::success (pr-str val)
-      ::error (str "ERROR: " (pr-str val))
-      "...")))
+    (deref-deferred timeout-value time TimeUnit/MILLISECONDS)))
 
 (deftype SuccessDeferred
   [val
@@ -441,9 +435,7 @@
     (set! consumed? true)
     (if (instance? Throwable error)
       (throw error)
-      (throw (ex-info "" {:error error}))))
-
-  (toString [_] (str "ERROR: " (pr-str error))))
+      (throw (ex-info "" {:error error})))))
 
 (defn deferred
   "Equivalent to Clojure's `deferred`, but also allows asynchronous callbacks to be registered
