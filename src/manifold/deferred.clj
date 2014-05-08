@@ -45,23 +45,7 @@
   [x]
   `(instance? IDeferred ~x))
 
-(let [^ConcurrentHashMap classes (ConcurrentHashMap.)]
-  (add-watch #'Deferrable ::memoization (fn [& _] (.clear classes)))
-  (defn deferrable?
-    "Returns true if the object can be turned into a Manifold deferred."
-    [x]
-    (if (nil? x)
-      false
-      (let [cls (class x)
-            val (.get classes cls)]
-        (if (nil? val)
-          (let [val (or (instance? IDeferred x)
-                      (instance? Future x)
-                      (instance? IDeref x)
-                      (satisfies? Deferrable x))]
-            (.put classes cls val)
-            val)
-          val)))))
+(def deferrable? (utils/fast-satisfies #'Deferrable))
 
 ;; TODO: do some sort of periodic sampling so multiple futures can share a thread
 (defn- register-future-callbacks [x on-success on-error]

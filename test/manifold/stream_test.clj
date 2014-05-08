@@ -12,44 +12,40 @@
      SynchronousQueue
      TimeUnit]))
 
-(defn run-stream-test [gen]
-  (let [s (s/->stream (gen))
-        vs (range 10)]
+(defn run-sink-source-test [gen]
+  (let [x (gen)
+        sink (s/->sink x)
+        source (s/->source x)
+        vs (range 2e3)]
 
     (future
       (doseq [x vs]
-        (s/put! s x)))
-    (is (= vs (repeatedly (count vs) #(deref (s/take! s)))))
+        (s/put! sink x)))
+    (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
     (future
       (doseq [x vs]
-        (s/put! s x)))
-    (is (= vs (s/stream->lazy-seq s 100)))
-
-    (future
-      (doseq [x vs]
-        (s/put! s x))
-      (s/close! s))
-    (is (= vs (s/stream->lazy-seq s)))))
+        (s/put! sink x)))
+    (is (= vs (s/stream->lazy-seq source 1)))))
 
 (deftest test-streams
-  (run-stream-test s/stream)
-  (run-stream-test #(async/chan 100))
-  (run-stream-test #(ArrayBlockingQueue. 100))
-  (run-stream-test #(let [s (s/stream)
-                          s' (s/stream)]
-                      (s/connect s s' nil)
-                      (s/splice s s')))
-  (run-stream-test #(let [s (s/->stream (ArrayBlockingQueue. 100))
-                          s' (s/stream)]
-                      (s/connect s s' nil)
-                      (s/splice s s'))))
+  (run-sink-source-test s/stream)
+  (run-sink-source-test #(async/chan 100))
+  (run-sink-source-test #(ArrayBlockingQueue. 100))
+  (run-sink-source-test #(let [s (s/stream)
+                               s' (s/stream)]
+                           (s/connect s s' nil)
+                           (s/splice s s')))
+  (run-sink-source-test #(let [q (ArrayBlockingQueue. 100)
+                               s (s/stream)]
+                           (s/connect q s nil)
+                           (s/splice q s))))
 
 
 ;;;
 
 (deftest test-zip
-  (let [inputs (partition 30 (range 90))]
+  (let [inputs (partition-all 1e4 (range 3e4))]
     (is
       (= (apply map vector inputs)
         (->> inputs
@@ -65,8 +61,8 @@
         (stream-f f)
         s/stream->lazy-seq))
 
-    map s/map inc (range 10)
-    filter s/filter even? (range 10)))
+    map s/map inc (range 1e4)
+    filter s/filter even? (range 1e4)))
 
 ;;;
 

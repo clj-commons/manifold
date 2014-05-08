@@ -8,6 +8,7 @@
   (:import
     [java.util.concurrent.atomic
      AtomicReference
+     AtomicBoolean
      AtomicInteger]
     [java.util.concurrent
      BlockingQueue
@@ -19,139 +20,39 @@
      IEventSource
      IStream]))
 
-(deftype CoreAsyncStream
+(deftype CoreAsyncSource
   [ch
-   ^:volatile-mutable closed?
-   ^BlockingQueue close-callbacks
+   ^AtomicBoolean drained?
    ^BlockingQueue drained-callbacks
-   ^AtomicInteger pending-puts
-   ^AtomicReference last-put
    ^AtomicReference last-take
    ^Lock lock]
 
   IStream
+
   (isSynchronous [_] false)
 
   (description [_]
     {:type "core.async"})
 
-  IEventSink
-  (downstream [this]
-    (g/downstream this))
-
-  (isClosed [_]
-    closed?)
-
-  (close [this]
-    (utils/with-lock lock
-      (if-not closed?
-        (do
-          (set! closed? true)
-          (utils/invoke-callbacks close-callbacks)
-          (when (zero? (.get pending-puts))
-            (a/close! ch))
-          true)
-        false)))
-
-  (onClosed [this f]
-    (utils/with-lock lock
-      (if closed?
-        (f)
-        (.add close-callbacks f))))
-
-  (put [this x blocking?]
-
-    (assert (not (nil? x)) "core.async channel cannot take `nil` as a message")
-
-    (cond
-      closed?
-      (if blocking?
-        false
-        (d/success-deferred false))
-
-      blocking?
-      (try
-        (.incrementAndGet pending-puts)
-        (a/>!! ch x)
-        true
-        (finally
-          (when (zero? (.decrementAndGet pending-puts))
-            (utils/with-lock lock
-              (when closed?
-                (a/close! ch))))))
-
-      :else
-      (let [d  (d/deferred)
-            d' (.getAndSet last-put d)
-            f  (fn [_]
-                 (a/go
-                   (try
-                     (a/>! ch x)
-                     (utils/without-overflow
-                       (d/success! d true))
-                     (finally
-                       (when (zero? (.decrementAndGet pending-puts))
-                         (utils/with-lock lock
-                           (when (s/closed? this)
-                             (a/close! ch))))))))]
-        (.incrementAndGet pending-puts)
-        (if (d/realized? d')
-          (f nil)
-          (d/on-realized d' f f))
-        d)))
-
-  (put [this x blocking? timeout timeout-val]
-
-    (if (nil? timeout)
-      (.put this x blocking?)
-      (assert (not (nil? x)) "core.async channel cannot take `nil` as a message"))
-
-    (if closed?
-
-      (if blocking?
-        false
-        (d/success-deferred false))
-
-      (let [d  (d/deferred)
-            d' (.getAndSet last-put d)
-            f  (fn [_]
-                 (a/go
-                   (try
-                     (let [result (a/alt!
-                                    [ch x] true
-                                    (a/timeout timeout) timeout-val
-                                    :priority true)]
-                       (utils/without-overflow
-                         (d/success! d result)))
-                     (finally
-                       (when (zero? (.decrementAndGet pending-puts))
-                         (utils/with-lock lock
-                           (when (s/closed? this)
-                             (a/close! ch))))))))]
-        (.incrementAndGet pending-puts)
-        (if (d/realized? d')
-          (f nil)
-          (d/on-realized d' f f))
-        (if blocking?
-          @d
-          d))))
-
   IEventSource
 
   (isDrained [this]
-    (utils/with-lock lock
-      (and closed? (zero? (.get pending-puts)))))
+    (.get drained?))
 
   (onDrained [this callback]
-    (.add drained-callbacks callback))
+    (utils/with-lock lock
+      (if (.get drained?)
+        (callback)
+        (.add drained-callbacks callback))))
 
   (take [this blocking? default-val]
     (if blocking?
 
       (let [x (a/<!! ch)]
         (if (nil? x)
-          (do
-            (s/close! this)
+          (utils/with-lock lock
+            (.set drained? true)
+            (utils/invoke-callbacks drained-callbacks)
             default-val)
           x))
 
@@ -160,14 +61,13 @@
             f  (fn [_]
                  (a/go
                    (let [x (a/<! ch)]
-                     (utils/without-overflow
-                       (d/success! d
-                         (if (nil? x)
-                           (do
-                             (s/close! this)
-                             (utils/invoke-callbacks drained-callbacks)
-                             default-val)
-                           x))))))]
+                     (d/success! d
+                       (if (nil? x)
+                         (utils/with-lock lock
+                           (.set drained? true)
+                           (utils/invoke-callbacks drained-callbacks)
+                           default-val)
+                         x)))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
@@ -180,8 +80,8 @@
                (a/go
                  (let [result (a/alt!
                                 ch ([x] (if (nil? x)
-                                          (do
-                                            (s/close! this)
+                                          (utils/with-lock lock
+                                            (.set drained? true)
                                             (utils/invoke-callbacks drained-callbacks)
                                             default-val)
                                           x))
@@ -199,16 +99,122 @@
   (connector [this sink]
     nil))
 
-(extend-protocol s/Streamable
+(deftype CoreAsyncSink
+  [ch
+   ^AtomicBoolean closed?
+   ^BlockingQueue close-callbacks
+   ^AtomicReference last-put
+   ^Lock lock]
+
+  IStream
+  (isSynchronous [_] false)
+
+  (description [_]
+    {:type "core.async"})
+
+  IEventSink
+  (downstream [this]
+    nil)
+
+  (isClosed [_]
+    (.get closed?))
+
+  (close [this]
+    (utils/with-lock lock
+      (if (.get closed?)
+        false
+        (do
+          (.set closed? true)
+          (utils/invoke-callbacks close-callbacks)
+          (let [d (.get last-put)
+                f (fn [_] (a/close! ch))]
+            (d/on-realized d
+              (fn [_] (a/close! ch))
+              nil)
+            true)))))
+
+  (onClosed [this f]
+    (utils/with-lock lock
+      (if (.get closed?)
+        (f)
+        (.add close-callbacks f))))
+
+  (put [this x blocking?]
+
+    (assert (not (nil? x)) "core.async channel cannot take `nil` as a message")
+
+    (utils/with-lock lock
+      (cond
+        (.get closed?)
+        (if blocking?
+          false
+          (d/success-deferred false))
+
+        blocking?
+        (try
+          (a/>!! ch x)
+          true)
+
+        :else
+        (let [d  (d/deferred)
+              d' (.getAndSet last-put d)
+              f  (fn [_]
+                   (a/go
+                     (a/>! ch x)
+                     (d/success! d true)))]
+          (if (d/realized? d')
+            (f nil)
+            (d/on-realized d' f f))
+          d))))
+
+  (put [this x blocking? timeout timeout-val]
+
+    (if (nil? timeout)
+      (.put this x blocking?)
+      (assert (not (nil? x)) "core.async channel cannot take `nil` as a message"))
+
+    (utils/with-lock lock
+
+      (if (.get closed?)
+
+        (if blocking?
+          false
+          (d/success-deferred false))
+
+        (let [d  (d/deferred)
+              d' (.getAndSet last-put d)
+              f  (fn [_]
+                   (a/go
+                     (let [result (a/alt!
+                                    [ch x] true
+                                    (a/timeout timeout) timeout-val
+                                    :priority true)]
+                       (d/success! d result))))]
+          (if (d/realized? d')
+            (f nil)
+            (d/on-realized d' f f))
+          (if blocking?
+            @d
+            d))))))
+
+(extend-protocol s/Sinkable
 
   clojure.core.async.impl.channels.ManyToManyChannel
-  (to-stream [ch]
-    (CoreAsyncStream.
+  (to-sink [ch]
+    (CoreAsyncSink.
       ch
-      false
+      (AtomicBoolean. false)
       (LinkedBlockingQueue.)
-      (LinkedBlockingQueue.)
-      (AtomicInteger. 0)
       (AtomicReference. (d/success-deferred true))
+      (utils/mutex))))
+
+(extend-protocol s/Sourceable
+
+  clojure.core.async.impl.channels.ManyToManyChannel
+  (to-source [ch]
+    (CoreAsyncSource.
+      ch
+      (AtomicBoolean. false)
+      (LinkedBlockingQueue.)
       (AtomicReference. (d/success-deferred true))
       (utils/mutex))))

@@ -22,59 +22,49 @@
 
 ;;;
 
-(defn- exists? [x]
-  (try
-    #_(Class/forName x)
-    false
-    (catch Throwable e
-      false)))
+(defprotocol Sinkable
+  (^:private to-sink [_] "Provides a conversion mechanism to Manifold sinks."))
 
-(defprotocol Streamable
-  (^:private to-stream [_] "Provides a conversion mechanism to manifold streams."))
+(defprotocol Sourceable
+  (^:private to-source [_] "Provides a conversion mechanism to Manifold source."))
 
-(when-not (exists? "manifold.stream.IStream")
-  (definterface IStream
-    (description [])
-    (isSynchronous [])))
+(definterface IStream
+  (description [])
+  (isSynchronous []))
 
-(when-not (exists? "manifold.stream.IEventSink")
-  (definterface IEventSink
-   (put [x blocking?])
-   (put [x blocking? timeout timeout-val])
-   (close [])
-   (downstream [])
-   (isClosed [])
-   (onClosed [callback])))
+(definterface IEventSink
+  (put [x blocking?])
+  (put [x blocking? timeout timeout-val])
+  (close [])
+  (downstream [])
+  (isClosed [])
+  (onClosed [callback]))
 
-(when-not (exists? "manifold.stream.IEventSource")
-  (definterface IEventSource
-    (take [default-val blocking?])
-    (take [default-val blocking? timeout timeout-val])
-    (isDrained [])
-    (onDrained [callback])
-    (connector [sink])))
+(definterface IEventSource
+  (take [default-val blocking?])
+  (take [default-val blocking? timeout timeout-val])
+  (isDrained [])
+  (onDrained [callback])
+  (connector [sink]))
 
-(let [^ConcurrentHashMap classes (ConcurrentHashMap.)]
-  (add-watch #'Streamable ::memoization (fn [& _] (.clear classes)))
-  (defn streamable?
-    "Returns true if the object can be turned into a Manifold stream."
-    [x]
-    (if (nil? x)
-      false
-      (let [cls (class x)
-            val (.get classes cls)]
-        (if (nil? val)
-          (let [val (satisfies? Streamable x)]
-            (.put classes cls val)
-            val)
-          val)))))
+(def sinkable? (utils/fast-satisfies #'Sinkable))
 
-(defn ->stream
+(def sourceable? (utils/fast-satisfies #'Sourceable))
+
+(defn ->sink
   "Converts, is possible, the object to a Manifold stream, or `nil` if not possible."
   [x]
   (cond
-    (instance? IStream x) x
-    (streamable? x) (to-stream x)
+    (instance? IEventSink x) x
+    (sinkable? x) (to-sink x)
+    :else nil))
+
+(defn ->source
+  "Converts, is possible, the object to a Manifold stream, or `nil` if not possible."
+  [x]
+  (cond
+    (instance? IEventSource x) x
+    (sourceable? x) (to-source x)
     :else nil))
 
 ;;;
@@ -218,14 +208,21 @@
             downstream? true}}]]}
   ([src dst]
      (connect src dst nil))
-  ([^IEventSource src
-    ^IEventSink dst
+  ([^IEventSource source
+    ^IEventSink sink
     options]
-     (let [src (->stream src)
-           dst (->stream dst)]
-       (if (and src dst)
-         (manifold.stream.graph/connect src dst options)
-         (throw (IllegalArgumentException. "both arguments to 'connect' must be stream-able"))))))
+     (let [source (->source source)
+           sink (->sink sink)]
+       (cond
+
+         (and source sink)
+         (manifold.stream.graph/connect source sink options)
+
+         (not source)
+         (throw (IllegalArgumentException. "invalid source passed into 'connect'"))
+
+         (not sink)
+         (throw (IllegalArgumentException. "invalid sink passed into 'connect'"))))))
 
 ;;;
 
@@ -283,7 +280,17 @@
 (defn splice
   "Slices together two halves of a stream."
   [sink source]
-  (SplicedStream. sink source))
+  (let [sink (->sink sink)
+        source (->source source)]
+    (cond
+      (and sink source)
+      (SplicedStream. sink source)
+
+      (not sink)
+      (throw (IllegalArgumentException. "invalid sink passed into 'splice'"))
+
+      (not source)
+      (throw (IllegalArgumentException. "invalid source passed into 'splice'")))))
 
 ;;;
 
@@ -333,7 +340,7 @@
   ([src callback dst]
      (connect-via src callback dst nil))
   ([src callback dst options]
-     (let [dst (->stream dst)]
+     (let [dst (->sink dst)]
        (if dst
          (connect
            src

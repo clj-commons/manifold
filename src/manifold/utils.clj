@@ -8,7 +8,8 @@
      Executors
      Executor
      ThreadFactory
-     BlockingQueue]
+     BlockingQueue
+     ConcurrentHashMap]
     [java.util.concurrent.locks
      ReentrantLock
      Lock]))
@@ -90,6 +91,22 @@
         (catch Throwable e
           ;; todo: log something
           )))))
+
+;;;
+
+(defn fast-satisfies [protocol-var]
+  (let [^ConcurrentHashMap classes (ConcurrentHashMap.)]
+    (add-watch protocol-var ::memoization (fn [& _] (.clear classes)))
+    (fn [x]
+      (if (nil? x)
+        false
+        (let [cls (class x)
+              val (.get classes cls)]
+          (if (nil? val)
+            (let [val (satisfies? @protocol-var x)]
+              (.put classes cls val)
+              val)
+            val))))))
 
 ;;;
 

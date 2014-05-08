@@ -5,6 +5,9 @@
     [manifold.stream :as s]
     [manifold.utils :as utils])
   (:import
+    [java.util.concurrent.locks
+     Lock
+     Condition]
     [java.util.concurrent.atomic
      AtomicReference
      AtomicInteger
@@ -18,16 +21,81 @@
      IEventSource
      IStream]))
 
-(deftype BlockingQueueStream
+(deftype BlockingQueueSource
   [^BlockingQueue queue
-   ^:volatile-mutable closed?
-   ^AtomicBoolean drained?
+   ^AtomicReference last-take]
+
+  IStream
+  (isSynchronous [_]
+    true)
+
+  (description [_]
+    {:type (.getCanonicalName (class queue))
+     :buffer-size (.size queue)})
+
+  IEventSource
+  (onDrained [this f]
+    )
+
+  (isDrained [_]
+    false)
+
+  (take [this blocking? default-val]
+    (if blocking?
+
+      (.take queue)
+
+      (let [d  (d/deferred)
+            d' (.getAndSet last-take d)
+            f  (fn [_]
+                 (let [x (.poll queue)]
+                   (if (nil? x)
+
+                     (utils/wait-for
+                       (d/success! d (.take queue)))
+
+                     (d/success! d x))))]
+        (if (d/realized? d')
+          (f nil)
+          (d/on-realized d' f f))
+        d)))
+
+  (take [this blocking? default-val timeout timeout-val]
+    (if blocking?
+
+      (let [x (.poll queue timeout TimeUnit/MILLISECONDS)]
+        (if (nil? x)
+          timeout-val
+          x))
+
+      (let [d  (d/deferred)
+            d' (.getAndSet last-take d)
+            f  (fn [_]
+                 (let [x (.poll queue)]
+                   (if (nil? x)
+
+                     (utils/wait-for
+                       (d/success! d
+                         (let [x (.poll queue timeout TimeUnit/MILLISECONDS)]
+                           (if (nil? x)
+                             timeout-val
+                             x))))
+
+                     (d/success! d x))))]
+        (if (d/realized? d')
+          (f nil)
+          (d/on-realized d' f f))
+        d)))
+
+  (connector [this sink]
+    nil))
+
+(deftype BlockingQueueSink
+  [^BlockingQueue queue
    ^BlockingQueue closed-callbacks
-   ^BlockingQueue drained-callbacks
-   ^AtomicInteger pending-puts
+   ^AtomicBoolean closed?
    ^AtomicReference last-put
-   ^AtomicReference last-take
-   lock]
+   ^Lock lock]
 
   IStream
   (isSynchronous [_]
@@ -39,29 +107,25 @@
 
   IEventSink
   (downstream [this]
-    (g/downstream this))
+    nil)
 
   (onClosed [this f]
     (utils/with-lock lock
-      (if closed?
+      (if (.get closed?)
         (f)
         (.add closed-callbacks f))))
 
   (isClosed [_]
-    closed?)
+    (.get closed?))
 
   (close [this]
     (utils/with-lock lock
-      (if-not closed?
+      (if (.get closed?)
+        false
         (do
-          (set! closed? true)
-          (let [f (fn [_]
-                    (utils/with-lock lock
-                      (.offer queue ::drained)))]
-            (d/on-realized (.get last-put) f f))
+          (.set closed? true)
           (utils/invoke-callbacks closed-callbacks)
-          true)
-        false)))
+          true))))
 
   (put [this x blocking?]
 
@@ -69,7 +133,9 @@
 
     (if blocking?
 
-      (.put queue x)
+      (do
+        (.put queue x)
+        true)
 
       (let [d  (d/deferred)
             d' (.getAndSet last-put d)
@@ -77,19 +143,17 @@
                  (utils/with-lock lock
                    (try
                      (or
-                       (and closed?
-                         (.decrementAndGet pending-puts)
+                       (and (.get closed?)
                          (d/success! d false))
 
-                      (and (.offer queue x)
-                        (.decrementAndGet pending-puts)
-                        (d/success! d true))
+                       (and (.offer queue x)
+                         (d/success! d true))
 
-                      (utils/wait-for
-                        (.put queue x)
-                        (.decrementAndGet pending-puts)
-                        (d/success! d true))))))]
-        (.incrementAndGet pending-puts)
+                       (utils/wait-for
+                         (d/success! d
+                           (do
+                             (.put queue x)
+                             true)))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
@@ -97,124 +161,51 @@
 
   (put [this x blocking? timeout timeout-val]
 
-    (if (nil? timeout)
-      (.put this x blocking?)
-      (assert (not (nil? x)) "BlockingQueue cannot take `nil` as a message"))
+    (assert (not (nil? x)) "BlockingQueue cannot take `nil` as a message")
 
-    (let [d  (d/deferred)
-          d' (.getAndSet last-put d)
-          f  (fn [_]
-               (utils/with-lock lock
-                 (or
-                   (and closed?
-                     (.decrementAndGet pending-puts)
-                     (d/success! d false))
-
-                   (and (.offer queue x)
-                     (.decrementAndGet pending-puts)
-                     (d/success! d true))
-
-                   (utils/wait-for
-                     (d/success! d
-                       (if (let [x (.offer queue x timeout TimeUnit/MILLISECONDS)]
-                             (.decrementAndGet pending-puts)
-                             x)
-                         true
-                         timeout-val))))))]
-      (.incrementAndGet pending-puts)
-      (if (d/realized? d')
-        (f nil)
-        (d/on-realized d' f f))
-      (if blocking?
-        @d
-        d)))
-
-  IEventSource
-  (onDrained [this f]
-    (utils/with-lock lock
-      (if (.get drained?)
-        (f)
-        (.add drained-callbacks f))))
-
-  (isDrained [_]
-    (.get drained?))
-
-  (take [this blocking? default-val]
-    (.take this blocking? default-val nil nil))
-
-  (take [this blocking? default-val timeout timeout-val]
     (if blocking?
-      (if (.get drained?)
-        default-val
-        (if-let [msg (if timeout
-                       (.poll queue timeout TimeUnit/MILLISECONDS)
-                       (.take queue))]
-          (if (identical? ::drained msg)
-            (utils/with-lock lock
-              (.set drained? true)
-              (.offer queue ::drained)
-              (utils/invoke-callbacks drained-callbacks)
-              default-val)
-            msg)
-          timeout-val))
+
+      (.offer queue x timeout TimeUnit/MILLISECONDS)
+
       (let [d  (d/deferred)
-            d' (.getAndSet last-take d)
+            d' (.getAndSet last-put d)
             f  (fn [_]
                  (utils/with-lock lock
-                   (or
-                     (and (.get drained?)
-                       (d/success! d default-val))
+                   (try
+                     (or
+                       (and (.get closed?)
+                         (d/success! d false))
 
-                     (let [msg (.poll queue)]
-                       (if (nil? msg)
+                       (and (.offer queue x)
+                         (d/success! d true))
 
-                         (when (and closed? (zero? (.get pending-puts)))
-                           (.set drained? true)
-                           (utils/invoke-callbacks drained-callbacks)
-                           (d/success! d default-val))
-
+                       (utils/wait-for
                          (d/success! d
-                           (if (identical? msg ::drained)
-                             (do
-                               (.offer queue ::drained)
-                               default-val)
-                             msg))))
-
-                     (utils/wait-for
-                       (d/success! d
-                         (if-let [msg (if timeout
-                                        (.poll queue timeout TimeUnit/MILLISECONDS)
-                                        (.take queue))]
-                           (if (identical? msg ::drained)
-                             (utils/with-lock lock
-                               (.set drained? true)
-                               (.offer queue ::drained)
-                               (utils/invoke-callbacks drained-callbacks)
-                               default-val)
-                             msg)
-                           timeout-val))))))]
+                           (if (.offer queue x timeout TimeUnit/MILLISECONDS)
+                             true
+                             false)))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
-        (if blocking?
-          @d
-          d))))
+        d))))
 
-  (connector [this sink]
-    nil))
+;;;
 
-
-(extend-protocol s/Streamable
+(extend-protocol s/Sinkable
 
   BlockingQueue
-  (to-stream [queue]
-    (BlockingQueueStream.
+  (to-sink [queue]
+    (BlockingQueueSink.
       queue
-      false
+      (LinkedBlockingQueue.)
       (AtomicBoolean. false)
-      (LinkedBlockingQueue.)
-      (LinkedBlockingQueue.)
-      (AtomicInteger. 0)
-      (AtomicReference. (d/success-deferred true))
       (AtomicReference. (d/success-deferred true))
       (utils/mutex))))
+
+(extend-protocol s/Sourceable
+
+  BlockingQueue
+  (to-source [queue]
+    (BlockingQueueSource.
+      queue
+      (AtomicReference. (d/success-deferred true)))))
