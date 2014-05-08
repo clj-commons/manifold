@@ -16,7 +16,7 @@
   (let [x (gen)
         sink (s/->sink x)
         source (s/->source x)
-        vs (range 2e3)]
+        vs (range 1e4)]
 
     (future
       (doseq [x vs]
@@ -28,18 +28,19 @@
         (s/put! sink x)))
     (is (= vs (s/stream->lazy-seq source 1)))))
 
+(defn splice-into-stream [gen]
+  #(let [x (gen)
+         s (s/stream)]
+     (s/connect x s nil)
+     (s/splice x s)))
+
 (deftest test-streams
   (run-sink-source-test s/stream)
   (run-sink-source-test #(async/chan 100))
   (run-sink-source-test #(ArrayBlockingQueue. 100))
-  (run-sink-source-test #(let [s (s/stream)
-                               s' (s/stream)]
-                           (s/connect s s' nil)
-                           (s/splice s s')))
-  (run-sink-source-test #(let [q (ArrayBlockingQueue. 100)
-                               s (s/stream)]
-                           (s/connect q s nil)
-                           (s/splice q s))))
+  (run-sink-source-test (splice-into-stream s/stream))
+  (run-sink-source-test (splice-into-stream #(ArrayBlockingQueue. 100)))
+  (run-sink-source-test (splice-into-stream #(async/chan 100))))
 
 
 ;;;
