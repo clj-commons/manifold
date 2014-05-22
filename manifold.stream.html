@@ -1,0 +1,237 @@
+<html lang="en">
+  <head>
+    <title>manifold.stream documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <link href="css/codox-md.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Manifold 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-list"><a class="ns-link ns-name" href="manifold.deferred.html">manifold.deferred</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.stream.html">manifold.stream</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.time.html">manifold.time</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var--%3ECallback">-&gt;Callback</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var--%3ESplicedStream">-&gt;SplicedStream</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var--%3Esink">-&gt;sink</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var--%3Esource">-&gt;source</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-close%21">close!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-closed%3F">closed?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-description">description</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-drained%3F">drained?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-lazy-seq-%3Estream">lazy-seq-&gt;stream</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-on-closed">on-closed</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-on-drained">on-drained</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-periodically">periodically</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-put%21">put!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-put-all%21">put-all!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-splice">splice</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-stream">stream</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-stream-%3Elazy-seq">stream-&gt;lazy-seq</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-stream%3F">stream?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-synchronous%3F">synchronous?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-take%21">take!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-try-put%21">try-put!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.stream.html#var-try-take%21">try-take!</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">manifold.stream documentation</h2>
+        <div class="doc">
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3><a id="var--%3ECallback" class="source var-name" href="/src/manifold/stream.clj">-&gt;Callback</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[f downstream constant-response]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.stream.Callback.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3ESplicedStream" class="source var-name" href="/src/manifold/stream.clj">-&gt;SplicedStream</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink source]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.stream.SplicedStream.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3Esink" class="source var-name" href="/src/manifold/stream.clj">-&gt;sink</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Converts, is possible, the object to a Manifold stream, or <code>nil</code> if not possible.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3Esource" class="source var-name" href="/src/manifold/stream.clj">-&gt;source</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Converts, is possible, the object to a Manifold stream, or <code>nil</code> if not possible.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-close%21" class="source var-name" href="/src/manifold/stream.clj">close!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink]</div>
+            
+            
+            <div class="doc"><p>Closes an event sink, so that it can't accept any more messages.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-closed%3F" class="source var-name" href="/src/manifold/stream.clj">closed?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink]</div>
+            
+            
+            <div class="doc"><p>Returns true if the event sink is closed.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-description" class="source var-name" href="/src/manifold/stream.clj">description</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns a description of the stream.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-drained%3F" class="source var-name" href="/src/manifold/stream.clj">drained?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[source]</div>
+            
+            
+            <div class="doc"><p>Returns true if the event source is drained.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-lazy-seq-%3Estream" class="source var-name" href="/src/manifold/stream.clj">lazy-seq-&gt;stream</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[s]</div>
+            
+            
+            <div class="doc"><p>Transforms a lazy-sequence into a stream.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-on-closed" class="source var-name" href="/src/manifold/stream.clj">on-closed</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink callback]</div>
+            
+            
+            <div class="doc"><p>Registers a no-arg callback which is invoked when the sink is closed.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-on-drained" class="source var-name" href="/src/manifold/stream.clj">on-drained</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[source callback]</div>
+            
+            
+            <div class="doc"><p>Registers a no-arg callback which is invoked when the source is drained.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-periodically" class="source var-name" href="/src/manifold/stream.clj">periodically</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[period initial-delay f]</div><div class="usage">[period f]</div>
+            
+            
+            <div class="doc"><p>Creates a stream which emits the result of invoking <code>(f)</code> every <code>period</code> milliseconds.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-put%21" class="source var-name" href="/src/manifold/stream.clj">put!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink x]</div>
+            
+            
+            <div class="doc"><p>Puts a value into a sink, returning a deferred that yields <code>true</code> if it succeeds,
+and <code>false</code> if it fails.  Guaranteed to be non-blocking.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-put-all%21" class="source var-name" href="/src/manifold/stream.clj">put-all!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink msgs]</div>
+            
+            
+            <div class="doc"><p>Puts all values into the sink, returning a deferred that yields <code>true</code> if all puts
+are successful, or <code>false</code> otherwise.  Guaranteed to be non-blocking.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-splice" class="source var-name" href="/src/manifold/stream.clj">splice</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink source]</div>
+            
+            
+            <div class="doc"><p>Slices together two halves of a stream.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-stream" class="source var-name" href="/src/manifold/stream.clj">stream</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[]</div><div class="usage">[buffer-size]</div>
+            
+            
+            <div class="doc"><p>Returns a Manifold stream with a configurable <code>buffer-size</code>.  If a capacity is specified,
+<code>put!</code> will yield <code>true</code> when the message is in the buffer.  Otherwise it will only yield
+<code>true</code> once it has been consumed.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-stream-%3Elazy-seq" class="source var-name" href="/src/manifold/stream.clj">stream-&gt;lazy-seq</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[s]</div><div class="usage">[s timeout-interval]</div>
+            
+            
+            <div class="doc"><p>Transforms a stream into a lazy sequence.  If a <code>timeout-interval</code> is defined, the sequence will terminate
+if <code>timeout-interval</code> milliseconds elapses without a new event.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-stream%3F" class="source var-name" href="/src/manifold/stream.clj">stream?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns true if the object is a Manifold stream.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-synchronous%3F" class="source var-name" href="/src/manifold/stream.clj">synchronous?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns true if the underlying abstraction behaves synchronously, using thread blocking
+to provide backpressure.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-take%21" class="source var-name" href="/src/manifold/stream.clj">take!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[source]</div><div class="usage">[source default-val]</div>
+            
+            
+            <div class="doc"><p>Takes a value from a stream, returning a deferred that yields the value when it
+is available, or <code>nil</code> if the take fails.  Guaranteed to be non-blocking.</p>
+
+<p>A special <code>default-val</code> may be specified, if it is important to differentiate
+between actual <code>nil</code> values and failures.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-try-put%21" class="source var-name" href="/src/manifold/stream.clj">try-put!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[sink x timeout]</div><div class="usage">[sink x timeout timeout-val]</div>
+            
+            
+            <div class="doc"><p>Puts a value into a stream if the put can successfully be completed in <code>timeout</code>
+milliseconds.  Returns a promiise that yields <code>true</code> if it succeeds, and <code>false</code>
+if it fails or times out.  Guaranteed to be non-blocking.</p>
+
+<p>A special <code>timeout-val</code> may be specified, if it is important to differentiate
+between failure due to timeout and other failures.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-try-take%21" class="source var-name" href="/src/manifold/stream.clj">try-take!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[source timeout]</div><div class="usage">[source default-val timeout timeout-val]</div>
+            
+            
+            <div class="doc"><p>Takes a value from a stream, returning a deferred that yields the value if it is
+available within <code>timeout</code> milliseconds, or <code>nil</code> if it fails or times out.
+Guaranteed to be non-blocking.</p>
+
+<p>Special <code>timeout-val</code> and <code>default-val</code> values may be specified, if it is
+important to differentiate between actual <code>nil</code> values and failures.</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>

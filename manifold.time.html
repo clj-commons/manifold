@@ -1,0 +1,164 @@
+<html lang="en">
+  <head>
+    <title>manifold.time documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <link href="css/codox-md.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Manifold 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-list"><a class="ns-link ns-name" href="manifold.deferred.html">manifold.deferred</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.stream.html">manifold.stream</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.time.html">manifold.time</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-add">add</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-at">at</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-days">days</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-every">every</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-floor">floor</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-format-duration">format-duration</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-hours">hours</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-hz">hz</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-in">in</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-microseconds">microseconds</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-milliseconds">milliseconds</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-minutes">minutes</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-nanoseconds">nanoseconds</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.time.html#var-seconds">seconds</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">manifold.time documentation</h2>
+        <div class="doc">
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3><a id="var-add" class="source var-name" href="/src/manifold/time.clj">add</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[timestamp value unit]</div>
+            
+            
+            <div class="doc"><p>Takes a <code>timestamp</code>, and adds <code>value</code> multiples of <code>unit</code> to the value.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-at" class="source var-name" href="/src/manifold/time.clj">at</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[timestamp f]</div>
+            
+            
+            <div class="doc"><p>Schedules no-arg function  <code>f</code> to be invoked at <code>timestamp</code>, which is the milliseconds
+since the epoch.  Returns a deferred representing the returned value of the function.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-days" class="source var-name" href="/src/manifold/time.clj">days</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts days -&gt; milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-every" class="source var-name" href="/src/manifold/time.clj">every</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[period f]</div><div class="usage">[period initial-delay f]</div>
+            
+            
+            <div class="doc"><p>Schedules no-arg function <code>f</code> to be invoked every <code>period</code> milliseconds, after <code>initial-delay</code>
+milliseconds, which defaults to <code>0</code>.  Returns a zero-argument function which, when invoked,
+cancels the repeated invocation.</p>
+
+<p>If the invocation of <code>f</code> ever throws an exception, repeated invocation is automatically
+cancelled.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-floor" class="source var-name" href="/src/manifold/time.clj">floor</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[timestamp unit]</div>
+            
+            
+            <div class="doc"><p>Takes a <code>timestamp</code>, and rounds it down to the nearest even multiple of the <code>unit</code>.</p>
+
+<p>(floor 1001 :second) =&gt; 1000
+(floor (seconds 61) :minute) =&gt; 60000</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-format-duration" class="source var-name" href="/src/manifold/time.clj">format-duration</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Takes a duration in milliseconds, and returns a formatted string
+describing the interval, i.e. '5d 3h 1m'</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-hours" class="source var-name" href="/src/manifold/time.clj">hours</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts hours -&gt; milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-hz" class="source var-name" href="/src/manifold/time.clj">hz</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts frequency -&gt; period in milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-in" class="source var-name" href="/src/manifold/time.clj">in</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[interval f]</div>
+            
+            
+            <div class="doc"><p>Schedules no-arg function <code>f</code> to be invoked in <code>interval</code> milliseconds.  Returns a deferred
+representing the returned value of the function.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-microseconds" class="source var-name" href="/src/manifold/time.clj">microseconds</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts microseconds -&gt; milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-milliseconds" class="source var-name" href="/src/manifold/time.clj">milliseconds</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts milliseconds -&gt; milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-minutes" class="source var-name" href="/src/manifold/time.clj">minutes</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts minutes -&gt; milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-nanoseconds" class="source var-name" href="/src/manifold/time.clj">nanoseconds</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts nanoseconds -&gt; milliseconds</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-seconds" class="source var-name" href="/src/manifold/time.clj">seconds</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[n]</div>
+            
+            
+            <div class="doc"><p>Converts seconds -&gt; milliseconds</p>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>

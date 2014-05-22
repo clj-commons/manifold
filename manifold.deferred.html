@@ -1,0 +1,253 @@
+<html lang="en">
+  <head>
+    <title>manifold.deferred documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <link href="css/codox-md.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Manifold 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-list"><a class="ns-link ns-name" href="manifold.deferred.html">manifold.deferred</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.stream.html">manifold.stream</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.time.html">manifold.time</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var--%3EDeferred">-&gt;Deferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var--%3EErrorDeferred">-&gt;ErrorDeferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var--%3EListener">-&gt;Listener</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var--%3ESuccessDeferred">-&gt;SuccessDeferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var--%3Edeferred">-&gt;deferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-add-listener%21">add-listener!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-cancel-listener%21">cancel-listener!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-catch">catch</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-chain">chain</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-claim%21">claim!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-connect">connect</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-defer">defer</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-deferred">deferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-deferred%3F">deferred?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-error%21">error!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-error-deferred">error-deferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-listener">listener</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-on-realized">on-realized</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-realized%3F">realized?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-success%21">success!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-success-deferred">success-deferred</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-timeout">timeout</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.deferred.html#var-zip">zip</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">manifold.deferred documentation</h2>
+        <div class="doc">
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3><a id="var--%3EDeferred" class="source var-name" href="/src/manifold/deferred.clj">-&gt;Deferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[val state claim-token lock listeners mta consumed?]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.deferred.Deferred.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3EErrorDeferred" class="source var-name" href="/src/manifold/deferred.clj">-&gt;ErrorDeferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[error mta consumed?]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.deferred.ErrorDeferred.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3EListener" class="source var-name" href="/src/manifold/deferred.clj">-&gt;Listener</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[on-success on-error]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.deferred.Listener.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3ESuccessDeferred" class="source var-name" href="/src/manifold/deferred.clj">-&gt;SuccessDeferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[val mta]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.deferred.SuccessDeferred.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3Edeferred" class="source var-name" href="/src/manifold/deferred.clj">-&gt;deferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Transforms <code>x</code> into an async-deferred, or returns <code>nil</code> if no such transformation is
+possible.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-add-listener%21" class="source var-name" href="/src/manifold/deferred.clj">add-listener!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[deferred listener]</div>
+            
+            
+            <div class="doc"><p>Registers a listener which can be cancelled via <code>cancel-listener!</code>.  Unless this is useful, prefer <code>on-realized</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-cancel-listener%21" class="source var-name" href="/src/manifold/deferred.clj">cancel-listener!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[deferred listener]</div>
+            
+            
+            <div class="doc"><p>Cancels a listener which has been registered via <code>add-listener!</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-catch" class="source var-name" href="/src/manifold/deferred.clj">catch</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[d error-handler]</div><div class="usage">[d error-class error-handler]</div>
+            
+            
+            <div class="doc"><p>An equivalent of the catch clause, which takes an <code>error-handler</code> function that will be invoked
+with the exception, and whose return value will be yielded as a successful outcome.  If an
+<code>error-class</code> is specified, only exceptions of that type will be caught.  If not, all exceptions
+will be caught.</p>
+
+<pre><code>(-&gt; d
+  (chain f g h)
+  (catch IOException #(str "oh no, IO: " (.getMessage %)))
+  (catch             #(str "something unexpected: " (.getMessage %))))
+</code></pre>
+</div>
+          </div><div class="public">
+            <h3><a id="var-chain" class="source var-name" href="/src/manifold/deferred.clj">chain</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x f]</div><div class="usage">[x f g]</div><div class="usage">[x f g h]</div><div class="usage">[x f g h &amp; fs]</div>
+            
+            
+            <div class="doc"><p>Composes functions, left to right, over the value <code>x</code>, returning a deferred containing
+the result.  When composing, either <code>x</code> or the returned values may be values which can
+be converted to a deferred, causing the composition to be paused.</p>
+
+<p>The returned deferred will only be realized once all functions have been applied and their
+return values realized.</p>
+
+<pre><code>@(chain 1 inc #(future (inc %))) =&gt; 3
+
+@(chain (future 1) inc inc) =&gt; 3
+</code></pre>
+</div>
+          </div><div class="public">
+            <h3><a id="var-claim%21" class="source var-name" href="/src/manifold/deferred.clj">claim!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[deferred]</div>
+            
+            
+            <div class="doc"><p>Attempts to claim the deferred for future updates.  If successful, a claim token is returned, otherwise returns <code>nil</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-connect" class="source var-name" href="/src/manifold/deferred.clj">connect</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[a b]</div>
+            
+            
+            <div class="doc"><p>Conveys the realized value of <code>a</code> into <code>b</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-defer" class="source var-name" href="/src/manifold/deferred.clj">defer</a></h3>
+            <h4 class="var-type macro" id="var-type">macro</h4>
+            <div class="usage">[&amp; body]</div>
+            
+            
+            <div class="doc"><p>Equivalent to Clojure's <code>future</code>, but returns a Manifold deferred.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-deferred" class="source var-name" href="/src/manifold/deferred.clj">deferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[]</div>
+            
+            
+            <div class="doc"><p>Equivalent to Clojure's <code>deferred</code>, but also allows asynchronous callbacks to be registered
+via <code>on-realized</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-deferred%3F" class="source var-name" href="/src/manifold/deferred.clj">deferred?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns true if the object is an instance of a Manifold deferred.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-error%21" class="source var-name" href="/src/manifold/deferred.clj">error!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[deferred x]</div><div class="usage">[deferred x claim-token]</div>
+            
+            
+            <div class="doc"><p>Puts the deferred into an error state.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-error-deferred" class="source var-name" href="/src/manifold/deferred.clj">error-deferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[error]</div>
+            
+            
+            <div class="doc"><p>A deferred which already contains a realized error</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-listener" class="source var-name" href="/src/manifold/deferred.clj">listener</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[on-success]</div><div class="usage">[on-success on-error]</div>
+            
+            
+            <div class="doc"><p>Creates a listener which can be registered or cancelled via <code>add-listener!</code> and <code>cancel-listener!</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-on-realized" class="source var-name" href="/src/manifold/deferred.clj">on-realized</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x on-success on-error]</div>
+            
+            
+            <div class="doc"><p>Registers callbacks with the manifold deferred for both success and error outcomes.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-realized%3F" class="source var-name" href="/src/manifold/deferred.clj">realized?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns true if the manifold deferred is realized.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-success%21" class="source var-name" href="/src/manifold/deferred.clj">success!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[deferred x]</div><div class="usage">[deferred x claim-token]</div>
+            
+            
+            <div class="doc"><p>Equivalent to <code>deliver</code>, but allows a <code>claim-token</code> to be passed in.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-success-deferred" class="source var-name" href="/src/manifold/deferred.clj">success-deferred</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[val]</div>
+            
+            
+            <div class="doc"><p>A deferred which already contains a realized value</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-timeout" class="source var-name" href="/src/manifold/deferred.clj">timeout</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[d interval]</div><div class="usage">[d interval timeout-value]</div>
+            
+            
+            <div class="doc"><p>Takes a deferred, and returns a deferred that will be realized as <code>timeout-value</code> (or a
+TimeoutException if none is specified) if the original deferred is not realized within
+<code>interval</code> milliseconds.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-zip" class="source var-name" href="/src/manifold/deferred.clj">zip</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[&amp; deferred-or-values]</div>
+            
+            
+            <div class="doc"><p>Takes a list of values, some of which may be deferreds, and returns a deferred that will yield a list
+of realized values.</p>
+
+<pre><code> @(zip 1 2 3) =&gt; [1 2 3]
+ @(zip (future 1) 2 3) =&gt; [1 2 3]
+</code></pre>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>
