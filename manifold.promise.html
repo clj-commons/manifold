@@ -1,0 +1,253 @@
+<html lang="en">
+  <head>
+    <title>manifold.promise documentation</title>
+    <link href="css/default.css" type="text/css" rel="stylesheet" />
+    <link href="css/codox-md.css" type="text/css" rel="stylesheet" />
+    <script type="text/javascript" src="js/jquery.min.js"></script>
+    <script type="text/javascript" src="js/page_effects.js"></script>
+  </head>
+  <body>
+    <header>
+      <div id="header">
+        <h1 class="project-title">Manifold 0.1.0-SNAPSHOT API documentation</h1>
+      </div>
+    </header>
+    <navigation>
+      <div id="namespaces" class="sidebar">
+        <h3>Namespaces</h3>
+        <ul class="ns-links">
+          <li class="ns-list"><a class="ns-link ns-name" href="manifold.promise.html">manifold.promise</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.stream.html">manifold.stream</a></li><li class="ns-list"><a class="ns-link ns-name" href="manifold.time.html">manifold.time</a></li>
+        </ul>
+      </div>
+      <div id="vars" class="sidebar">
+        <h3>Public Vars</h3>
+        <ul class="ns-var-links">
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var--%3EErrorPromise">-&gt;ErrorPromise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var--%3EListener">-&gt;Listener</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var--%3EPromise">-&gt;Promise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var--%3ESuccessPromise">-&gt;SuccessPromise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var--%3Epromise">-&gt;promise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-add-listener%21">add-listener!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-cancel-listener%21">cancel-listener!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-catch">catch</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-chain">chain</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-claim%21">claim!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-connect">connect</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-error%21">error!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-error-promise">error-promise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-future">future</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-listener">listener</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-on-realized">on-realized</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-promisable%3F">promisable?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-promise">promise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-promise%3F">promise?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-success%21">success!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-success-promise">success-promise</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-timeout">timeout</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.promise.html#var-zip">zip</a></li>
+        </ul>
+      </div>
+    </navigation>
+    <article>
+      <div id="content" class="namespace-docs">
+        <h2 class="namespace-title">manifold.promise documentation</h2>
+        <div class="doc">
+</div>
+        <div class="ns-vars">
+          <div class="public">
+            <h3><a id="var--%3EErrorPromise" class="source var-name" href="/src/manifold/promise.clj">-&gt;ErrorPromise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[error mta consumed?]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.promise.ErrorPromise.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3EListener" class="source var-name" href="/src/manifold/promise.clj">-&gt;Listener</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[on-success on-error]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.promise.Listener.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3EPromise" class="source var-name" href="/src/manifold/promise.clj">-&gt;Promise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[val state claim-token lock listeners mta consumed?]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.promise.Promise.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3ESuccessPromise" class="source var-name" href="/src/manifold/promise.clj">-&gt;SuccessPromise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[val mta]</div>
+            
+            
+            <div class="doc"><p>Positional factory function for class manifold.promise.SuccessPromise.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var--%3Epromise" class="source var-name" href="/src/manifold/promise.clj">-&gt;promise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Transforms <code>x</code> into an async-promise, or returns <code>nil</code> if no such transformation is
+possible.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-add-listener%21" class="source var-name" href="/src/manifold/promise.clj">add-listener!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[promise listener]</div>
+            
+            
+            <div class="doc"><p>Registers a listener which can be cancelled via <code>cancel-listener!</code>.  Unless this is useful, prefer <code>on-realized</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-cancel-listener%21" class="source var-name" href="/src/manifold/promise.clj">cancel-listener!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[promise listener]</div>
+            
+            
+            <div class="doc"><p>Cancels a listener which has been registered via <code>add-listener!</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-catch" class="source var-name" href="/src/manifold/promise.clj">catch</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[p error-handler]</div><div class="usage">[p error-class error-handler]</div>
+            
+            
+            <div class="doc"><p>An equivalent of the catch clause, which takes an <code>error-handler</code> function that will be invoked
+with the exception, and whose return value will be yielded as a successful outcome.  If an
+<code>error-class</code> is specified, only exceptions of that type will be caught.  If not, all exceptions
+will be caught.</p>
+
+<pre><code>(-&gt; p
+  (chain f g h)
+  (catch IOException #(str "oh no, IO: " (.getMessage %)))
+  (catch             #(str "something unexpected: " (.getMessage %))))
+</code></pre>
+</div>
+          </div><div class="public">
+            <h3><a id="var-chain" class="source var-name" href="/src/manifold/promise.clj">chain</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div><div class="usage">[x f]</div><div class="usage">[x f g]</div><div class="usage">[x f g h]</div><div class="usage">[x f g h &amp; fs]</div>
+            
+            
+            <div class="doc"><p>Composes functions, left to right, over the value <code>x</code>, returning a promise containing
+the result.  When composing, either <code>x</code> or the returned values may be values which can
+be converted to a promise, causing the composition to be paused.</p>
+
+<p>The returned promise will only be realized once all functions have been applied and their
+return values realized.</p>
+
+<pre><code>@(chain 1 inc #(future (inc %))) =&gt; 3
+
+@(chain (future 1) inc inc) =&gt; 3
+</code></pre>
+</div>
+          </div><div class="public">
+            <h3><a id="var-claim%21" class="source var-name" href="/src/manifold/promise.clj">claim!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[promise]</div>
+            
+            
+            <div class="doc"><p>Attempts to claim the promise for future updates.  If successful, a claim token is returned, otherwise returns <code>nil</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-connect" class="source var-name" href="/src/manifold/promise.clj">connect</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[a b]</div>
+            
+            
+            <div class="doc"><p>Conveys the realized value of <code>a</code> into <code>b</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-error%21" class="source var-name" href="/src/manifold/promise.clj">error!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[promise x]</div><div class="usage">[promise x claim-token]</div>
+            
+            
+            <div class="doc"><p>Puts the promise into an error state.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-error-promise" class="source var-name" href="/src/manifold/promise.clj">error-promise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[error]</div>
+            
+            
+            <div class="doc"><p>A promise which already contains a realized error</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-future" class="source var-name" href="/src/manifold/promise.clj">future</a></h3>
+            <h4 class="var-type macro" id="var-type">macro</h4>
+            <div class="usage">[&amp; body]</div>
+            
+            
+            <div class="doc"><p>Equivalent to Clojure's <code>future</code>, but returns a Manifold promise.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-listener" class="source var-name" href="/src/manifold/promise.clj">listener</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[on-success]</div><div class="usage">[on-success on-error]</div>
+            
+            
+            <div class="doc"><p>Creates a listener which can be registered or cancelled via <code>add-listener!</code> and <code>cancel-listener!</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-on-realized" class="source var-name" href="/src/manifold/promise.clj">on-realized</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x on-success on-error]</div>
+            
+            
+            <div class="doc"><p>Registers callbacks with the manifold promise for both success and error outcomes.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-promisable%3F" class="source var-name" href="/src/manifold/promise.clj">promisable?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns true if the object can be turned into a Manifold promise.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-promise" class="source var-name" href="/src/manifold/promise.clj">promise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[]</div>
+            
+            
+            <div class="doc"><p>Equivalent to Clojure's <code>promise</code>, but also allows asynchronous callbacks to be registered
+via <code>on-realized</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-promise%3F" class="source var-name" href="/src/manifold/promise.clj">promise?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[x]</div>
+            
+            
+            <div class="doc"><p>Returns true if the object is an instance of a Manifold promise.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-success%21" class="source var-name" href="/src/manifold/promise.clj">success!</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[promise x]</div><div class="usage">[promise x claim-token]</div>
+            
+            
+            <div class="doc"><p>Equivalent to <code>deliver</code>, but allows a <code>claim-token</code> to be passed in.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-success-promise" class="source var-name" href="/src/manifold/promise.clj">success-promise</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[val]</div>
+            
+            
+            <div class="doc"><p>A promise which already contains a realized value</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-timeout" class="source var-name" href="/src/manifold/promise.clj">timeout</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[p interval]</div><div class="usage">[p interval timeout-value]</div>
+            
+            
+            <div class="doc"><p>Takes a promise, and returns a promise that will be realized as <code>timeout-value</code> (or a
+TimeoutException if none is specified) if the original promise is not realized within
+<code>interval</code> milliseconds.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-zip" class="source var-name" href="/src/manifold/promise.clj">zip</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[&amp; promise-or-values]</div>
+            
+            
+            <div class="doc"><p>Takes a list of values, some of which may be promises, and returns a promise that will yield a list
+of realized values.</p>
+
+<pre><code> @(zip 1 2 3) =&gt; [1 2 3]
+ @(zip (future 1) 2 3) =&gt; [1 2 3]
+</code></pre>
+</div>
+          </div>
+        </div>
+      </div>
+    </article>
+  </body>
+
+</html>
