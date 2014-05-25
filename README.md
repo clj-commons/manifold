@@ -86,7 +86,7 @@ Values that can be coerced into a deferred include Clojure futures, and core.asy
 > (d/success! d 0)
 < the future returned 1 >
 true
-        ```
+```
 
 If any stage in `chain` throws an exception or returns a deferred that yields an error, all subsequent stages are skipped, and the deferred returned by `chain` yields that same error.  To handle these cases, you can use `manifold.deferred/catch`:
 
