@@ -47,9 +47,17 @@
   (onDrained [callback])
   (connector [sink]))
 
-(def sinkable? (utils/fast-satisfies #'Sinkable))
+(let [f (utils/fast-satisfies #'Sinkable)]
+  (defn sinkable? [x]
+    (or
+      (instance? IEventSink x)
+      (f x))))
 
-(def sourceable? (utils/fast-satisfies #'Sourceable))
+(let [f (utils/fast-satisfies #'Sourceable)]
+  (defn sourceable? [x]
+    (or
+      (instance? IEventSource x)
+      (f x))))
 
 (defn ->sink
   "Converts, is possible, the object to a Manifold stream, or `nil` if not possible."
@@ -206,8 +214,8 @@
               description]
        :or {upstream? false
             downstream? true}}]]}
-  ([src dst]
-     (connect src dst nil))
+  ([source sink]
+     (connect source sink nil))
   ([^IEventSource source
     ^IEventSink sink
     options]
@@ -456,18 +464,19 @@
          (doseq [[a b] (core/map list srcs intermediates)]
            (connect-via a #(put! b %) b))
 
-         ((fn this []
-            (d/chain
-              (->> intermediates
-                (core/map #(take! % ::drained))
-                (apply d/zip))
-              (fn [msgs]
-                (if (some-drained? msgs)
-                  (do (close! dst) false)
-                  (put! dst msgs)))
-              (fn [result]
-                (when result
-                  (utils/without-overflow (this)))))))
+         (d/loop []
+           (d/chain
+             (->> intermediates
+               (core/map #(take! % ::drained))
+               (apply d/zip))
+             (fn [msgs]
+               (if (some-drained? msgs)
+                 (do (close! dst) false)
+                 (put! dst msgs)))
+             (fn [result]
+               (when result
+                 (d/recur)))))
+
          dst))))
 
 (let [response (d/success-deferred true)]

@@ -1,8 +1,9 @@
 (ns manifold.deferred
-  (:refer-clojure :exclude [realized?])
+  (:refer-clojure :exclude [realized? loop])
   (:require
     [manifold.utils :as utils]
-    [manifold.time :as time])
+    [manifold.time :as time]
+    [clojure.set :as set])
   (:import
     [java.util
      LinkedList]
@@ -45,7 +46,13 @@
   [x]
   `(instance? IDeferred ~x))
 
-(def deferrable? (utils/fast-satisfies #'Deferrable))
+(let [f (utils/fast-satisfies #'Deferrable)]
+  (defn deferrable? [x]
+    (or
+      (instance? IDeferred x)
+      (instance? Future x)
+      (instance? IPending x)
+      (f x))))
 
 ;; TODO: do some sort of periodic sampling so multiple futures can share a thread
 (defn- register-future-callbacks [x on-success on-error]
@@ -93,60 +100,23 @@
         (onRealized [_ on-success on-error]
           (register-future-callbacks x on-success on-error))))
 
-    IDeref
-    (if (instance? IPending x)
-
-      (reify
-        IDeref
-        (deref [_]
-          (.deref ^IDeref x))
-        IBlockingDeref
-        (deref [_ time timeout-value]
-          (.deref ^IBlockingDeref x time timeout-value))
-        IPending
-        (isRealized [_]
-          (.isRealized ^IPending x))
-        IDeferred
-        (realized [_]
-          (.isRealized ^IPending x))
-        (onRealized [_ on-success on-error]
-          (register-future-callbacks x on-success on-error)
-          nil))
-
-      ;; we don't know when we're pending, but make sure we're not
-      ;; pending once it's dereferenced
-      (let [pending? (AtomicBoolean. true)]
-        (reify
-          IDeref
-          (deref [_]
-            (try
-              (.deref ^IDeref x)
-              (finally
-                (.set pending? false))))
-          IBlockingDeref
-          (deref [_ time timeout-value]
-            (try
-              (let [v (.deref ^IBlockingDeref x time timeout-value)]
-                (when-not (identical? timeout-value v)
-                  (.set pending? false))
-                v)
-              (catch Throwable e
-                (.set pending? false)
-                (throw e))))
-          IPending
-          (isRealized [_]
-            (not (.get pending?)))
-          IDeferred
-          (realized [_]
-            (not (.get pending?)))
-          (onRealized [f on-success on-error]
-            (utils/wait-for
-              (try
-                (on-success (.deref ^IDeref x))
-                (catch Throwable e
-                  (on-error e))
-                (finally
-                  (.set pending? false))))))))
+    IPending
+    (reify
+      IDeref
+      (deref [_]
+        (.deref ^IDeref x))
+      IBlockingDeref
+      (deref [_ time timeout-value]
+        (.deref ^IBlockingDeref x time timeout-value))
+      IPending
+      (isRealized [_]
+        (.isRealized ^IPending x))
+      IDeferred
+      (realized [_]
+        (.isRealized ^IPending x))
+      (onRealized [_ on-success on-error]
+        (register-future-callbacks x on-success on-error)
+        nil))
 
     (when (deferrable? x)
       (to-deferred x))))
@@ -219,7 +189,7 @@
            (set! ~'state ~(if success? ::success ::error))
            true)
        (try
-         (loop []
+         (clojure.core/loop []
            (if (.isEmpty ~'listeners)
              nil
              (do
@@ -437,24 +407,25 @@
   [error]
   (ErrorDeferred. error nil false))
 
+(declare chain)
+
 (defn- unwrap [x]
-  (if (deferrable? x)
-    (let [d (->deferred x)]
-      (if (realized? d)
-        (let [d' (try
-                   @d
-                   (catch Throwable _
-                     ::error))]
-          (cond
-            (identical? ::error d')
-            d
+  (if-let [d (->deferred x)]
+    (if (realized? d)
+      (let [d' (try
+                 @d
+                 (catch Throwable _
+                   ::error))]
+        (cond
+          (identical? ::error d')
+          d
 
-            (deferrable? d')
-            (recur d')
+          (deferrable? d')
+          (recur d')
 
-            :else
-            d'))
-        d))
+          :else
+          d'))
+      d)
     x))
 
 (defn connect
@@ -462,15 +433,18 @@
   [a b]
   (assert (instance? IDeferred b) "sink `b` must be a Manifold deferred")
   (let [a (unwrap a)]
-    (if (not (instance? IDeferred a))
-      (success! b a)
+    (if (instance? IDeferred a)
       (if (realized? b)
         false
         (do
           (on-realized a
-            #(success! b %)
+            #(let [a' (unwrap %)]
+               (if (instance? IDeferred a')
+                 (connect a' b)
+                 (success! b a')))
             #(error! b %))
-          true)))))
+          true))
+      (success! b a))))
 
 (defmacro defer
   "Equivalent to Clojure's `future`, but returns a Manifold deferred."
@@ -578,20 +552,20 @@
         ^objects ary (object-array cnt)
         counter (AtomicInteger. cnt)
         d (deferred)]
-    (loop [idx 0, s deferred-or-values]
+    (clojure.core/loop [idx 0, s deferred-or-values]
 
       (if (empty? s)
 
         ;; no further results, decrement the counter one last time
         ;; and return the result if everything else has been realized
         (if (zero? (.get counter))
-          (success-deferred (seq ary))
+          (success-deferred (or (seq ary) (list)))
           d)
 
         (let [x (first s)]
           (if-let [x' (->deferred x)]
 
-            (on-realized x'
+            (on-realized (chain x')
               (fn [val]
                 (aset ary idx val)
                 (when (zero? (.decrementAndGet counter))
@@ -624,6 +598,64 @@
        (time/in interval #(success! d' timeout-value))
        d')))
 
+(deftype Recur [s]
+  clojure.lang.IDeref
+  (deref [_] s))
+
+(defn recur [& args]
+  (Recur. args))
+
+(defmacro loop
+  "A version of Clojure's loop which allows for asynchronous loops, via `manifold.deferred/recur`.
+  `loop` will always return a deferred value, even if the body is synchronous.
+
+   (loop [i 1e6]
+     (chain (future i)
+       #(if (zero? %)
+          %
+          (recur (dec %)))))"
+  [bindings & body]
+  (let [vars (->> bindings (partition 2) (map first))
+        vals (->> bindings (partition 2) (map second))
+        x-sym (gensym "x")]
+    `(let [result# (deferred)]
+       ((fn this# [result# ~@vars]
+         (clojure.core/loop
+           [~@(interleave vars vars)]
+           (let [~x-sym (try
+                          ~@body
+                          (catch Throwable e#
+                            (error! result# e#)
+                            nil))
+                 d# (->deferred ~x-sym)]
+             (if (nil? d#)
+               (if (instance? Recur ~x-sym)
+                 (~'recur
+                   ~@(map
+                       (fn [n] `(nth @~x-sym ~n))
+                       (range (count vars))))
+                 (success! result# ~x-sym))
+               (if (realized? d#)
+                 (let [~x-sym @d#]
+                   (if (instance? Recur ~x-sym)
+                     (~'recur
+                       ~@(map
+                           (fn [n] `(nth @~x-sym ~n))
+                           (range (count vars))))
+                     (success! result# ~x-sym)))
+                 (on-realized (chain d#)
+                   (fn [x#]
+                     (if (instance? Recur x#)
+                       (apply this# result# @x#)
+                       (success! result# x#)))
+                   (fn [err#]
+                     (error! result# err#))))))))
+        result#
+        ~@vals)
+       result#)))
+
+;;;
+
 (utils/when-core-async
   (extend-protocol Deferrable
 
@@ -637,3 +669,77 @@
               (success! d x))
             (success! d nil)))
         d))))
+
+;;;
+
+(defn- back-references [form]
+  (let [syms (atom #{})]
+    ((resolve 'riddley.walk/walk-exprs)
+      symbol?
+      (fn [s]
+        (when (some-> ((resolve 'riddley.compiler/locals)) (find s) key meta ::flow-var)
+          (swap! syms conj s)))
+      form)
+    @syms))
+
+(defmacro let-flow
+  "A version of `let` where deferred values that are let-bound or closed over can be treated
+   as if they are realized values.  The body will only be executed once all of the let-bound
+   values, even ones only used for side effects, have been computed.
+
+   Returns a deferred value, representing the value returned by the body.
+
+      (let-flow [x (future 1)]
+        (+ x 1))
+
+      (let-flow [x (future 1)
+                 y (future (+ x 1))]
+        (+ y 1))
+
+      (let [x (future 1)]
+        (let-flow [y (future (+ x 1))]
+          (+ y 1)))"
+  [bindings & body]
+  (require 'riddley.walk)
+  (let [locals (keys ((resolve 'riddley.compiler/locals)))
+        vars (->> bindings (partition 2) (map first))
+        vars' (->> vars (concat locals) (map #(vary-meta % assoc ::flow-var true)))
+        gensyms (repeatedly (count vars') gensym)
+        vals' (->> bindings (partition 2) (map second) (concat locals))
+        gensym->deps (zipmap
+                       gensyms
+                       (->> (count vars')
+                         range
+                         (map
+                           (fn [n]
+                             `(let [~@(interleave (take n vars') (repeat nil))
+                                    ~(nth vars' n) ~(nth vals' n)])))
+                         (map back-references)))
+        var->gensym (zipmap vars' gensyms)]
+    `(let [~@(interleave
+               gensyms
+               (map
+                 (fn [n var val gensym]
+                   (let [var->gensym (zipmap (take n vars') gensyms)
+                         deps (gensym->deps gensym)]
+                     (if (empty? deps)
+                       val
+                       `(chain (zip ~@(map var->gensym deps))
+                          (fn [[~@deps]]
+                            ~val)))))
+                 (range)
+                 vars'
+                 vals'
+                 gensyms))]
+       ~(let [dep? (set/union
+                     (back-references `(let [~@(interleave
+                                                 vars'
+                                                 (repeat nil))]
+                                         ~@body))
+                     (apply set/union (vals gensym->deps)))
+              vars' (filter dep? vars')
+              gensyms' (map var->gensym vars')]
+          `(chain (zip ~@gensyms')
+             (fn [[~@gensyms']]
+               (let [~@(interleave vars' gensyms')]
+                 ~@body)))))))

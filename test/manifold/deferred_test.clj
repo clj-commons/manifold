@@ -4,7 +4,7 @@
   (:require
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold.deferred :refer :all]))
+    [manifold.deferred :refer :all :exclude [loop]]))
 
 (defmacro defer' [& body]
   `(defer
@@ -33,6 +33,13 @@
          (fn [_] (throw (Exception. "SUCCESS")))
          #(do (deliver p %) expected-return-value))
        p)))
+
+(deftest test-let-flow
+  (is (= 5
+        @(let [z (future 1)]
+           (let-flow [x (future (future z))
+                      y (future (+ z x))]
+             (future (+ x x y z)))))))
 
 (deftest test-deferred
   ;; success!
