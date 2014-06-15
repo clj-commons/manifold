@@ -16,6 +16,8 @@
      LinkedBlockingQueue
      ConcurrentLinkedQueue
      TimeUnit]
+    [java.util.concurrent.atomic
+     AtomicReference]
     [java.util
      LinkedList
      Iterator]))
@@ -341,10 +343,13 @@
 
 (let [result (d/success-deferred true)]
   (defn consume
+    "Feeds all messages from `source` into `callback`."
     [callback source]
     (connect source (Callback. callback nil result) nil)))
 
 (defn connect-via
+  "Feeds all messages from `src` into `callback`, with the understanding that they will eventually
+   be propagated into `dst` in some form."
   ([src callback dst]
      (connect-via src callback dst nil))
   ([src callback dst options]
@@ -439,6 +444,7 @@
 (declare zip)
 
 (defn map
+  "Equivalent to Clojure's `map`, but for streams instead of sequences."
   ([f ^IEventSource s]
      (let [s' (stream)]
        (connect-via s
@@ -454,6 +460,8 @@
 
 (let [some-drained? (partial some #{::drained})]
   (defn zip
+    "Takes n-many streams, and returns a single stream which will emit n-tuples representing
+     a message from each stream."
     ([a]
        (map vector a))
     ([a & rest]
@@ -481,6 +489,7 @@
 
 (let [response (d/success-deferred true)]
   (defn filter
+    "Equivalent to Clojure's `filter`, but for streams instead of sequences."
     [pred s]
     (let [s' (stream)]
       (connect-via s
@@ -492,8 +501,143 @@
       s')))
 
 (defn mapcat
+  "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
   [f s]
   (let [s' (stream)]
     (connect-via s
       (fn [msg]
-        ))))
+        (d/loop [s (f msg)]
+          (when-not (empty? s)
+            (d/chain (put! s' (first s))
+              (fn [_]
+                (d/recur (rest s))))))))
+    s'))
+
+;;;
+
+(defn buffer-stream
+  "A stream which will buffer at most `limit` data, where the size of each message
+   is defined by `(metric message)`."
+  [metric limit]
+  (let [buf (stream Integer/MAX_VALUE)
+        buffer-size (atom 0)
+        last-put (AtomicReference. (d/success-deferred true))
+        buf+ (fn [n]
+               (loop []
+                 (let [buf @buffer-size
+                       buf' (+ buf n)]
+                   (if (compare-and-set! buffer-size buf buf')
+                     (cond
+                       (< buf limit buf')
+                       (d/success!
+                         (.getAndSet last-put (d/deferred))
+                         true)
+
+                       (< buf' limit buf)
+                       (d/success! (.get last-put) true))
+                     (recur)))))]
+
+    (reify
+      IStream
+      (isSynchronous [_]
+        false)
+
+      IEventSink
+      (downstream [this]
+        (manifold.stream.graph/downstream this))
+      (put [_ x blocking?]
+        (.put ^IEventSink buf x blocking?)
+        (buf+ (metric x))
+        (.get last-put))
+      (put [_ x blocking? timeout timeout-val]
+        ;; TODO: this doesn't really time out, because that would
+        ;; require consume-side filtering of messages
+        (.put ^IEventSink buf x blocking? timeout timeout-val)
+        (buf+ (metric x))
+        (.get last-put))
+      (close [_]
+        (.close ^IEventSink buf))
+      (isClosed [_]
+        (.isClosed ^IEventSink buf))
+      (onClosed [_ callback]
+        (.onClosed ^IEventSink buf callback))
+
+      IEventSource
+      (take [_ default-val blocking?]
+        (d/chain (.take ^IEventSource buf default-val blocking?)
+          (fn [x]
+            (buf+ (- (metric x)))
+            x)))
+      (take [_ default-val blocking? timeout timeout-val]
+        (d/chain (.take ^IEventSource buf default-val blocking? timeout ::timeout)
+          (fn [x]
+            (if (identical? ::timeout x)
+              timeout-val
+              (do
+                (buf+ (- (metric x)))
+                x)))))
+      (isDrained [_]
+        (.isDrained ^IEventSource buf))
+      (onDrained [_ callback]
+        (.onDrained ^IEventSource buf callback))
+      (connector [_ sink]
+        (.connector ^IEventSource buf sink)))))
+
+(defn buffer
+  "Takes a stream, and returns a stream which is a buffered view of that stream.  The buffer
+   size may either be measured in messages, or if a `metric` is defined, by the sum of `metric`
+   mapped over all messages currently buffered."
+  ([limit s]
+     (let [s' (stream limit)]
+       (connect s s')
+       s'))
+  ([metric limit s]
+     (let [s' (buffer-stream metric limit)]
+       (connect s s')
+       s')))
+
+(defn batch
+  "Batches messages, either into groups of fixed size, or according to upper bounds on size and
+   latency, in milliseconds."
+  ([batch-size s]
+     (batch -1 batch-size s))
+  ([max-latency max-size s]
+     (assert (pos? max-size))
+
+     (let [buf (stream)
+           s' (stream)]
+
+       (connect-via s #(put! buf %) s' {:upstream? true, :downstream? false})
+       (on-drained s #(close! buf))
+
+       (d/loop [msgs [], earliest-message -1]
+         (if (= max-size (count msgs))
+
+           (d/chain (put! s' msgs)
+             (fn [_]
+               (d/recur [] -1)))
+
+           (d/chain (if (or
+                          (neg? max-latency)
+                          (neg? earliest-message)
+                          (empty? msgs))
+                      (take! buf ::none)
+                      (try-take! buf
+                        ::none
+                        (- max-latency (- (System/currentTimeMillis) earliest-message))
+                        ::none))
+             (fn [msg]
+               (if (identical? ::none msg)
+                 (d/chain (when-not (empty? msgs)
+                            (put! s' msgs))
+                   (fn [_]
+                     (if (drained? s)
+                       (close! s')
+                       (d/recur [] -1))))
+                 (d/recur
+                   (conj msgs msg)
+                   (if (neg? earliest-message)
+                     (System/currentTimeMillis)
+                     earliest-message)))))))
+
+       s')))

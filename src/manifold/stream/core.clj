@@ -248,8 +248,8 @@
        (LinkedBlockingQueue. 65536)
        (LinkedBlockingQueue. 65536)
        nil
-       (LinkedList.)
-       (LinkedList.)
+       (LinkedBlockingQueue.)
+       (LinkedBlockingQueue.)
        false))
   ([buffer-size]
      (Stream.
@@ -258,9 +258,9 @@
        nil
        (LinkedBlockingQueue. 65536)
        (LinkedBlockingQueue. 65536)
-       (ArrayBlockingQueue. buffer-size)
-       (LinkedList.)
-       (LinkedList.)
+       (LinkedBlockingQueue. (long buffer-size))
+       (LinkedBlockingQueue.)
+       (LinkedBlockingQueue.)
        false)))
 
 (defn stream*
@@ -274,7 +274,7 @@
     description
     (LinkedBlockingQueue. 65536)
     (LinkedBlockingQueue. 65536)
-    (when buffer-size (ArrayBlockingQueue. buffer-size))
-    (LinkedList.)
-    (LinkedList.)
+    (when buffer-size (LinkedBlockingQueue. (long buffer-size)))
+    (LinkedBlockingQueue.)
+    (LinkedBlockingQueue.)
     false))

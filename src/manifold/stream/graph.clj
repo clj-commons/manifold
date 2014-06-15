@@ -60,7 +60,7 @@
       (.remove dsts d)
       (when upstream
         (s/close! upstream)))
-    (when (identical? ::timeout x)
+    (when (and (identical? ::timeout x) (.downstream? d))
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x source]
@@ -158,7 +158,8 @@
                 (loop []
                   (when (.hasNext i)
                     (let [^Downstream d (.next i)]
-                      (s/close! (.sink d))
+                      (when (.downstream? d)
+                        (s/close! (.sink d)))
                       (recur))))))
 
              (== 1 (.size dsts))

@@ -54,6 +54,27 @@
           (apply s/zip)
           s/stream->lazy-seq)))))
 
+(deftest test-buffer
+  (let [s (s/buffer-stream identity 10)]
+
+    (let [a (s/put! s 9)
+          b (s/put! s 2)]
+      (is (realized? a))
+      (is (= true @a))
+      (is (not (realized? b)))
+      (is (= 9 @(s/take! s)))
+      (is (realized? b))
+      (is (= true @b))
+      (let [c (s/put! s 12)
+            d (s/put! s 1)]
+        (is (not (or (realized? c) (realized? d))))
+        (is (= 2 @(s/take! s)))
+        (is (not (or (realized? c) (realized? d))))
+        (is (= 12 @(s/take! s)))
+        (is (realized? d))
+        (is (= true @d))
+        (is (= 1 @(s/take! s)))))))
+
 (deftest test-operations
   (are [seq-f stream-f f input]
 
