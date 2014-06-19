@@ -112,6 +112,12 @@ Finally, we can use `manifold.deferred/timeout` to get a version of a deferred t
 :bar
 ```
 
+### `future` vs `defer`
+
+Clojure's futures can be treated as deferreds, as can Clojure's promises.  However, since both of these abstractions using a blocking dereference, in order for Manifold to treat it as an asynchronous deferred value it must allocate a thread.
+
+Wherever possible, use `manifold.deferred/deferred` instead of `promise`, and `manifold.deferred/defer` instead of `future`.  They will behave identically to their Clojure counterparts (`deliver` can be used on a Manifold deferred, for instance), but allow for callbacks to be registered, so no threads are required.
+
 ### let-flow
 
 Let's say that we have two services which provide us numbers, and want to get their sum.  By using `zip` and `chain` together, this is relatively straightforward:
@@ -154,4 +160,4 @@ but not this:
 
 In this example, `c` is declared within a normal `let` binding, and as such we can't treat it as if it were realized.
 
-It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Used sparingly, this can be an extremely powerful way to choreograph concurrent operations.
+It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's go-routines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a go-routine are inherently sequential.

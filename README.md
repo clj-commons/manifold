@@ -60,7 +60,39 @@ Callbacks are a useful building block, but they're a painful way to create async
 
 ### streams
 
+Manifold's streams provide mechanisms for asynchronous puts and takes, timeouts, and backpressure.  They are compatible with Java's `BlockingQueues`, Clojure's lazy sequences, and core.async's channels.  Methods for converting to and from each are provided.
+
+Manifold differentiates between **sources**, which emit messages, and **sinks*, which consume messages.  We can interact with sources using `take!` and `try-take!`, which return deferred values representing the next message.  We can interact with sinks using `put!` and `try-put!`, which return a deferred values which will yield `true` if the put is successful, or `false` otherwise.
+
+We can create a stream using `(manifold.stream/stream)`:
+
+```clj
+> (require '[manifold.stream :as s])
+nil
+> (def s (s/stream))
+#'s
+> (s/put! s 1)
+#<Deferred: :pending>
+> (s/take! s)
+#<SuccessDeferred: 1>
+```
+
+A stream is both a sink and a source; any message sent via `put!` can be received via `take!`.  We can also create sinks and sources from other stream representations using `->sink` and `->source`:
+
+```
+> (require '[clojure.core.async :as a])
+nil
+> (def c (a/chan))
+#'c
+> (def s (s/->source c))
+#'s
+> (a/go (a/>! c 1))
 ...
+> @(s/take! s)
+1
+```
+
+Manifold also provides stream operators, similar to Clojure's sequence operators, including `map`, `filter`, `mapcat`, `zip`, `buffer`, and `batch`.  To learn more about streams, go [here](/docs/stream.md).
 
 ### license
 
