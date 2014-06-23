@@ -10,6 +10,8 @@
      AtomicReference
      AtomicBoolean
      AtomicInteger]
+    [java.lang.ref
+     WeakReference]
     [java.util.concurrent
      BlockingQueue
      LinkedBlockingQueue]
@@ -25,6 +27,7 @@
    ^AtomicBoolean drained?
    ^BlockingQueue drained-callbacks
    ^AtomicReference last-take
+   ^:volatile-mutable weak-handle
    ^Lock lock]
 
   IStream
@@ -33,6 +36,19 @@
 
   (description [_]
     {:type "core.async"})
+
+  (weakHandle [this reference-queue]
+    (utils/with-lock lock
+      (or weak-handle
+        (do
+          (set! weak-handle (WeakReference. this reference-queue))
+          weak-handle))))
+
+  (close [_]
+    nil)
+
+  (downstream [this]
+    (g/downstream this))
 
   IEventSource
 
@@ -112,12 +128,8 @@
   (description [_]
     {:type "core.async"})
 
-  IEventSink
   (downstream [this]
     nil)
-
-  (isClosed [_]
-    (.get closed?))
 
   (close [this]
     (utils/with-lock lock
@@ -132,6 +144,14 @@
               (fn [_] (a/close! ch))
               nil)
             true)))))
+
+  (weakHandle [_ _]
+    nil)
+
+  IEventSink
+
+  (isClosed [_]
+    (.get closed?))
 
   (onClosed [this f]
     (utils/with-lock lock
@@ -217,4 +237,5 @@
       (AtomicBoolean. false)
       (LinkedBlockingQueue.)
       (AtomicReference. (d/success-deferred true))
+      nil
       (utils/mutex))))

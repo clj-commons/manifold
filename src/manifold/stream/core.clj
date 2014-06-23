@@ -9,6 +9,8 @@
   (:import
     [java.util
      LinkedList]
+    [java.lang.ref
+     WeakReference]
     [java.util.concurrent
      BlockingQueue
      ArrayBlockingQueue
@@ -35,11 +37,15 @@
   [
    lock
 
+   ^:volatile-mutable weak-handle
+
    ^boolean permanent?
    description
 
    ^BlockingQueue producers
    ^BlockingQueue consumers
+
+   ^long capacity
    ^BlockingQueue messages
 
    ^BlockingQueue closed-callbacks
@@ -54,6 +60,7 @@
   (description [this]
     (let [m {:type "manifold"
              :pending-puts (.size producers)
+             :buffer-capacity capacity
              :buffer-size (if messages (.size messages) 0)
              :pending-takes (.size consumers)
              :permanent? permanent?
@@ -237,16 +244,25 @@
     (.take ^IEventSource this blocking? default-val nil nil))
 
   (connector [_ _]
-    nil))
+    nil)
+
+  (weakHandle [this reference-queue]
+    (utils/with-lock lock
+      (or weak-handle
+        (do
+          (set! weak-handle (WeakReference. this reference-queue))
+          weak-handle)))))
 
 (defn stream
   ([]
      (Stream.
        (utils/mutex)
+       nil
        false
        nil
        (LinkedBlockingQueue. 65536)
        (LinkedBlockingQueue. 65536)
+       0
        nil
        (LinkedBlockingQueue.)
        (LinkedBlockingQueue.)
@@ -254,10 +270,12 @@
   ([buffer-size]
      (Stream.
        (utils/mutex)
+       nil
        false
        nil
        (LinkedBlockingQueue. 65536)
        (LinkedBlockingQueue. 65536)
+       (long buffer-size)
        (LinkedBlockingQueue. (long buffer-size))
        (LinkedBlockingQueue.)
        (LinkedBlockingQueue.)
@@ -270,10 +288,12 @@
     :or {permanent? false}}]
   (Stream.
     (utils/mutex)
+    nil
     permanent?
     description
     (LinkedBlockingQueue. 65536)
     (LinkedBlockingQueue. 65536)
+    (if buffer-size (long buffer-size) 0)
     (when buffer-size (LinkedBlockingQueue. (long buffer-size)))
     (LinkedBlockingQueue.)
     (LinkedBlockingQueue.)

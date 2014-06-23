@@ -1,6 +1,7 @@
 (ns manifold.deferred
   (:refer-clojure :exclude [realized? loop])
   (:require
+    [clojure.tools.logging :as log]
     [manifold.utils :as utils]
     [manifold.time :as time]
     [clojure.set :as set])
@@ -193,7 +194,10 @@
            (if (.isEmpty ~'listeners)
              nil
              (do
-               (~(if success? `.onSuccess `.onError) ^IDeferredListener (.pop ~'listeners) ~val)
+               (try
+                 (~(if success? `.onSuccess `.onError) ^IDeferredListener (.pop ~'listeners) ~val)
+                 (catch Throwable e#
+                   (log/error "error in deferred handler" e#)))
                (recur))))
          true
          (finally

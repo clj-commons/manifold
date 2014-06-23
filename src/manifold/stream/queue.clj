@@ -5,9 +5,10 @@
     [manifold.stream :as s]
     [manifold.utils :as utils])
   (:import
+    [java.lang.ref
+     WeakReference]
     [java.util.concurrent.locks
-     Lock
-     Condition]
+     Lock]
     [java.util.concurrent.atomic
      AtomicReference
      AtomicInteger
@@ -23,7 +24,9 @@
 
 (deftype BlockingQueueSource
   [^BlockingQueue queue
-   ^AtomicReference last-take]
+   ^AtomicReference last-take
+   lock
+   ^:volatile-mutable weak-handle]
 
   IStream
   (isSynchronous [_]
@@ -32,6 +35,19 @@
   (description [_]
     {:type (.getCanonicalName (class queue))
      :buffer-size (.size queue)})
+
+  (close [_]
+    nil)
+
+  (weakHandle [this reference-queue]
+    (utils/with-lock lock
+      (or weak-handle
+        (do
+          (set! weak-handle (WeakReference. this reference-queue))
+          weak-handle))))
+
+  (downstream [this]
+    (g/downstream this))
 
   IEventSource
   (onDrained [this f]
@@ -102,21 +118,16 @@
     true)
 
   (description [_]
-    {:type (.getCanonicalName (class queue))
-     :buffer-size (.size queue)})
+    (let [size (.size queue)]
+      {:type (.getCanonicalName (class queue))
+       :buffer-capacity (+ (.remainingCapacity queue) size)
+       :buffer-size size}))
 
-  IEventSink
   (downstream [this]
     nil)
 
-  (onClosed [this f]
-    (utils/with-lock lock
-      (if (.get closed?)
-        (f)
-        (.add closed-callbacks f))))
-
-  (isClosed [_]
-    (.get closed?))
+  (weakHandle [_ _]
+    nil)
 
   (close [this]
     (utils/with-lock lock
@@ -126,6 +137,17 @@
           (.set closed? true)
           (utils/invoke-callbacks closed-callbacks)
           true))))
+
+  IEventSink
+
+  (onClosed [this f]
+    (utils/with-lock lock
+      (if (.get closed?)
+        (f)
+        (.add closed-callbacks f))))
+
+  (isClosed [_]
+    (.get closed?))
 
   (put [this x blocking?]
 
@@ -208,4 +230,6 @@
   (to-source [queue]
     (BlockingQueueSource.
       queue
-      (AtomicReference. (d/success-deferred true)))))
+      (AtomicReference. (d/success-deferred true))
+      (utils/mutex)
+      nil)))

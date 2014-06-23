@@ -8,12 +8,12 @@
     [java.util
      LinkedList]
     [java.lang.ref
-     ReferenceQueue
-     WeakReference]
+     ReferenceQueue]
     [java.util.concurrent
      ConcurrentHashMap
      CopyOnWriteArrayList]
     [manifold.stream
+     IStream
      IEventSink
      IEventSource]))
 
@@ -35,12 +35,13 @@
    ^boolean upstream?])
 
 (defn downstream [source]
-  (when-let [^CopyOnWriteArrayList dsts (.get graph (WeakReference. source))]
-    (->> dsts
-      .iterator
-      iterator-seq
-      (map (fn [^Downstream d]
-             [(.description d) (or (.sink' d) (.sink d))])))))
+  (when-let [handle (s/weak-handle source)]
+    (when-let [^CopyOnWriteArrayList dsts (.get graph handle)]
+      (->> dsts
+        .iterator
+        iterator-seq
+        (map (fn [^Downstream d]
+               [(.description d) (or (.sink' d) (.sink d))]))))))
 
 (defn- async-send
   [^Downstream d msg dsts]
@@ -131,13 +132,10 @@
                         (trampoline #(this recur-point msg)))
                       nil)))))))
 
-        weak-ref
-        (WeakReference. source)
-
         err-callback
         (fn [err]
           (log/error err "error in source of 'connect'")
-          (.remove graph weak-ref))]
+          (.remove graph (s/weak-handle source)))]
 
     (trampoline
       (fn this
@@ -153,7 +151,7 @@
 
              (identical? ::drained msg)
              (do
-               (.remove graph weak-ref)
+               (.remove graph (s/weak-handle source))
                (let [i (.iterator dsts)]
                 (loop []
                   (when (.hasNext i)
@@ -181,7 +179,11 @@
             :else
             (let [i (.iterator dsts)]
               (if (not (.hasNext i))
-                (.remove graph weak-ref)
+
+                (do
+                  (when (instance? IEventSink source)
+                    (s/close! source))
+                  (.remove graph (s/weak-handle source)))
 
                 (do
                   (utils/without-overflow
@@ -209,7 +211,7 @@
               (if (identical? ::drained msg)
 
                 (do
-                  (.remove graph (WeakReference. source))
+                  (.remove graph (s/weak-handle source))
                   (doseq [^Downstream d (iterator-seq i)]
                     (when (.downstream? d)
                       (s/close! (.sink d)))))
@@ -243,7 +245,7 @@
 
             (do
               (s/close! source)
-              (.remove graph (WeakReference. source)))))))))
+              (.remove graph (s/weak-handle source)))))))))
 
 (defn connect
   ([^IEventSource src
@@ -255,16 +257,17 @@
             description]
      :or {timeout -1
           upstream? false
-          downstream? true}}]
+          downstream? true}
+     :as opts}]
      (locking src
        (let [d (Downstream.
                  timeout
-                 upstream?
+                 (boolean (and upstream? (instance? IEventSink src)))
                  downstream?
                  dst
                  dst'
-                 (or description ""))
-             k (WeakReference. src ref-queue)]
+                 description)
+             k (.weakHandle ^IStream src ref-queue)]
          (if-let [dsts (.get graph k)]
            (.add ^CopyOnWriteArrayList dsts d)
            (let [dsts (CopyOnWriteArrayList.)]

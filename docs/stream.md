@@ -124,8 +124,47 @@ Again, we see that our message is immediately accepted into `a`, and can be read
 
 | field | description |
 |-------|-------------|
-| `upstream?` | whether the
+| `downstream?` | whether the source closing will close the sink, defaults to `true` |
+| `upstream?` | whether the sink closing will close the source, *even if there are other sinks downstream of the source*, defaults to `false` |
+| `timeout` | the maximum time that will be spent waiting to convey a message into the sink before the connection is severed, defaults to `nil` |
+| `description` | a description of the connection between the source and sink, useful for introspection purposes |
+
+Upon connecting two streams, we can introspect on the flow of data using `downstream`:
+
+```clj
+> (def a (s/stream))
+#'a
+> (def b (s/stream))
+#'b
+> (s/connect a b {:description "a connection"})
+true
+> (s/downstream a)
+(["a connection" #<Stream>])
+```
+
+We can recursively apply `downstream` to traverse the entire topology of our streams.  This can be a powerful way to reason about the structure of our running processes, but sometimes we want to change the message from the source before it's placed into the sink.  For this, we can use `connect-via`:
+
+```clj
+> (def a (s/stream))
+#'a
+> (def b (s/stream))
+#'b
+> (s/connect-via a #(s/put! b (inc %)) b)
+```
+
+Note that `connect-via` takes an argument between the source and sink, which is a single-argument callback.  This callback will be invoked with messages from the source, under the assumption that they will be propagated to the sink.  This is the underlying mechanism for `map`, `filter`, and other stream operators; it allow us to create complex operations that are visible via `downstream`:
+
+```clj
+> (def a (s/stream))
+#'a
+> (s/map inc a)
+#<Stream>
+> (s/downstream a)
+([{:op "map"} #<Stream>])
+```
 
 ### buffers and backpressure
 
-We saw above that if we attempt to put a message into a stream, it won't succeed until the value is taken out.  This is because the default stream has no buffer; it simply conveys messages from producers to consumers.  If we want
+We saw above that if we attempt to put a message into a stream, it won't succeed until the value is taken out.  This is because the default stream has no buffer; it simply conveys messages from producers to consumers.  If we want to create a stream with a buffer, we can simply call `(stream buffer-size)`.  We can also call `(buffer size stream)` to create a buffer downstream of an existing stream.
+
+We may also call `(buffer metric limit stream)`, if we don't want to measure our buffer's size in messages.  If, for instance, each message is a collection, we could use `count` as our metric, and set `limit` to whatever we want the maximum aggregate count to be.

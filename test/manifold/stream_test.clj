@@ -78,13 +78,28 @@
 (deftest test-operations
   (are [seq-f stream-f f input]
 
-    (= (seq-f f input)
-      (->> (s/lazy-seq->stream input)
-        (stream-f f)
-        s/stream->lazy-seq))
+    (apply =
 
-    map s/map inc (range 1e4)
-    filter s/filter even? (range 1e4)))
+      (seq-f f input)
+
+      #_(->> (s/lazy-seq->stream input)
+        (stream-f f)
+        s/stream->lazy-seq)
+
+      (let [src (s/stream)
+            f #(->> src
+                 (stream-f f)
+                 (s/buffer (count input)))
+            dsts (doall (repeatedly 3 f))]
+        (d/chain (s/put-all! src input)
+          (fn [_] (s/close! src)))
+        (map s/stream->lazy-seq dsts)))
+
+    ;; map s/map inc (range 1e4)
+    ;; filter s/filter even? (range 1e4)
+
+    map s/map inc [1 2 3]
+    ))
 
 ;;;
 

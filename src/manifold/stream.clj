@@ -8,6 +8,8 @@
     [manifold.time :as time]
     [clojure.tools.logging :as log])
   (:import
+    [java.lang.ref
+     WeakReference]
     [java.util.concurrent
      CopyOnWriteArrayList
      ConcurrentHashMap
@@ -32,13 +34,14 @@
 
 (definterface IStream
   (description [])
-  (isSynchronous []))
+  (isSynchronous [])
+  (downstream [])
+  (weakHandle [reference-queue])
+  (close []))
 
 (definterface IEventSink
   (put [x blocking?])
   (put [x blocking? timeout timeout-val])
-  (close [])
-  (downstream [])
   (isClosed [])
   (onClosed [callback]))
 
@@ -62,7 +65,7 @@
       (f x))))
 
 (defn ->sink
-  "Converts, is possible, the object to a Manifold stream, or `nil` if not possible."
+  "Converts, is possible, the object to a Manifold sink, or `nil` if not possible."
   [x]
   (cond
     (instance? IEventSink x) x
@@ -70,12 +73,71 @@
     :else nil))
 
 (defn ->source
-  "Converts, is possible, the object to a Manifold stream, or `nil` if not possible."
+  "Converts, is possible, the object to a Manifold source, or `nil` if not possible."
   [x]
   (cond
     (instance? IEventSource x) x
     (sourceable? x) (to-source x)
     :else nil))
+
+(deftype SinkProxy [^IEventSink sink]
+  IStream
+  (description [_]
+    (.description ^IStream sink))
+  (isSynchronous [_]
+    (.isSynchronous ^IStream sink))
+  (downstream [_]
+    (.downstream ^IStream sink))
+  (close [_]
+    (.close ^IStream sink))
+  (weakHandle [_ ref-queue]
+    (.weakHandle ^IStream sink ref-queue))
+  IEventSink
+  (put [_ x blocking?]
+    (.put sink x blocking?))
+  (put [_ x blocking? timeout timeout-val]
+    (.put sink x blocking? timeout timeout-val))
+  (isClosed [_]
+    (.isClosed sink))
+  (onClosed [_ callback]
+    (.onClosed sink callback)))
+
+(declare connect)
+
+(deftype SourceProxy [^IEventSource source]
+  IStream
+  (description [_]
+    (.description ^IStream source))
+  (isSynchronous [_]
+    (.isSynchronous ^IStream source))
+  (downstream [_]
+    (.downstream ^IStream source))
+  (close [_]
+    (.close ^IStream source))
+  (weakHandle [_ ref-queue]
+    (.weakHandle ^IStream source ref-queue))
+  IEventSource
+  (take [_ default-val blocking?]
+    (.take source default-val blocking?))
+  (take [_ default-val blocking? timeout timeout-val]
+    (.take source default-val blocking? timeout timeout-val))
+  (isDrained [_]
+    (.isDrained source))
+  (onDrained [_ callback]
+    (.onDrained source callback))
+  (connector [_ sink]
+    (fn [_ sink options]
+      (connect source sink options))))
+
+(defn source-only
+  "Returns a view of the stream which is only a source."
+  [s]
+  (SourceProxy. s))
+
+(defn sink-only
+  "Returns a view of the stream which is only a sink."
+  [s]
+  (SinkProxy. s))
 
 ;;;
 
@@ -89,6 +151,18 @@
   [x]
   `(.description ~(with-meta x {:tag "manifold.stream.IStream"})))
 
+(definline downstream
+  "Returns all sinks downstream of the given source as a sequence of 2-tuples, with the
+   first element containing the connection's description, and the second element containing
+   the sink."
+  [x]
+  `(.downstream ~(with-meta x {:tag "manifold.stream.IStream"})))
+
+(definline weak-handle
+  "Returns a weak reference that can be used to construct topologies of streams."
+  [x]
+  `(.weakHandle ~(with-meta x {:tag "manifold.stream.IStream"}) nil))
+
 (definline synchronous?
   "Returns true if the underlying abstraction behaves synchronously, using thread blocking
    to provide backpressure."
@@ -98,7 +172,7 @@
 (definline close!
   "Closes an event sink, so that it can't accept any more messages."
   [sink]
-  `(.close ~(with-meta sink {:tag "manifold.stream.IEventSink"})))
+  `(.close ~(with-meta sink {:tag "manifold.stream.IStream"})))
 
 (definline closed?
   "Returns true if the event sink is closed."
@@ -132,23 +206,14 @@
   "Puts all values into the sink, returning a deferred that yields `true` if all puts
    are successful, or `false` otherwise.  Guaranteed to be non-blocking."
   [^IEventSink sink msgs]
-  (loop [msgs msgs]
+  (d/loop [msgs msgs]
     (if (empty? msgs)
-      (d/success-deferred true)
-      (let [d (put! sink (first msgs))]
-        (if (d/realized? d)
-          (let [x (try
-                    (if @d
-                      nil
-                      (d/success-deferred false))
-                    (catch Throwable e
-                      (d/error-deferred e)))]
-            (if (nil? x)
-              (recur (rest msgs))
-              x))
-          (d/chain d
-            (fn [_]
-              (put-all! sink (rest msgs)))))))))
+      true
+      (d/chain (put! sink (first msgs))
+        (fn [result]
+          (if result
+            (d/recur (rest msgs))
+            false))))))
 
 (defn try-put!
   "Puts a value into a stream if the put can successfully be completed in `timeout`
@@ -211,7 +276,6 @@
       dst
       {:keys [upstream?
               downstream?
-              dst'
               timeout
               description]
        :or {upstream? false
@@ -222,8 +286,12 @@
     ^IEventSink sink
     options]
      (let [source (->source source)
-           sink (->sink sink)]
+           sink (->sink sink)
+           connector (and source sink (.connector ^IEventSource source sink))]
        (cond
+
+         connector
+         (connector source sink options)
 
          (and source sink)
          (manifold.stream.graph/connect source sink options)
@@ -260,16 +328,23 @@
   (isSynchronous [_]
     (or (synchronous? sink)
       (synchronous? source)))
+  (description [_]
+    {:type "splice"
+     :sink (.description ^IStream sink)
+     :source (.description ^IStream source)})
+  (downstream [_]
+    (.downstream ^IStream source))
+  (close [_]
+    (.close ^IStream source)
+    (.close ^IStream sink))
+  (weakHandle [_ ref-queue]
+    (.weakHandle ^IStream source ref-queue))
 
   IEventSink
-  (downstream [_]
-    (.downstream sink))
   (put [_ x blocking?]
     (.put sink x blocking?))
   (put [_ x blocking? timeout timeout-val]
     (.put sink x blocking? timeout timeout-val))
-  (close [_]
-    (.close sink))
   (isClosed [_]
     (.isClosed sink))
   (onClosed [_ callback]
@@ -311,9 +386,18 @@
   IStream
   (isSynchronous [_]
     false)
-  IEventSink
+  (close [_]
+    (when downstream
+      (.close ^IStream downstream)))
+  (weakHandle [_ ref-queue]
+    (if downstream
+      (.weakHandle ^IStream downstream ref-queue)
+      (throw (IllegalArgumentException.))))
+  (description [_]
+    {:type "callback"})
   (downstream [_]
-    nil)
+    (when downstream [downstream]))
+  IEventSink
   (put [_ x _]
     (try
       (let [rsp (f x)]
@@ -330,9 +414,6 @@
           constant-response))
       (catch Throwable e
         (d/error-deferred e))))
-  (close [_]
-    (when downstream
-      (.close downstream)))
   (isClosed [_]
     (if downstream
       (.isClosed downstream)
@@ -358,10 +439,7 @@
          (connect
            src
            (Callback. callback dst nil)
-           (let [options' {:dst' dst}]
-             (if options
-               (merge options options')
-               options')))
+           (merge options {:dst' dst}))
          (throw (IllegalArgumentException. "both arguments to 'connect-via' must be stream-able"))))))
 
 ;;;
@@ -396,7 +474,7 @@
              (.printStackTrace e)
              (log/error e "error in lazy-seq->stream")
              (close! s'))))
-       s')))
+       (source-only s'))))
 
 (defn- periodically-
   [stream period initial-delay f]
@@ -428,7 +506,7 @@
   ([period initial-delay f]
      (let [s (stream 1)]
        (periodically- s period initial-delay f)
-       s))
+       (source-only s)))
   ([period f]
      (periodically period (- period (rem (System/currentTimeMillis) period)) f)))
 
@@ -450,8 +528,9 @@
        (connect-via s
          (fn [msg]
            (put! s' (f msg)))
-         s')
-       s'))
+         s'
+         {:description {:op "map"}})
+       (source-only s')))
   ([f s & rest]
      (apply zip
        #(apply f %)
@@ -470,7 +549,7 @@
              dst (stream)]
 
          (doseq [[a b] (core/map list srcs intermediates)]
-           (connect-via a #(put! b %) b))
+           (connect-via a #(put! b %) b {:description {:op "zip"}}))
 
          (d/loop []
            (d/chain
@@ -485,7 +564,7 @@
                (when result
                  (d/recur)))))
 
-         dst))))
+         (source-only dst)))))
 
 (let [response (d/success-deferred true)]
   (defn filter
@@ -497,8 +576,9 @@
           (if (pred msg)
             (put! s' msg)
             response))
-        s')
-      s')))
+        s'
+        {:description {:op "filter"}})
+      (source-only s'))))
 
 (defn mapcat
   "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
@@ -510,8 +590,10 @@
           (when-not (empty? s)
             (d/chain (put! s' (first s))
               (fn [_]
-                (d/recur (rest s))))))))
-    s'))
+                (d/recur (rest s)))))))
+      s'
+      {:description {:op "mapcat"}})
+    (source-only s')))
 
 ;;;
 
@@ -535,16 +617,29 @@
 
                        (< buf' limit buf)
                        (d/success! (.get last-put) true))
-                     (recur)))))]
+                     (recur)))))
+        handle (atom nil)]
 
     (reify
       IStream
       (isSynchronous [_]
         false)
-
-      IEventSink
       (downstream [this]
         (manifold.stream.graph/downstream this))
+      (close [_]
+        (.close ^IStream buf))
+      (description [_]
+        (merge
+          (description buf)
+          {:buffer-size @buffer-size
+           :buffer-capacity limit}))
+      (weakHandle [this ref-queue]
+        (or @handle
+          (do
+            (compare-and-set! handle nil (WeakReference. this ref-queue))
+            @handle)))
+
+      IEventSink
       (put [_ x blocking?]
         (.put ^IEventSink buf x blocking?)
         (buf+ (metric x))
@@ -555,8 +650,6 @@
         (.put ^IEventSink buf x blocking? timeout timeout-val)
         (buf+ (metric x))
         (.get last-put))
-      (close [_]
-        (.close ^IEventSink buf))
       (isClosed [_]
         (.isClosed ^IEventSink buf))
       (onClosed [_ callback]
@@ -590,11 +683,11 @@
   ([limit s]
      (let [s' (stream limit)]
        (connect s s')
-       s'))
+       (source-only s')))
   ([metric limit s]
      (let [s' (buffer-stream metric limit)]
        (connect s s')
-       s')))
+       (source-only s'))))
 
 (defn batch
   "Batches messages, either into groups of fixed size, or according to upper bounds on size and
@@ -607,7 +700,10 @@
      (let [buf (stream)
            s' (stream)]
 
-       (connect-via s #(put! buf %) s' {:upstream? true, :downstream? false})
+       (connect-via s #(put! buf %) s'
+         {:upstream? true
+          :downstream? false
+          :description {:op "batch"}})
        (on-drained s #(close! buf))
 
        (d/loop [msgs [], earliest-message -1]
@@ -640,4 +736,4 @@
                      (System/currentTimeMillis)
                      earliest-message)))))))
 
-       s')))
+       (source-only s'))))
