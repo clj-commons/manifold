@@ -163,6 +163,8 @@ Note that `connect-via` takes an argument between the source and sink, which is 
 ([{:op "map"} #<Stream>])
 ```
 
+The value returned by the callback for `connect-via` provides backpressure - if a deferred value is returned, further messages will not be passed in until the deferred value is realized.
+
 ### buffers and backpressure
 
 We saw above that if we attempt to put a message into a stream, it won't succeed until the value is taken out.  This is because the default stream has no buffer; it simply conveys messages from producers to consumers.  If we want to create a stream with a buffer, we can simply call `(stream buffer-size)`.  We can also call `(buffer size stream)` to create a buffer downstream of an existing stream.

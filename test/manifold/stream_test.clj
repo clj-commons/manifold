@@ -54,6 +54,28 @@
           (apply s/zip)
           s/stream->lazy-seq)))))
 
+(deftest test-partition-by
+  (let [inputs (range 1e2)
+        f #(long (/ % 10))]
+    (is
+      (= (partition-by f inputs)
+        (->> inputs
+          s/lazy-seq->stream
+          (s/partition-by f)
+          (s/map (comp doall s/stream->lazy-seq))
+          s/stream->lazy-seq)))))
+
+(deftest test-concat
+  (let [inputs (range 1e2)
+        f #(long (/ % 10))]
+    (is
+      (= inputs
+        (->> inputs
+          s/lazy-seq->stream
+          (s/partition-by f)
+          s/concat
+          s/stream->lazy-seq)))))
+
 (deftest test-buffer
   (let [s (s/buffer-stream identity 10)]
 
@@ -80,12 +102,15 @@
 
     (apply =
 
+      ;; seq version
       (seq-f f input)
 
-      #_(->> (s/lazy-seq->stream input)
+      ;; single operation
+      (->> (s/lazy-seq->stream input)
         (stream-f f)
         s/stream->lazy-seq)
 
+      ;; three simultaneous operations
       (let [src (s/stream)
             f #(->> src
                  (stream-f f)
@@ -95,10 +120,13 @@
           (fn [_] (s/close! src)))
         (map s/stream->lazy-seq dsts)))
 
-    ;; map s/map inc (range 1e4)
-    ;; filter s/filter even? (range 1e4)
+    map s/map inc (range 10)
 
-    map s/map inc [1 2 3]
+    filter s/filter even? (range 10)
+
+    mapcat s/mapcat list (range 10)
+
+
     ))
 
 ;;;

@@ -234,7 +234,12 @@
    lock
    ^LinkedList listeners
    ^:volatile-mutable mta
-   ^:volatile-mutable consumed?]
+   ^:volatile-mutable consumed?
+   creation-trace]
+
+  Object
+  (finalize [_]
+    (when-not consumed?))
 
   clojure.lang.IObj
   (meta [_] mta)
@@ -399,7 +404,7 @@
   "Equivalent to Clojure's `deferred`, but also allows asynchronous callbacks to be registered
    via `on-realized`."
   []
-  (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false))
+  (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil))
 
 (defn success-deferred
   "A deferred which already contains a realized value"

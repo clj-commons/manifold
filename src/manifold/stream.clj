@@ -1,6 +1,6 @@
 (ns manifold.stream
   (:refer-clojure
-    :exclude [map filter mapcat reductions reduce partition partition-all])
+    :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by])
   (:require
     [clojure.core :as core]
     [manifold.deferred :as d]
@@ -405,6 +405,7 @@
           rsp
           constant-response))
       (catch Throwable e
+        (log/error e "error in consume")
         (d/error-deferred e))))
   (put [_ x _ _ _]
     (try
@@ -413,6 +414,7 @@
           rsp
           constant-response))
       (catch Throwable e
+        (log/error e "error in consume")
         (d/error-deferred e))))
   (isClosed [_]
     (if downstream
@@ -441,6 +443,15 @@
            (Callback. callback dst nil)
            (merge options {:dst' dst}))
          (throw (IllegalArgumentException. "both arguments to 'connect-via' must be stream-able"))))))
+
+(defn- connect-via-proxy
+  ([src proxy dst]
+     (connect-via-proxy src proxy dst nil))
+  ([src proxy dst options]
+     (let [result (connect-via src #(put! proxy %) dst
+                    (assoc options :downstream? false))]
+       (on-drained src #(close! proxy))
+       result)))
 
 ;;;
 
@@ -595,6 +606,71 @@
       {:description {:op "mapcat"}})
     (source-only s')))
 
+(defn partition-by
+  "Equivalent to Clojure's `partition-by`, but returns a stream of streams."
+  [f s]
+  (let [in (stream)
+        out (stream)]
+
+    (connect-via-proxy s in out {:description {:op "partition-by"}})
+
+    (d/loop [prev ::x, s' nil]
+      (d/chain (take! in ::none)
+        (fn [msg]
+          (if (identical? ::none msg)
+            (do
+              (when s' (close! s'))
+              (close! out))
+            (let [curr (try
+                         (f msg)
+                         (catch Throwable e
+                           (close! in)
+                           (close! out)
+                           (log/error e "error in partition-by")
+                           ::error))]
+              (when-not (identical? ::error curr)
+                (if (= prev curr)
+                  (d/chain (put! s' msg)
+                    (fn [_] (d/recur curr s')))
+                  (let [s'' (stream)]
+                    (when s' (close! s'))
+                    (d/chain (put! out s'')
+                      (fn [_] (put! s'' msg))
+                      (fn [_] (d/recur curr s'')))))))))))
+
+    out))
+
+(defn concat
+  "Takes a stream of streams, and flattens it into a single stream."
+  [s]
+  (let [in (stream)
+        out (stream)]
+
+    (connect-via-proxy s in out {:description {:op "concat"}})
+
+    (d/loop []
+      (d/chain (take! in ::none)
+        (fn [s']
+          (if (identical? ::none s')
+            (do
+              (close! out)
+              s')
+            (d/loop []
+              (d/chain (take! s' ::none)
+                (fn [msg]
+                  (if (identical? ::none msg)
+                    msg
+                    (put! out msg)))
+                (fn [result]
+                  (case result
+                    false (close! in)
+                    ::none nil
+                    (d/recur)))))))
+        (fn [result]
+          (when-not (identical? ::none result)
+            (d/recur)))))
+    out))
+
 ;;;
 
 (defn buffer-stream
@@ -700,11 +776,7 @@
      (let [buf (stream)
            s' (stream)]
 
-       (connect-via s #(put! buf %) s'
-         {:upstream? true
-          :downstream? false
-          :description {:op "batch"}})
-       (on-drained s #(close! buf))
+       (connect-via-proxy s buf s' {:upstream? true, :description {:op "batch"}})
 
        (d/loop [msgs [], earliest-message -1]
          (if (= max-size (count msgs))
