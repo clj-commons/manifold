@@ -136,7 +136,7 @@ Let's say that we have two services which provide us numbers, and want to get th
 However, this isn't a very direct expression of what we're doing.  For more complex relationships between deferred values, our code will become even more difficult to understand.  In these cases, it's often best to use `let-flow`.
 
 ```clj
-(defn deferred-sum [a b]
+(defn deferred-sum []
   (let-flow [a (call-service-a)
              b (call-service-b)]
     (+ a b)))
@@ -162,4 +162,4 @@ but not this:
 
 In this example, `c` is declared within a normal `let` binding, and as such we can't treat it as if it were realized.
 
-It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's go-routines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a go-routine are inherently sequential.
+It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's goroutines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a goroutine are inherently sequential.
