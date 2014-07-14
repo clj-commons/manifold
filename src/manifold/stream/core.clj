@@ -184,7 +184,13 @@
                 (when (and closed? (s/drained? this))
                   (invoke-callbacks drained-callbacks))
 
-                (d/success-deferred msg))
+                (if-let [^Producer p (.poll producers)]
+                  (if-let [token (d/claim! (.deferred p))]
+                    (do
+                      (.offer messages (.message p))
+                      (Consumption. msg (.deferred p) token))
+                    (d/success-deferred msg))
+                  (d/success-deferred msg)))
 
               ;; see if there are any unclaimed producers left
               (loop [^Producer p (.poll producers)]

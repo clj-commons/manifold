@@ -2,8 +2,10 @@
   (:refer-clojure :exclude [realized? loop])
   (:require
     [clojure.tools.logging :as log]
-    [manifold.utils :as utils]
-    [manifold.time :as time]
+    [manifold
+     [utils :as utils]
+     [time :as time]
+     [debug :as debug]]
     [clojure.set :as set])
   (:import
     [java.util
@@ -239,7 +241,8 @@
 
   Object
   (finalize [_]
-    (when-not consumed?))
+    (when (and (not consumed?) (identical? ::error state) debug/*enabled?*)
+      (log/warn val "unconsumed deferred in error state")))
 
   clojure.lang.IObj
   (meta [_] mta)
@@ -468,6 +471,44 @@
 
 ;;;
 
+(defn- chain-
+  ([d x f g h]
+     (when (or (nil? d) (not (realized? d)))
+       (try
+         (let [x' (unwrap x)]
+
+           (if (deferred? x')
+             (let [d (or d (deferred))]
+               (on-realized x'
+                 #(chain- d % f g h)
+                 #(error! d %))
+               d)
+
+             (let [x'' (f x')]
+               (if (and (not (identical? x x'')) (deferrable? x''))
+                 (chain- d x'' g h identity)
+                 (let [x''' (g x'')]
+                   (if (and (not (identical? x'' x''')) (deferrable? x'''))
+                     (chain- d x''' h identity identity)
+                     (let [x'''' (h x''')]
+                       (if (and (not (identical? x''' x'''')) (deferrable? x''''))
+                         (chain- d x'''' identity identity identity)
+                         (if d
+                           (success! d x'''')
+                           (success-deferred x''''))))))))))
+
+         (catch Throwable e
+           (error-deferred e)))))
+  ([d x f g h & fs]
+     (when (or (nil? d) (not (realized? d)))
+       (let [d (or d (deferred))
+             x' (chain- d x f g h)]
+         (on-realized x'
+           #(utils/without-overflow
+              (connect (apply chain- d % fs) d))
+           #(error! d %))
+         d))))
+
 (defn chain
   "Composes functions, left to right, over the value `x`, returning a deferred containing
    the result.  When composing, either `x` or the returned values may be values which can
@@ -482,43 +523,15 @@
 
    "
   ([x]
-     (chain x identity identity identity))
+     (chain- nil x identity identity identity))
   ([x f]
-     (chain x f identity identity))
+     (chain- nil x f identity identity))
   ([x f g]
-     (chain x f g identity))
+     (chain- nil x f g identity))
   ([x f g h]
-     (try
-       (let [x' (unwrap x)]
-         (if (deferred? x')
-           (let [d (deferred)]
-             (on-realized x'
-               #(let [x (chain % f g h)]
-                  (if (deferred? x)
-                    (connect x d)
-                    (success! d x)))
-               #(error! d %))
-             d)
-           (let [x'' (f x')]
-             (if (and (not (identical? x x'')) (deferrable? x''))
-               (chain x'' g h identity)
-               (let [x''' (g x'')]
-                 (if (and (not (identical? x'' x''')) (deferrable? x'''))
-                   (chain x''' h identity identity)
-                   (let [x'''' (h x''')]
-                     (if (and (not (identical? x''' x'''')) (deferrable? x''''))
-                       (chain x'''' identity identity identity)
-                       (success-deferred x'''')))))))))
-       (catch Throwable e
-         (error-deferred e))))
+     (chain- nil x f g h))
   ([x f g h & fs]
-     (let [x' (chain x f g h)
-           d (deferred)]
-       (on-realized x'
-         #(utils/without-overflow
-            (connect (apply chain % fs) d))
-         #(error! d %))
-       d)))
+     (apply chain- nil x f g h fs)))
 
 (defn catch
   "An equivalent of the catch clause, which takes an `error-handler` function that will be invoked
@@ -589,23 +602,22 @@
 
           (recur (unchecked-inc idx) (rest s)))))))
 
-(defn timeout
-  "Takes a deferred, and returns a deferred that will be realized as `timeout-value` (or a
-   TimeoutException if none is specified) if the original deferred is not realized within
-   `interval` milliseconds."
+(defn timeout!
+  "Takes a deferred, and sets a timeout on it, such that it will be realized as `timeout-value`
+   (or a TimeoutException if none is specified) if it is not realized in `interval` ms.  Returns
+   the deferred that was passed in.
+
+   This will act directly on the deferred value passed in.  If the deferred represents a value
+   returned by `chain`, all actions not yet completed will be short-circuited upon timeout."
   ([d interval]
-     (let [d' (deferred)]
-       (connect d d')
-       (time/in interval
-         #(error! d'
-            (TimeoutException.
-              (str "timed out after " interval " milliseconds"))))
-       d'))
+     (time/in interval
+       #(error! d
+          (TimeoutException.
+            (str "timed out after " interval " milliseconds"))))
+     d)
   ([d interval timeout-value]
-     (let [d' (deferred)]
-       (connect d d')
-       (time/in interval #(success! d' timeout-value))
-       d')))
+     (time/in interval #(success! d' timeout-value))
+     d))
 
 (deftype Recur [s]
   clojure.lang.IDeref

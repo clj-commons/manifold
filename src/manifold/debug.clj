@@ -1,6 +1,6 @@
 (ns manifold.debug)
 
-(def ^:private ^:dynamic *enabled?* false)
+(def ^:dynamic *enabled?* false)
 
 (defn enable! []
   (.bindRoot #'*enabled?* true))

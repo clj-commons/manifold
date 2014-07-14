@@ -61,7 +61,7 @@ true
 
 `chain` returns a deferred representing the return value of the right-most callback.  If any of the functions returns a deferred or a value that can be coerced into a deferred, the chain will be paused until the deferred yields a value.
 
-Values that can be coerced into a deferred include Clojure futures, and core.async channels:
+Values that can be coerced into a deferred include Clojure futures, Clojure promises, and core.async channels:
 
 ```clj
 > (def d (d/deferred))
@@ -75,7 +75,7 @@ Values that can be coerced into a deferred include Clojure futures, and core.asy
 > (d/success! d 0)
 < the future returned 1 >
 true
-        ```
+```
 
 If any stage in `chain` throws an exception or returns a deferred that yields an error, all subsequent stages are skipped, and the deferred returned by `chain` yields that same error.  To handle these cases, you can use `manifold.deferred/catch`:
 
@@ -102,15 +102,17 @@ To combine multiple deferrable values into a single deferred that yields all the
 (1 2 3)
 ```
 
-Finally, we can use `manifold.deferred/timeout` to get a version of a deferred that will yield a special value if none is provided within the specified time:
+Finally, we can use `manifold.deferred/timeout!` to register a timeout on the deferred which will yield either a specified timeout value or a `TimeoutException` if the deferred is not realized within `n` milliseconds.
 
 ```clj
-> @(d/timeout
+> @(d/timeout!
      (future (Thread/sleep 1000) :foo)
      100
      :bar)
 :bar
 ```
+
+Note that if a timeout is placed on a deferred returned by `chain`, the timeout elapsing will prevent any further stages from being executed.
 
 ### `future` vs `defer`
 

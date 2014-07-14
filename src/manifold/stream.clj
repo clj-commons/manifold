@@ -270,10 +270,28 @@
 (require '[manifold.stream.graph])
 
 (defn connect
+  "Connects a source to a sink, propagating all messages from the former into the latter.
+
+   Optionally takes a map of parameters, which include:
+
+
+   `upstream?` - if closing the sink should always close the source, even if there are other
+   sinks downstream of the source.  Defaults to `false`.  Note that if the sink is the only
+   thing downstream of the source, the source will always be closed, unless it is permanent.
+
+   `downstream?` - if closing the source will close the sink.  Defaults to `true`.
+
+   `timeout` - if defined, the maximum time, in milliseconds, that will be spent trying to
+    put a message into the sink before closing it.  Useful when there are multiple sinks
+    downstream of a source, and you want to avoid a single backed up sink from blocking
+    all the others.
+
+    `description` - describes the connection, useful for traversing the stream topology via
+    `downstream`."
   {:arglists
-   '[[src dst]
-     [src
-      dst
+   '[[source sink]
+     [source
+      sink
       {:keys [upstream?
               downstream?
               timeout

@@ -1,0 +1,41 @@
+### the fundamental problems
+
+Writing to a queue requires data flowing in two directions: messages flowing from the producer, and backpressure signals from the consumer.  In typical Java, the messages are an explicit channel of communication, but the backpressure is implicit - the producer's thread will simply block whenever the consumer is unable to accept more messages.  The JVM provides a large number of synchronous primitives, as well as a threading model optimized for this sort of backpressure, but fundamentally this means that every queue must have its own thread.
+
+An asynchronous queue can't rely on the Java threading model, so it has to make the channel conveying backpressure explicit.  One example of this is node.js, which will simply [return `false`](http://nodejs.org/api/stream.html#stream_writable_write_chunk_encoding_callback) to calls which enqueue data when it can't accept any more.  Unfortunately, where the blocking semantics of Java are strictly enforced, this is more of a hint.  Nothing prevents the asynchronous programmer from blithely enqueueing more messages until they run out of memory or hit some underlying limitation which turns their code unexpectedly synchronous.
+
+However, the asynchronous model does have a big advantage: it's a superset of the synchronous model.  The synchronous model uses **structural backpressure**, whereas the asynchronous method represents **backpressure as data**.  It's easy to transform data into structure: any asynchronous data, whether provided via a deferred value or a callback, can be blocked on.  The inverse, however, requires us to wrap a thread around any operation which might block, which creates significant overhead.  Worse yet, dependent tasks that use the same finite thread pool risk deadlock.  This can be worked around via sort of the cooperative multithreading used by ForkJoin, but this can end up being quite fiddly and difficult to fully test.
+
+### core.async
+
+[core.async](https://github.com/clojure/core.async) does something of an end-run on this problem by emulating Java's structural backpressure without using threads.  This has a number of nice properties, but also introduces some problems of its own.
+
+The most obvious problem is that core.async uses an execution model which assumes pervasive asynchrony, which is not a safe assumption on the JVM.  The programmer must manually differentiate between scopes where code will and will not block; failure to do so correctly will exhaust the non-blocking thread pool and cause a deadlock.
+
+A less obvious problem is that core.async doesn't play nicely with other asynchronous abstractions.  If I have a callback providing messages that I want to enqueue into a core.async channel, the most "obvious" approach is incorrect:
+
+```clj
+(on-message emitter #(go (>! ch %)))
+```
+
+Goroutines are not strongly ordered with respect to each other, so different messages may be enqueued on different threads, causing them to be enqueued out-of-order.  The channel returned by the goroutine can be used to provide some sort of backpressure to the asynchronous producer, but unless the backpressure mechanism atomically stops and starts the flow of messages, there's still a risk.
+
+The simplest approach that guarantees message ordering, oddly enough, is to put a synchronous queue between the two asynchronous mechamisms:
+
+```clj
+(let [q (LinkedBlockingQueue.)]
+  (on-message emitter #(.put q %))
+  (future
+    (loop []
+      (>!! ch (.take q)))))
+```
+
+This may be a decent workaround in some cases, but when using asynchronous frameworks like [Netty](http://netty.io/) which feed large numbers of streams with a small number of threads, it leaves a great deal to be desired.  In practice, this means that core.async is most effectively used as an **application-level abstraction**, where the programmer can guarantee pervasive use of core.async, and can design the execution model around core.async's needs.
+
+However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.
+
+### manifold
+
+Manifold provides base-level asynchronous value and stream abstractions, as well as compability shims with Java's `BlockingQueues`, Clojure's seqs and futures, and core.async's channels.  It is not intended to be as feature-rich as core.async, but rather to be just feature-rich enough to enable library developers to use it as an asynchronous [lingua franca](http://en.wikipedia.org/wiki/Lingua_franca).  Application developers may choose to use Manifold's deferreds and streams, or transform them into core.async channels, or Clojure seqs, or any other representation they find useful.
+
+It is, at this moment, fully functional but subject to change.  Feedback is welcomed.
