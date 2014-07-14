@@ -616,7 +616,7 @@
             (str "timed out after " interval " milliseconds"))))
      d)
   ([d interval timeout-value]
-     (time/in interval #(success! d' timeout-value))
+     (time/in interval #(success! d timeout-value))
      d))
 
 (deftype Recur [s]
