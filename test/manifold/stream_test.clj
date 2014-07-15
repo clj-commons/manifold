@@ -26,7 +26,7 @@
     (future
       (doseq [x vs]
         (s/put! sink x)))
-    (is (= vs (s/stream->lazy-seq source 10)))))
+    (is (= vs (s/stream->lazy-seq source 100)))))
 
 (defn splice-into-stream [gen]
   #(let [x (gen)
