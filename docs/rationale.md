@@ -4,7 +4,7 @@ Writing to a queue requires data flowing in two directions: messages flowing fro
 
 An asynchronous queue can't rely on the Java threading model, so it has to make the channel conveying backpressure explicit.  One example of this is node.js, which will simply [return `false`](http://nodejs.org/api/stream.html#stream_writable_write_chunk_encoding_callback) to calls which enqueue data when it can't accept any more.  Unfortunately, where the blocking semantics of Java are strictly enforced, this is more of a hint.  Nothing prevents the asynchronous programmer from blithely enqueueing more messages until they run out of memory or hit some underlying limitation which turns their code unexpectedly synchronous.
 
-However, the asynchronous model does have a big advantage: it's a superset of the synchronous model.  The synchronous model uses **structural backpressure**, whereas the asynchronous method represents **backpressure as data**.  It's easy to transform data into structure: any asynchronous data, whether provided via a deferred value or a callback, can be blocked on.  The inverse, however, requires us to wrap a thread around any operation which might block, which creates significant overhead.  Worse yet, dependent tasks that use the same finite thread pool risk deadlock.  This can be worked around via sort of the cooperative multithreading used by ForkJoin, but this can end up being quite fiddly and difficult to fully test.
+However, the asynchronous model does have a big advantage: it's a superset of the synchronous model.  The synchronous model uses **structural backpressure**, whereas the asynchronous method represents **backpressure as data**.  It's easy to transform data into structure: any asynchronous data, whether provided via a deferred value or a callback, can be blocked on.  The inverse, however, requires us to wrap a thread around any operation which might block, which creates significant overhead.  Worse yet, dependent tasks that use the same finite thread pool risk deadlock.  This can be worked around via the sort of the cooperative multithreading used by ForkJoin, but this can end up being quite fiddly and difficult to get right.
 
 ### core.async
 
@@ -26,13 +26,13 @@ The simplest approach that guarantees message ordering, oddly enough, is to put 
 (let [q (LinkedBlockingQueue.)]
   (on-message emitter #(.put q %))
   (future
-    (loop []
+    (while true
       (>!! ch (.take q)))))
 ```
 
 This may be a decent workaround in some cases, but when using asynchronous frameworks like [Netty](http://netty.io/) which feed large numbers of streams with a small number of threads, it leaves a great deal to be desired.  In practice, this means that core.async is most effectively used as an **application-level abstraction**, where the programmer can guarantee pervasive use of core.async, and can design the execution model around core.async's needs.
 
-However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.  In general, **all of the existing stream representations are walled gardens**, including but limited to [RxJava](https://github.com/Netflix/RxJava), [Reactive Streams](http://www.reactive-streams.org/), [Lamina](https://github.com/ztellman/lamina), and [Reactor](https://github.com/reactor/reactor).  This is strong odds with Clojure's philosophy, which focuses on a large number of functions for a very small number of universal data structures.
+However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.  In general, **all of the existing stream representations are walled gardens**, including but not limited to [RxJava](https://github.com/Netflix/RxJava), [Reactive Streams](http://www.reactive-streams.org/), [Lamina](https://github.com/ztellman/lamina), and [Reactor](https://github.com/reactor/reactor).  This is strong odds with Clojure's philosophy, which focuses on a large number of functions for a very small number of universal data structures.
 
 ### manifold
 
@@ -41,7 +41,7 @@ Manifold attempts to provide a common ground between all these abstractions.  It
 * pervasive asynchrony, emulated by wrapping threads around synchronous objects where necessary
 * all asynchronous values and operations represented as deferreds
 * stream interaction reduced to `put!`, `take!`, and variations of each which can time out
-* using `put!` and `take!`, provide a `connect` function which tracks the resulting topology
+* provide a `connect` function, implemented atop `put!` and `take!`, which tracks the resulting stream topology
 
 The `connect` and topology mechanisms are pluggable, allowing for other stream abstractions to "extend" a Manifold topology.  A Manifold stream can be transformed to and from a `BlockingQueue`, Clojure seq, and core.async channel.  Extending to other representations is as simple as defining `put!` and `take!` functions.  A Manifold deferred can be transparently substituted for a Clojure future or promise, and a future or promise will be automatically coerced to a deferred where necessary.
 
