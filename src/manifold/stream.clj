@@ -1,6 +1,6 @@
 (ns manifold.stream
   (:refer-clojure
-    :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by])
+    :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by repeatedly])
   (:require
     [clojure.core :as core]
     [manifold.deferred :as d]
@@ -489,21 +489,21 @@
 
 (defn lazy-seq->stream
   "Transforms a lazy-sequence into a stream."
-  ([s]
-     (let [s' (stream)]
-       (utils/future
-         (try
-           (loop [s s]
-             (if (empty? s)
-               (close! s')
-               (let [x (first s)]
-                 (.put ^IEventSink s' x true)
-                 (recur (rest s)))))
-           (catch Throwable e
-             (.printStackTrace e)
-             (log/error e "error in lazy-seq->stream")
-             (close! s'))))
-       (source-only s'))))
+  [s]
+  (let [s' (stream)]
+    (utils/future
+      (try
+        (loop [s s]
+          (if (empty? s)
+            (close! s')
+            (let [x (first s)]
+              (.put ^IEventSink s' x true)
+              (recur (rest s)))))
+        (catch Throwable e
+          (.printStackTrace e)
+          (log/error e "error in lazy-seq->stream")
+          (close! s'))))
+    (source-only s')))
 
 (defn- periodically-
   [stream period initial-delay f]
@@ -548,6 +548,60 @@
 
 ;;;
 
+(deftype RepeatedlySource
+  [f
+   ^LinkedList callbacks
+   ^:volatile-mutable closed?
+   ^:volatile-mutable weak-handle
+   lock]
+  IStream
+  (description [_]
+    {:type "repeatedly"})
+  (isSynchronous [_]
+    false)
+  (downstream [this]
+    (manifold.stream.graph/downstream this))
+  (weakHandle [this reference-queue]
+    (utils/with-lock lock
+      (or weak-handle
+        (do
+          (set! weak-handle (WeakReference. this reference-queue))
+          weak-handle))))
+  (close [_]
+    (utils/with-lock lock
+      (set! closed? true)
+      (utils/invoke-callbacks callbacks)))
+
+  IEventSource
+  (take [_ default-val blocking?]
+    (if @closed?
+      default-val
+      (let [x (d/chain nil (fn [_] (f)))]
+        (if blocking?
+          @x
+          x))))
+  (take [this default-val blocking? timeout timeout-val]
+    (.take this default-val blocking?))
+  (isDrained [_]
+    @closed?)
+  (onDrained [_ callback]
+    (utils/with-lock
+      (if @closed?
+        (try
+          (callback)
+          (catch Throwable e
+            (log/error e "error in callback")))
+        (.add callbacks callback))))
+  (connector [_ sink]))
+
+(defn repeatedly
+  "Equivalent to Clojure's `repeatedly`, but defines a source which will emit messages based
+   on repeatedly invocation of `f`."
+  [f]
+  (RepeatedlySource. f (LinkedList.) false nil (utils/mutex)))
+
+;;;
+
 (declare zip)
 
 (defn map
@@ -574,7 +628,7 @@
        (map vector a))
     ([a & rest]
        (let [srcs (list* a rest)
-             intermediates (repeatedly (count srcs) stream)
+             intermediates (clojure.core/repeatedly (count srcs) stream)
              dst (stream)]
 
          (doseq [[a b] (core/map list srcs intermediates)]
@@ -609,6 +663,36 @@
         {:description {:op "filter"}})
       (source-only s'))))
 
+(defn reductions
+  "Equivalent to Clojure's `reductions`, but for streams instead of sequences."
+  ([f s]
+     (reductions f ::none s))
+  ([f initial-value s]
+     (let [s' (stream)
+           val (atom initial-value)]
+       (d/chain (if (identical? ::none initial-value)
+                  true
+                  (put! s' initial-value))
+         (fn [_]
+           (connect-via s
+             (fn [msg]
+               (if (identical? ::none @val)
+                 (do
+                   (reset! val msg)
+                   (put! s' msg))
+                 (-> msg
+                   (d/chain
+                     (partial f @val)
+                     (fn [x]
+                       (reset! val x)
+                       (put! s' x)))
+                   (d/catch (fn [e]
+                              (log/error e "error in reductions")
+                              (close! s)
+                              false)))))
+             s')))
+       s')))
+
 (defn mapcat
   "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
   [f s]
@@ -632,6 +716,7 @@
 
     (connect-via-proxy s in out {:description {:op "partition-by"}})
 
+    ;; TODO: how is this represented in the topology?
     (d/loop [prev ::x, s' nil]
       (d/chain (take! in ::none)
         (fn [msg]

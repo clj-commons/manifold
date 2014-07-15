@@ -89,8 +89,7 @@
       (try
         (c)
         (catch Throwable e
-          ;; todo: log something
-          )))))
+          (log/error e "error in invoke-callbacks"))))))
 
 ;;;
 

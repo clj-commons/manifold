@@ -126,7 +126,7 @@
 
     mapcat s/mapcat list (range 10)
 
-
+    reductions s/reductions + (range 10)
     ))
 
 ;;;

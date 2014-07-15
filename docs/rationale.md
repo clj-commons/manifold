@@ -32,10 +32,17 @@ The simplest approach that guarantees message ordering, oddly enough, is to put 
 
 This may be a decent workaround in some cases, but when using asynchronous frameworks like [Netty](http://netty.io/) which feed large numbers of streams with a small number of threads, it leaves a great deal to be desired.  In practice, this means that core.async is most effectively used as an **application-level abstraction**, where the programmer can guarantee pervasive use of core.async, and can design the execution model around core.async's needs.
 
-However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.
+However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.  In general, **all of the existing stream representations are walled gardens**, including but limited to [RxJava](https://github.com/Netflix/RxJava), [Reactive Streams](http://www.reactive-streams.org/), [Lamina](https://github.com/ztellman/lamina), and [Meltdown](https://github.com/clojurewerkz/meltdown).  This is strong odds with Clojure's philosophy, which focuses on a large number of functions for a very small number of universal data structures.
 
 ### manifold
 
-Manifold provides base-level asynchronous value and stream abstractions, as well as compability shims with Java's `BlockingQueues`, Clojure's seqs and futures, and core.async's channels.  It is not intended to be as feature-rich as core.async, but rather to be just feature-rich enough to enable library developers to use it as an asynchronous [lingua franca](http://en.wikipedia.org/wiki/Lingua_franca).  Application developers may choose to use Manifold's deferreds and streams, or transform them into core.async channels, or Clojure seqs, or any other representation they find useful.
+Manifold attempts to provide a common ground between all these abstractions.  It allows for simple, efficient interop with both synchronous and asynchronous queue implementations, allowing for other stream representations to be transformed to and from Manifold streams.  Manifold has a small number of design principles:
 
-It is, at this moment, fully functional but subject to change.  Feedback is welcomed.
+* pervasive asynchrony, emulated by wrapping threads around synchronous objects where necessary
+* all asynchronous values and operations represented as deferreds
+* stream interaction reduced to `put!`, `take!`, and variations of each which can time out
+* using `put!` and `take!`, provide a `connect` function which tracks the resulting topology
+
+The `connect` and topology mechanisms are pluggable, allowing for other stream abstractions to "extend" a Manifold topology.  A Manifold stream can be transformed to and from a `BlockingQueue`, Clojure seq, and core.async channel.  Extending to other representations is as simple as defining `put!` and `take!` functions.  A Manifold deferred can be transparently substituted for a Clojure future or promise, and a future or promise will be automatically coerced to a deferred where necessary.
+
+Manifold is not intended to be as feature-rich as other stream libraries, but rather to be just feature-rich enough to enable library developers to use it as an asynchronous [lingua franca](http://en.wikipedia.org/wiki/Lingua_franca).  It is, at this moment, fully functional but subject to change.  Feedback is welcomed.

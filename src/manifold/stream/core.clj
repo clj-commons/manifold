@@ -94,13 +94,19 @@
   (onClosed [_ callback]
     (utils/with-lock lock
       (if closed?
-        (callback)
+        (try
+          (callback)
+          (catch Throwable e
+            (log/error e "error in callback")))
         (.add closed-callbacks callback))))
 
   (onDrained [this callback]
     (utils/with-lock lock
       (if (s/drained? this)
-        (callback)
+        (try
+          (callback)
+          (catch Throwable e
+            (log/error e "error in callback")))
         (.add drained-callbacks callback))))
 
   (isClosed [_]
