@@ -10,6 +10,8 @@
   (:import
     [java.util
      LinkedList]
+    [java.io
+     Writer]
     [java.util.concurrent
      Future
      TimeoutException
@@ -311,7 +313,14 @@
     (deref-deferred nil))
   (deref [this time timeout-value]
     (set! consumed? true)
-    (deref-deferred timeout-value time TimeUnit/MILLISECONDS)))
+    (deref-deferred timeout-value time TimeUnit/MILLISECONDS))
+
+  (toString [_]
+    (let [state state]
+      (case state
+        ::error   (str "<< ERROR: " (pr-str val) " >>")
+        ::success (str "<< " (pr-str val) " >>")
+        "<< \u2026 >>"))))
 
 (deftype SuccessDeferred
   [val
@@ -352,7 +361,8 @@
   (deref [this] val)
   (deref [this time timeout-value] val)
 
-  (toString [_] (pr-str val)))
+  (toString [_]
+    (str "<< " (pr-str val) " >>")))
 
 (deftype ErrorDeferred
   [^Throwable error
@@ -401,7 +411,10 @@
     (set! consumed? true)
     (if (instance? Throwable error)
       (throw error)
-      (throw (ex-info "" {:error error})))))
+      (throw (ex-info "" {:error error}))))
+
+  (toString [_]
+    (str "<< ERROR: " (pr-str error) " >>")))
 
 (defn deferred
   "Equivalent to Clojure's `deferred`, but also allows asynchronous callbacks to be registered
@@ -569,38 +582,41 @@
         @(zip (future 1) 2 3) => [1 2 3]
 
   "
-  [& deferred-or-values]
-  (let [cnt (count deferred-or-values)
-        ^objects ary (object-array cnt)
-        counter (AtomicInteger. cnt)
-        d (deferred)]
-    (clojure.core/loop [idx 0, s deferred-or-values]
+  ([x]
+     (chain x vector))
+  ([a & rst]
+     (let [deferred-or-values (list* a rst)
+           cnt (count deferred-or-values)
+           ^objects ary (object-array cnt)
+           counter (AtomicInteger. cnt)
+           d (deferred)]
+       (clojure.core/loop [idx 0, s deferred-or-values]
 
-      (if (empty? s)
+         (if (empty? s)
 
-        ;; no further results, decrement the counter one last time
-        ;; and return the result if everything else has been realized
-        (if (zero? (.get counter))
-          (success-deferred (or (seq ary) (list)))
-          d)
+           ;; no further results, decrement the counter one last time
+           ;; and return the result if everything else has been realized
+           (if (zero? (.get counter))
+             (success-deferred (or (seq ary) (list)))
+             d)
 
-        (let [x (first s)]
-          (if-let [x' (->deferred x)]
+           (let [x (first s)]
+             (if-let [x' (->deferred x)]
 
-            (on-realized (chain x')
-              (fn [val]
-                (aset ary idx val)
-                (when (zero? (.decrementAndGet counter))
-                  (success! d (seq ary))))
-              (fn [err]
-                (error! d err)))
+               (on-realized (chain x')
+                 (fn [val]
+                   (aset ary idx val)
+                   (when (zero? (.decrementAndGet counter))
+                     (success! d (seq ary))))
+                 (fn [err]
+                   (error! d err)))
 
-            ;; not deferrable - set, decrement, and recur
-            (do
-              (aset ary idx x)
-              (.decrementAndGet counter)))
+               ;; not deferrable - set, decrement, and recur
+               (do
+                 (aset ary idx x)
+                 (.decrementAndGet counter)))
 
-          (recur (unchecked-inc idx) (rest s)))))))
+             (recur (unchecked-inc idx) (rest s))))))))
 
 (defn timeout!
   "Takes a deferred, and sets a timeout on it, such that it will be realized as `timeout-value`
@@ -623,7 +639,9 @@
   clojure.lang.IDeref
   (deref [_] s))
 
-(defn recur [& args]
+(defn recur
+  "A special recur that can be used with `manifold.deferred/loop`."
+  [& args]
   (Recur. args))
 
 (defmacro loop
@@ -764,3 +782,12 @@
              (fn [[~@gensyms']]
                (let [~@(interleave vars' gensyms')]
                  ~@body)))))))
+
+(defmethod print-method Deferred [o ^Writer w]
+  (.write w (str o)))
+
+(defmethod print-method ErrorDeferred [o ^Writer w]
+  (.write w (str o)))
+
+(defmethod print-method SuccessDeferred [o ^Writer w]
+  (.write w (str o)))

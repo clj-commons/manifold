@@ -62,7 +62,7 @@ Callbacks are a useful building block, but they're a painful way to create async
 
 Manifold's streams provide mechanisms for asynchronous puts and takes, timeouts, and backpressure.  They are compatible with Java's `BlockingQueues`, Clojure's lazy sequences, and core.async's channels.  Methods for converting to and from each are provided.
 
-Manifold differentiates between **sources**, which emit messages, and **sinks*, which consume messages.  We can interact with sources using `take!` and `try-take!`, which return deferred values representing the next message.  We can interact with sinks using `put!` and `try-put!`, which return a deferred values which will yield `true` if the put is successful, or `false` otherwise.
+Manifold differentiates between **sources**, which emit messages, and **sinks**, which consume messages.  We can interact with sources using `take!` and `try-take!`, which return deferred values representing the next message.  We can interact with sinks using `put!` and `try-put!`, which return a deferred values which will yield `true` if the put is successful, or `false` otherwise.
 
 We can create a stream using `(manifold.stream/stream)`:
 

@@ -65,7 +65,7 @@
       (f x))))
 
 (defn ->sink
-  "Converts, is possible, the object to a Manifold sink, or `nil` if not possible."
+  "Converts, if possible, the object to a Manifold sink, or `nil` if not possible."
   [x]
   (cond
     (instance? IEventSink x) x
@@ -73,7 +73,7 @@
     :else nil))
 
 (defn ->source
-  "Converts, is possible, the object to a Manifold source, or `nil` if not possible."
+  "Converts, if possible, the object to a Manifold source, or `nil` if not possible."
   [x]
   (cond
     (instance? IEventSource x) x
@@ -145,6 +145,16 @@
   "Returns true if the object is a Manifold stream."
   [x]
   `(instance? IStream ~x))
+
+(definline source?
+  "Returns true if the object is a Manifold source"
+  [x]
+  `(instance? IEventSource ~x))
+
+(definline sink?
+  "Returns true if the object is a Manifold source"
+  [x]
+  `(instance? IEventSink ~x))
 
 (definline description
   "Returns a description of the stream."
