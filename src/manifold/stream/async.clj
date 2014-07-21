@@ -22,53 +22,25 @@
      IEventSource
      IStream]))
 
-(deftype CoreAsyncSource
+(s/def-source CoreAsyncSource
   [ch
-   ^AtomicBoolean drained?
-   ^BlockingQueue drained-callbacks
-   ^AtomicReference last-take
-   ^:volatile-mutable weak-handle
-   ^Lock lock]
-
-  IStream
+   ^AtomicReference last-take]
 
   (isSynchronous [_] false)
 
   (description [_]
     {:type "core.async"})
 
-  (weakHandle [this reference-queue]
-    (utils/with-lock lock
-      (or weak-handle
-        (do
-          (set! weak-handle (WeakReference. this reference-queue))
-          weak-handle))))
-
   (close [_]
-    nil)
-
-  (downstream [this]
-    (g/downstream this))
-
-  IEventSource
-
-  (isDrained [this]
-    (.get drained?))
-
-  (onDrained [this callback]
-    (utils/with-lock lock
-      (if (.get drained?)
-        (callback)
-        (.add drained-callbacks callback))))
+    (a/close! ch))
 
   (take [this blocking? default-val]
     (if blocking?
 
       (let [x (a/<!! ch)]
         (if (nil? x)
-          (utils/with-lock lock
-            (.set drained? true)
-            (utils/invoke-callbacks drained-callbacks)
+          (do
+            (.markDrained this)
             default-val)
           x))
 
@@ -79,9 +51,8 @@
                    (let [x (a/<! ch)]
                      (d/success! d
                        (if (nil? x)
-                         (utils/with-lock lock
-                           (.set drained? true)
-                           (utils/invoke-callbacks drained-callbacks)
+                         (do
+                           (.markDrained this)
                            default-val)
                          x)))))]
         (if (d/realized? d')
@@ -96,9 +67,8 @@
                (a/go
                  (let [result (a/alt!
                                 ch ([x] (if (nil? x)
-                                          (utils/with-lock lock
-                                            (.set drained? true)
-                                            (utils/invoke-callbacks drained-callbacks)
+                                          (do
+                                            (.markDrained this)
                                             default-val)
                                           x))
                                 (a/timeout timeout) timeout-val
@@ -110,34 +80,23 @@
         (d/on-realized d' f f))
       (if blocking?
         @d
-        d)))
+        d))))
 
-  (connector [this sink]
-    nil))
-
-(deftype CoreAsyncSink
+(s/def-sink CoreAsyncSink
   [ch
-   ^AtomicBoolean closed?
-   ^BlockingQueue close-callbacks
-   ^AtomicReference last-put
-   ^Lock lock]
+   ^AtomicReference last-put]
 
-  IStream
   (isSynchronous [_] false)
 
   (description [_]
     {:type "core.async"})
 
-  (downstream [this]
-    nil)
-
   (close [this]
     (utils/with-lock lock
-      (if (.get closed?)
+      (if (s/closed? this)
         false
         (do
-          (.set closed? true)
-          (utils/invoke-callbacks close-callbacks)
+          (.markClosed this)
           (let [d (.get last-put)
                 f (fn [_] (a/close! ch))]
             (d/on-realized d
@@ -145,27 +104,13 @@
               nil)
             true)))))
 
-  (weakHandle [_ _]
-    nil)
-
-  IEventSink
-
-  (isClosed [_]
-    (.get closed?))
-
-  (onClosed [this f]
-    (utils/with-lock lock
-      (if (.get closed?)
-        (f)
-        (.add close-callbacks f))))
-
   (put [this x blocking?]
 
     (assert (not (nil? x)) "core.async channel cannot take `nil` as a message")
 
     (utils/with-lock lock
       (cond
-        (.get closed?)
+        (s/closed? this)
         (if blocking?
           false
           (d/success-deferred false))
@@ -195,7 +140,7 @@
 
     (utils/with-lock lock
 
-      (if (.get closed?)
+      (if (s/closed? this)
 
         (if blocking?
           false
@@ -221,21 +166,14 @@
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (to-sink [ch]
-    (CoreAsyncSink.
+    (create-CoreAsyncSink
       ch
-      (AtomicBoolean. false)
-      (LinkedBlockingQueue.)
-      (AtomicReference. (d/success-deferred true))
-      (utils/mutex))))
+      (AtomicReference. (d/success-deferred true)))))
 
 (extend-protocol s/Sourceable
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (to-source [ch]
-    (CoreAsyncSource.
+    (create-CoreAsyncSource
       ch
-      (AtomicBoolean. false)
-      (LinkedBlockingQueue.)
-      (AtomicReference. (d/success-deferred true))
-      nil
-      (utils/mutex))))
+      (AtomicReference. (d/success-deferred true)))))

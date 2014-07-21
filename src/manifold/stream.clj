@@ -2,7 +2,7 @@
   (:refer-clojure
     :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by repeatedly])
   (:require
-    [clojure.core :as core]
+    [clojure.core :as clj]
     [manifold.deferred :as d]
     [manifold.utils :as utils]
     [manifold.time :as time]
@@ -42,15 +42,105 @@
 (definterface IEventSink
   (put [x blocking?])
   (put [x blocking? timeout timeout-val])
+  (markClosed [])
   (isClosed [])
   (onClosed [callback]))
 
 (definterface IEventSource
   (take [default-val blocking?])
   (take [default-val blocking? timeout timeout-val])
+  (markDrained [])
   (isDrained [])
   (onDrained [callback])
   (connector [sink]))
+
+(def ^:private default-stream-impls
+  `((~'downstream [this#] (manifold.stream.graph/downstream this#))
+    (~'weakHandle [this# ref-queue#]
+      (utils/with-lock ~'lock
+        (or ~'__weakHandle
+          (set! ~'__weakHandle (WeakReference. this# ref-queue#)))))
+    (~'close [_#])))
+
+(def ^:private sink-params
+  '[lock
+    ^:volatile-mutable __isClosed
+    ^java.util.LinkedList __closedCallbacks
+    ^:volatile-mutable __weakHandle])
+
+(def ^:private default-sink-impls
+  `((~'isClosed [this#] ~'__isClosed)
+    (~'onClosed [this# callback#]
+       (utils/with-lock ~'lock
+         (if ~'__isClosed
+           (callback#)
+           (.add ~'__closedCallbacks callback#))))
+    (~'markClosed [this#]
+      (utils/with-lock ~'lock
+        (set! ~'__isClosed true)
+        (utils/invoke-callbacks ~'__closedCallbacks)))))
+
+(def ^:private source-params
+  '[lock
+    ^:volatile-mutable __isDrained
+    ^java.util.LinkedList __drainedCallbacks
+    ^:volatile-mutable __weakHandle])
+
+(def ^:private default-source-impls
+  `((~'isDrained [this#] ~'__isDrained)
+    (~'onDrained [this# callback#]
+      (utils/with-lock ~'lock
+        (if ~'__isDrained
+          (callback#)
+          (.add ~'__drainedCallbacks callback#))))
+    (~'markDrained [this#]
+      (utils/with-lock ~'lock
+        (set! ~'__isDrained true)
+        (utils/invoke-callbacks ~'__drainedCallbacks)))
+    (~'connector [this# _#] nil)))
+
+(defn- merged-body [& bodies]
+  (let [bs (apply clj/concat bodies)]
+    (->> bs
+      (clj/map #(vector [(first %) (clj/count (second %))] %))
+      (into {})
+      vals)))
+
+(defmacro def-source [name params & body]
+  `(do
+     (deftype ~name
+       ~(vec (distinct (clj/concat params source-params)))
+       IStream
+       IEventSource
+       ~@(merged-body default-stream-impls default-source-impls body))
+     (defn ~(with-meta (symbol (str "create-" name)) {:private true})
+       [~@(clj/map #(with-meta % nil) params)]
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
+
+(defmacro def-sink [name params & body]
+  `(do
+     (deftype ~name
+       ~(vec (distinct (clj/concat params sink-params)))
+       IStream
+       IEventSink
+       ~@(merged-body default-stream-impls default-sink-impls body))
+     (defn ~(with-meta (symbol (str "create-" name)) {:private true})
+       [~@(clj/map #(with-meta % nil) params)]
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
+
+(defmacro def-sink+source [name params & body]
+  `(do
+     (deftype ~name
+       ~(vec (distinct (clj/concat params source-params sink-params)))
+       IStream
+       IEventSink
+       IEventSource
+       ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
+     (defn ~(with-meta (symbol (str "create-" name)) {:private true})
+       [~@(clj/map #(with-meta % nil) params)]
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))))
+
+;;;
 
 (let [f (utils/fast-satisfies #'Sinkable)]
   (defn sinkable? [x]
@@ -638,16 +728,16 @@
        (map vector a))
     ([a & rest]
        (let [srcs (list* a rest)
-             intermediates (clojure.core/repeatedly (count srcs) stream)
+             intermediates (clj/repeatedly (count srcs) stream)
              dst (stream)]
 
-         (doseq [[a b] (core/map list srcs intermediates)]
+         (doseq [[a b] (clj/map list srcs intermediates)]
            (connect-via a #(put! b %) b {:description {:op "zip"}}))
 
          (d/loop []
            (d/chain
              (->> intermediates
-               (core/map #(take! % ::drained))
+               (clj/map #(take! % ::drained))
                (apply d/zip))
              (fn [msgs]
                (if (some-drained? msgs)

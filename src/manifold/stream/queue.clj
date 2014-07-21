@@ -22,39 +22,16 @@
      IEventSource
      IStream]))
 
-(deftype BlockingQueueSource
+(s/def-source BlockingQueueSource
   [^BlockingQueue queue
-   ^AtomicReference last-take
-   lock
-   ^:volatile-mutable weak-handle]
+   ^AtomicReference last-take]
 
-  IStream
   (isSynchronous [_]
     true)
 
   (description [_]
     {:type (.getCanonicalName (class queue))
      :buffer-size (.size queue)})
-
-  (close [_]
-    nil)
-
-  (weakHandle [this reference-queue]
-    (utils/with-lock lock
-      (or weak-handle
-        (do
-          (set! weak-handle (WeakReference. this reference-queue))
-          weak-handle))))
-
-  (downstream [this]
-    (g/downstream this))
-
-  IEventSource
-  (onDrained [this f]
-    )
-
-  (isDrained [_]
-    false)
 
   (take [this blocking? default-val]
     (if blocking?
@@ -101,53 +78,24 @@
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
-        d)))
+        d))))
 
-  (connector [this sink]
-    nil))
 
-(deftype BlockingQueueSink
+(s/def-sink BlockingQueueSink
   [^BlockingQueue queue
-   ^BlockingQueue closed-callbacks
-   ^AtomicBoolean closed?
-   ^AtomicReference last-put
-   ^Lock lock]
+   ^AtomicReference last-put]
 
-  IStream
   (isSynchronous [_]
     true)
+
+  (close [this]
+    (.markClosed this))
 
   (description [_]
     (let [size (.size queue)]
       {:type (.getCanonicalName (class queue))
        :buffer-capacity (+ (.remainingCapacity queue) size)
        :buffer-size size}))
-
-  (downstream [this]
-    nil)
-
-  (weakHandle [_ _]
-    nil)
-
-  (close [this]
-    (utils/with-lock lock
-      (if (.get closed?)
-        false
-        (do
-          (.set closed? true)
-          (utils/invoke-callbacks closed-callbacks)
-          true))))
-
-  IEventSink
-
-  (onClosed [this f]
-    (utils/with-lock lock
-      (if (.get closed?)
-        (f)
-        (.add closed-callbacks f))))
-
-  (isClosed [_]
-    (.get closed?))
 
   (put [this x blocking?]
 
@@ -165,7 +113,7 @@
                  (utils/with-lock lock
                    (try
                      (or
-                       (and (.get closed?)
+                       (and (s/closed? this)
                          (d/success! d false))
 
                        (and (.offer queue x)
@@ -195,7 +143,7 @@
                  (utils/with-lock lock
                    (try
                      (or
-                       (and (.get closed?)
+                       (and (s/closed? this)
                          (d/success! d false))
 
                        (and (.offer queue x)
@@ -217,19 +165,14 @@
 
   BlockingQueue
   (to-sink [queue]
-    (BlockingQueueSink.
+    (create-BlockingQueueSink
       queue
-      (LinkedBlockingQueue.)
-      (AtomicBoolean. false)
-      (AtomicReference. (d/success-deferred true))
-      (utils/mutex))))
+      (AtomicReference. (d/success-deferred true)))))
 
 (extend-protocol s/Sourceable
 
   BlockingQueue
   (to-source [queue]
-    (BlockingQueueSource.
+    (create-BlockingQueueSource
       queue
-      (AtomicReference. (d/success-deferred true))
-      (utils/mutex)
-      nil)))
+      (AtomicReference. (d/success-deferred true)))))

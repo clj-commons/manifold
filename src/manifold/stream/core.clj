@@ -20,40 +20,22 @@
      IEventSource
      IStream]))
 
+;;;
+
 (deftype Production [deferred token])
 (deftype Consumption [message deferred token])
 (deftype Producer [message deferred])
 (deftype Consumer [deferred default-val])
 
-(defn- invoke-callbacks [^BlockingQueue callbacks]
-  (loop []
-    (when-let [c (.poll callbacks)]
-      (try
-        (c)
-        (catch Throwable e
-          (log/error e "error in callback"))))))
-
-(deftype Stream
+(s/def-sink+source Stream
   [
-   lock
-
-   ^:volatile-mutable weak-handle
-
    ^boolean permanent?
    description
-
    ^BlockingQueue producers
    ^BlockingQueue consumers
-
    ^long capacity
    ^BlockingQueue messages
-
-   ^BlockingQueue closed-callbacks
-   ^BlockingQueue drained-callbacks
-   ^:volatile-mutable closed?
    ]
-
-  IStream
 
   (isSynchronous [_] false)
 
@@ -64,22 +46,16 @@
              :buffer-size (if messages (.size messages) 0)
              :pending-takes (.size consumers)
              :permanent? permanent?
-             :closed? closed?
+             :closed? (s/closed? this)
              :drained? (s/drained? this)}]
       (if description
         (description m)
         m)))
 
-  IEventSink
-
-  (downstream [this]
-    (g/downstream this))
-
   (close [this]
     (when-not permanent?
       (utils/with-lock lock
-        (when-not closed?
-          (set! closed? true)
+        (when-not (s/closed? this)
           (let [l (java.util.ArrayList.)]
             (.drainTo consumers l)
             (doseq [^Consumer c l]
@@ -87,43 +63,23 @@
                 (d/success! (.deferred c) (.default-val c))
                 (catch Throwable e
                   (log/error e "error in callback")))))
-          (invoke-callbacks closed-callbacks)
+          (.markClosed this)
           (when (s/drained? this)
-            (invoke-callbacks drained-callbacks))))))
+            (.markDrained this))))))
 
-  (onClosed [_ callback]
+  (isDrained [this]
     (utils/with-lock lock
-      (if closed?
-        (try
-          (callback)
-          (catch Throwable e
-            (log/error e "error in callback")))
-        (.add closed-callbacks callback))))
+      (and (s/closed? this)
+        (or (nil? messages)
+          (nil? (.peek messages))))))
 
-  (onDrained [this callback]
-    (utils/with-lock lock
-      (if (s/drained? this)
-        (try
-          (callback)
-          (catch Throwable e
-            (log/error e "error in callback")))
-        (.add drained-callbacks callback))))
-
-  (isClosed [_]
-    closed?)
-
-  (isDrained [_]
-    (and closed?
-      (or (nil? messages) (nil? (.peek messages)))
-      (nil? (.peek producers))))
-
-  (put [_ msg blocking? timeout timeout-val]
+  (put [this msg blocking? timeout timeout-val]
     (let [result
           (utils/with-lock lock
             (or
 
               ;; closed, return << false >>
-              (and closed?
+              (and (s/closed? this)
                 (d/success-deferred false))
 
               ;; see if there are any unclaimed consumers left
@@ -176,8 +132,6 @@
   (put [this msg blocking?]
     (.put ^IEventSink this msg blocking? nil nil))
 
-  IEventSource
-
   (take [this blocking? default-val timeout timeout-val]
     (let [result
           (utils/with-lock lock
@@ -187,8 +141,8 @@
               (when-let [msg (and messages (.poll messages))]
 
                 ;; check if we're drained
-                (when (and closed? (s/drained? this))
-                  (invoke-callbacks drained-callbacks))
+                (when (and (s/closed? this) (s/drained? this))
+                  (.markDrained this))
 
                 (if-let [^Producer p (.poll producers)]
                   (if-let [token (d/claim! (.deferred p))]
@@ -205,14 +159,14 @@
                     (let [c (Consumption. (.message p) (.deferred p) token)]
 
                       ;; check if we're drained
-                      (when (and closed? (s/drained? this))
-                        (invoke-callbacks drained-callbacks))
+                      (when (and (s/closed? this) (s/drained? this))
+                        (.markDrained this))
 
                       c)
                     (recur (.poll producers)))))
 
               ;; closed, return << default-val >>
-              (and closed?
+              (and (s/closed? this)
                 (d/success-deferred default-val))
 
               ;; add to the consumers queue
@@ -253,60 +207,35 @@
           result))))
 
   (take [this blocking? default-val]
-    (.take ^IEventSource this blocking? default-val nil nil))
-
-  (connector [_ _]
-    nil)
-
-  (weakHandle [this reference-queue]
-    (utils/with-lock lock
-      (or weak-handle
-        (do
-          (set! weak-handle (WeakReference. this reference-queue))
-          weak-handle)))))
+    (.take ^IEventSource this blocking? default-val nil nil)))
 
 (defn stream
   ([]
-     (Stream.
-       (utils/mutex)
-       nil
+     (create-Stream
        false
        nil
        (LinkedBlockingQueue. 65536)
        (LinkedBlockingQueue. 65536)
        0
-       nil
-       (LinkedBlockingQueue.)
-       (LinkedBlockingQueue.)
-       false))
+       nil))
   ([buffer-size]
-     (Stream.
-       (utils/mutex)
-       nil
+     (create-Stream
        false
        nil
        (LinkedBlockingQueue. 65536)
        (LinkedBlockingQueue. 65536)
        (long buffer-size)
-       (LinkedBlockingQueue. (long buffer-size))
-       (LinkedBlockingQueue.)
-       (LinkedBlockingQueue.)
-       false)))
+       (LinkedBlockingQueue. (long buffer-size)))))
 
 (defn stream*
   [{:keys [permanent?
            buffer-size
            description]
     :or {permanent? false}}]
-  (Stream.
-    (utils/mutex)
-    nil
+  (create-Stream
     permanent?
     description
     (LinkedBlockingQueue. 65536)
     (LinkedBlockingQueue. 65536)
     (if buffer-size (long buffer-size) 0)
-    (when buffer-size (LinkedBlockingQueue. (long buffer-size)))
-    (LinkedBlockingQueue.)
-    (LinkedBlockingQueue.)
-    false))
+    (when buffer-size (LinkedBlockingQueue. (long buffer-size)))))
