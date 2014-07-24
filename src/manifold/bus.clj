@@ -16,7 +16,7 @@
   (publish [topic message])
   (isActive [topic]))
 
-(definline publish
+(definline publish!
   "Publishes a message on the bus, returning a deferred result representing the message
    being accepted by all subscribers.  To prevent one slow consumer from blocking all
    the others, "
@@ -66,13 +66,13 @@
             (let [subscribers (.get topic->subscribers topic)
                   subscribers' (conj' subscribers s)]
               (if (nil? subscribers)
-                (when (.putIfAbsent topic->subscribers subscribers')
+                (when (.putIfAbsent topic->subscribers topic subscribers')
                   (recur))
                 (when-not (.replace topic->subscribers subscribers subscribers')
                   (recur)))))
 
           ;; CAS to remove
-          (on-closed s/stream
+          (s/on-closed s
             (fn []
               (loop []
                 (let [subscribers (.get topic->subscribers topic)
@@ -82,15 +82,14 @@
                       (recur))
                     (when-not (.replace topic->subscribers subscribers subscribers')
                       (recur)))))))
-          s))
+          (s/source-only s)))
 
       (publish [_ topic message]
         (let [subscribers (.get topic->subscribers topic)]
           (if (nil? subscribers)
             (d/success-deferred false)
-            (-> (map #(s/put! % message) subscribers)
-              d/zip
+            (-> (apply d/zip (map #(s/put! % message) subscribers))
               (d/chain (fn [_] true))))))
 
       (isActive [_ topic]
-        (boolean (.get topic->subscribe topic))))))
+        (boolean (.get topic->subscribers topic))))))

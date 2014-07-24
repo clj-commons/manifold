@@ -242,7 +242,7 @@
     (fn [_ sink options]
       (connect source sink options))))
 
-(defmethod print-method SourceProxy [^SinkProxy o ^java.io.Writer w]
+(defmethod print-method SourceProxy [^SourceProxy o ^java.io.Writer w]
   (let [m (.description o)]
     (.write w (str "<< source: " (pr-str (if (map? m) (dissoc m :sink?) m)) " >>"))))
 
