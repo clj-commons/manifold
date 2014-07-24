@@ -1,6 +1,6 @@
 (ns manifold.stream
   (:refer-clojure
-    :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by repeatedly])
+    :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by])
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]
@@ -32,7 +32,7 @@
 (defprotocol Sourceable
   (^:private to-source [_] "Provides a conversion mechanism to Manifold source."))
 
-(definterface IStream
+(definterface IEventStream
   (description [])
   (isSynchronous [])
   (downstream [])
@@ -53,6 +53,8 @@
   (isDrained [])
   (onDrained [callback])
   (connector [sink]))
+
+(declare stream->lazy-seq)
 
 (def ^:private default-stream-impls
   `((~'downstream [this#] (manifold.stream.graph/downstream this#))
@@ -87,7 +89,8 @@
     ^:volatile-mutable __weakHandle])
 
 (def ^:private default-source-impls
-  `((~'isDrained [this#] ~'__isDrained)
+  `((~'seq [this#] (stream->lazy-seq this#))
+    (~'isDrained [this#] ~'__isDrained)
     (~'onDrained [this# callback#]
       (utils/with-lock ~'lock
         (if ~'__isDrained
@@ -110,35 +113,49 @@
   `(do
      (deftype ~name
        ~(vec (distinct (clj/concat params source-params)))
-       IStream
-       IEventSource
+       manifold.stream.IEventStream
+       manifold.stream.IEventSource
+       clojure.lang.Seqable
        ~@(merged-body default-stream-impls default-source-impls body))
+
      (defn ~(with-meta (symbol (str "create-" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))
+
+     (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
+       (.write w# (pr-str (.description o#))))))
 
 (defmacro def-sink [name params & body]
   `(do
      (deftype ~name
        ~(vec (distinct (clj/concat params sink-params)))
-       IStream
-       IEventSink
+       manifold.stream.IEventStream
+       manifold.stream.IEventSink
        ~@(merged-body default-stream-impls default-sink-impls body))
+
      (defn ~(with-meta (symbol (str "create-" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))
+
+     (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
+       (.write w# (pr-str (.description o#))))))
 
 (defmacro def-sink+source [name params & body]
   `(do
      (deftype ~name
        ~(vec (distinct (clj/concat params source-params sink-params)))
-       IStream
-       IEventSink
-       IEventSource
+       manifold.stream.IEventStream
+       manifold.stream.IEventSink
+       manifold.stream.IEventSource
+       clojure.lang.Seqable
        ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
+
      (defn ~(with-meta (symbol (str "create-" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))))
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))
+
+     (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
+       (.write w# (pr-str (.description o#))))))
 
 ;;;
 
@@ -171,17 +188,17 @@
     :else nil))
 
 (deftype SinkProxy [^IEventSink sink]
-  IStream
+  IEventStream
   (description [_]
-    (.description ^IStream sink))
+    (.description ^IEventStream sink))
   (isSynchronous [_]
-    (.isSynchronous ^IStream sink))
+    (.isSynchronous ^IEventStream sink))
   (downstream [_]
-    (.downstream ^IStream sink))
+    (.downstream ^IEventStream sink))
   (close [_]
-    (.close ^IStream sink))
+    (.close ^IEventStream sink))
   (weakHandle [_ ref-queue]
-    (.weakHandle ^IStream sink ref-queue))
+    (.weakHandle ^IEventStream sink ref-queue))
   IEventSink
   (put [_ x blocking?]
     (.put sink x blocking?))
@@ -195,17 +212,19 @@
 (declare connect)
 
 (deftype SourceProxy [^IEventSource source]
-  IStream
+  clojure.lang.Seqable
+  (seq [_] (seq source))
+  IEventStream
   (description [_]
-    (.description ^IStream source))
+    (.description ^IEventStream source))
   (isSynchronous [_]
-    (.isSynchronous ^IStream source))
+    (.isSynchronous ^IEventStream source))
   (downstream [_]
-    (.downstream ^IStream source))
+    (.downstream ^IEventStream source))
   (close [_]
-    (.close ^IStream source))
+    (.close ^IEventStream source))
   (weakHandle [_ ref-queue]
-    (.weakHandle ^IStream source ref-queue))
+    (.weakHandle ^IEventStream source ref-queue))
   IEventSource
   (take [_ default-val blocking?]
     (.take source default-val blocking?))
@@ -234,7 +253,7 @@
 (definline stream?
   "Returns true if the object is a Manifold stream."
   [x]
-  `(instance? IStream ~x))
+  `(instance? IEventStream ~x))
 
 (definline source?
   "Returns true if the object is a Manifold source"
@@ -249,30 +268,30 @@
 (definline description
   "Returns a description of the stream."
   [x]
-  `(.description ~(with-meta x {:tag "manifold.stream.IStream"})))
+  `(.description ~(with-meta x {:tag "manifold.stream.IEventStream"})))
 
 (definline downstream
   "Returns all sinks downstream of the given source as a sequence of 2-tuples, with the
    first element containing the connection's description, and the second element containing
    the sink."
   [x]
-  `(.downstream ~(with-meta x {:tag "manifold.stream.IStream"})))
+  `(.downstream ~(with-meta x {:tag "manifold.stream.IEventStream"})))
 
 (definline weak-handle
   "Returns a weak reference that can be used to construct topologies of streams."
   [x]
-  `(.weakHandle ~(with-meta x {:tag "manifold.stream.IStream"}) nil))
+  `(.weakHandle ~(with-meta x {:tag "manifold.stream.IEventStream"}) nil))
 
 (definline synchronous?
   "Returns true if the underlying abstraction behaves synchronously, using thread blocking
    to provide backpressure."
   [x]
-  `(.isSynchronous ~(with-meta x {:tag "manifold.stream.IStream"})))
+  `(.isSynchronous ~(with-meta x {:tag "manifold.stream.IEventStream"})))
 
 (definline close!
   "Closes an event sink, so that it can't accept any more messages."
   [sink]
-  `(.close ~(with-meta sink {:tag "manifold.stream.IStream"})))
+  `(.close ~(with-meta sink {:tag "manifold.stream.IEventStream"})))
 
 (definline closed?
   "Returns true if the event sink is closed."
@@ -442,21 +461,21 @@
   [^IEventSink sink
    ^IEventSource source]
 
-  IStream
+  IEventStream
   (isSynchronous [_]
     (or (synchronous? sink)
       (synchronous? source)))
   (description [_]
     {:type "splice"
-     :sink (.description ^IStream sink)
-     :source (.description ^IStream source)})
+     :sink (.description ^IEventStream sink)
+     :source (.description ^IEventStream source)})
   (downstream [_]
-    (.downstream ^IStream source))
+    (.downstream ^IEventStream source))
   (close [_]
-    (.close ^IStream source)
-    (.close ^IStream sink))
+    (.close ^IEventStream source)
+    (.close ^IEventStream sink))
   (weakHandle [_ ref-queue]
-    (.weakHandle ^IStream source ref-queue))
+    (.weakHandle ^IEventStream source ref-queue))
 
   IEventSink
   (put [_ x blocking?]
@@ -501,15 +520,15 @@
   [f
    ^IEventSink downstream
    constant-response]
-  IStream
+  IEventStream
   (isSynchronous [_]
     false)
   (close [_]
     (when downstream
-      (.close ^IStream downstream)))
+      (.close ^IEventStream downstream)))
   (weakHandle [_ ref-queue]
     (if downstream
-      (.weakHandle ^IStream downstream ref-queue)
+      (.weakHandle ^IEventStream downstream ref-queue)
       (throw (IllegalArgumentException.))))
   (description [_]
     {:type "callback"})
@@ -587,24 +606,6 @@
          (when-not (identical? ::none x)
            (cons x (stream->lazy-seq s timeout-interval)))))))
 
-(defn lazy-seq->stream
-  "Transforms a lazy-sequence into a stream."
-  [s]
-  (let [s' (stream)]
-    (utils/future
-      (try
-        (loop [s s]
-          (if (empty? s)
-            (close! s')
-            (let [x (first s)]
-              (.put ^IEventSink s' x true)
-              (recur (rest s)))))
-        (catch Throwable e
-          (.printStackTrace e)
-          (log/error e "error in lazy-seq->stream")
-          (close! s'))))
-    (source-only s')))
-
 (defn- periodically-
   [stream period initial-delay f]
   (let [cancel (promise)]
@@ -646,59 +647,7 @@
 
 (require 'manifold.stream.queue)
 
-;;;
-
-(deftype RepeatedlySource
-  [f
-   ^LinkedList callbacks
-   ^:volatile-mutable closed?
-   ^:volatile-mutable weak-handle
-   lock]
-  IStream
-  (description [_]
-    {:type "repeatedly"})
-  (isSynchronous [_]
-    false)
-  (downstream [this]
-    (manifold.stream.graph/downstream this))
-  (weakHandle [this reference-queue]
-    (utils/with-lock lock
-      (or weak-handle
-        (do
-          (set! weak-handle (WeakReference. this reference-queue))
-          weak-handle))))
-  (close [_]
-    (utils/with-lock lock
-      (set! closed? true)
-      (utils/invoke-callbacks callbacks)))
-
-  IEventSource
-  (take [_ default-val blocking?]
-    (if @closed?
-      default-val
-      (let [x (d/chain nil (fn [_] (f)))]
-        (if blocking?
-          @x
-          x))))
-  (take [this default-val blocking? timeout timeout-val]
-    (.take this default-val blocking?))
-  (isDrained [_]
-    @closed?)
-  (onDrained [_ callback]
-    (utils/with-lock
-      (if @closed?
-        (try
-          (callback)
-          (catch Throwable e
-            (log/error e "error in callback")))
-        (.add callbacks callback))))
-  (connector [_ sink]))
-
-(defn repeatedly
-  "Equivalent to Clojure's `repeatedly`, but defines a source which will emit messages based
-   on repeatedly invocation of `f`."
-  [f]
-  (RepeatedlySource. f (LinkedList.) false nil (utils/mutex)))
+(require 'manifold.stream.seq)
 
 ;;;
 
@@ -900,13 +849,13 @@
         handle (atom nil)]
 
     (reify
-      IStream
+      IEventStream
       (isSynchronous [_]
         false)
       (downstream [this]
         (manifold.stream.graph/downstream this))
       (close [_]
-        (.close ^IStream buf))
+        (.close ^IEventStream buf))
       (description [_]
         (merge
           (description buf)

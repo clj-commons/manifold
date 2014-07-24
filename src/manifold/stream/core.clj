@@ -7,18 +7,10 @@
     [manifold.stream.graph :as g]
     [manifold.time :as time])
   (:import
-    [java.util
-     LinkedList]
-    [java.lang.ref
-     WeakReference]
     [java.util.concurrent
      BlockingQueue
      ArrayBlockingQueue
-     LinkedBlockingQueue]
-    [manifold.stream
-     IEventSink
-     IEventSource
-     IStream]))
+     LinkedBlockingQueue]))
 
 ;;;
 
@@ -41,6 +33,8 @@
 
   (description [this]
     (let [m {:type "manifold"
+             :sink? true
+             :source? true
              :pending-puts (.size producers)
              :buffer-capacity capacity
              :buffer-size (if messages (.size messages) 0)
@@ -130,7 +124,7 @@
           result))))
 
   (put [this msg blocking?]
-    (.put ^IEventSink this msg blocking? nil nil))
+    (.put this msg blocking? nil nil))
 
   (take [this blocking? default-val timeout timeout-val]
     (let [result
@@ -207,7 +201,7 @@
           result))))
 
   (take [this blocking? default-val]
-    (.take ^IEventSource this blocking? default-val nil nil)))
+    (.take this blocking? default-val nil nil)))
 
 (defn stream
   ([]

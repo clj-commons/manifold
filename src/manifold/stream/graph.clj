@@ -13,7 +13,7 @@
      ConcurrentHashMap
      CopyOnWriteArrayList]
     [manifold.stream
-     IStream
+     IEventStream
      IEventSink
      IEventSource]))
 
@@ -267,7 +267,7 @@
                  dst
                  dst'
                  description)
-             k (.weakHandle ^IStream src ref-queue)]
+             k (.weakHandle ^IEventStream src ref-queue)]
          (if-let [dsts (.get graph k)]
            (.add ^CopyOnWriteArrayList dsts d)
            (let [dsts (CopyOnWriteArrayList.)]

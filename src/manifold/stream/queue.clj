@@ -5,22 +5,12 @@
     [manifold.stream :as s]
     [manifold.utils :as utils])
   (:import
-    [java.lang.ref
-     WeakReference]
-    [java.util.concurrent.locks
-     Lock]
     [java.util.concurrent.atomic
-     AtomicReference
-     AtomicInteger
-     AtomicBoolean]
+     AtomicReference]
     [java.util.concurrent
      BlockingQueue
      LinkedBlockingQueue
-     TimeUnit]
-    [manifold.stream
-     IEventSink
-     IEventSource
-     IStream]))
+     TimeUnit]))
 
 (s/def-source BlockingQueueSource
   [^BlockingQueue queue
@@ -31,7 +21,8 @@
 
   (description [_]
     {:type (.getCanonicalName (class queue))
-     :buffer-size (.size queue)})
+     :buffer-size (.size queue)
+     :source? true})
 
   (take [this blocking? default-val]
     (if blocking?
@@ -91,11 +82,13 @@
   (close [this]
     (.markClosed this))
 
-  (description [_]
+  (description [this]
     (let [size (.size queue)]
       {:type (.getCanonicalName (class queue))
        :buffer-capacity (+ (.remainingCapacity queue) size)
-       :buffer-size size}))
+       :buffer-size size
+       :sink? true
+       :closed? (s/closed? this)}))
 
   (put [this x blocking?]
 

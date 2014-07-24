@@ -7,20 +7,7 @@
     [manifold.utils :as utils])
   (:import
     [java.util.concurrent.atomic
-     AtomicReference
-     AtomicBoolean
-     AtomicInteger]
-    [java.lang.ref
-     WeakReference]
-    [java.util.concurrent
-     BlockingQueue
-     LinkedBlockingQueue]
-    [java.util.concurrent.locks
-     Lock]
-    [manifold.stream
-     IEventSink
-     IEventSource
-     IStream]))
+     AtomicReference]))
 
 (s/def-source CoreAsyncSource
   [ch
@@ -28,8 +15,10 @@
 
   (isSynchronous [_] false)
 
-  (description [_]
-    {:type "core.async"})
+  (description [this]
+    {:source? true
+     :drained? (s/drained? this)
+     :type "core.async"})
 
   (close [_]
     (a/close! ch))
@@ -88,8 +77,10 @@
 
   (isSynchronous [_] false)
 
-  (description [_]
-    {:type "core.async"})
+  (description [this]
+    {:sink? true
+     :closed? (s/closed? this)
+     :type "core.async"})
 
   (close [this]
     (utils/with-lock lock
