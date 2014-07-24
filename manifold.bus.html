@@ -22,7 +22,7 @@
       <div id="vars" class="sidebar">
         <h3>Public Vars</h3>
         <ul class="ns-var-links">
-          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.bus.html#var-publish%21">publish!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.bus.html#var-subscribe">subscribe</a></li>
+          <li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.bus.html#var-active%3F">active?</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.bus.html#var-event-bus">event-bus</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.bus.html#var-publish%21">publish!</a></li><li class="ns-var-list"><a class="ns-var-link ns-var-name" href="manifold.bus.html#var-subscribe">subscribe</a></li>
         </ul>
       </div>
     </navigation>
@@ -33,6 +33,22 @@
 </div>
         <div class="ns-vars">
           <div class="public">
+            <h3><a id="var-active%3F" class="source var-name" href="/src/manifold/bus.clj">active?</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[bus topic]</div>
+            
+            
+            <div class="doc"><p>Returns <code>true</code> if there are any subscribers to <code>topic</code>.</p>
+</div>
+          </div><div class="public">
+            <h3><a id="var-event-bus" class="source var-name" href="/src/manifold/bus.clj">event-bus</a></h3>
+            <h4 class="var-type fn" id="var-type">fn</h4>
+            <div class="usage">[]</div>
+            
+            
+            <div class="doc"><p>Returns an event bus that can be used with <code>publish!</code> and <code>subscribe</code>.</p>
+</div>
+          </div><div class="public">
             <h3><a id="var-publish%21" class="source var-name" href="/src/manifold/bus.clj">publish!</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
             <div class="usage">[bus topic message]</div>
@@ -40,7 +56,7 @@
             
             <div class="doc"><p>Publishes a message on the bus, returning a deferred result representing the message
 being accepted by all subscribers.  To prevent one slow consumer from blocking all
-the others, </p>
+the others, use <code>manifold.stream/buffer</code>.</p>
 </div>
           </div><div class="public">
             <h3><a id="var-subscribe" class="source var-name" href="/src/manifold/bus.clj">subscribe</a></h3>
@@ -48,7 +64,7 @@ the others, </p>
             <div class="usage">[bus topic]</div>
             
             
-            <div class="doc"><p>Returns a stream which consumes all messages from </p>
+            <div class="doc"><p>Returns a stream which consumes all messages from <code>topic</code>.</p>
 </div>
           </div>
         </div>
