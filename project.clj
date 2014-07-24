@@ -15,6 +15,6 @@
                    :all (constantly true)}
   :plugins [[codox "0.6.4"]]
   :codox {:writer codox-md.writer/write-docs
-          :include [manifold.deferred manifold.stream manifold.time]}
+          :include [manifold.deferred manifold.stream manifold.time manifold.bus]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ["-server"])
