@@ -19,16 +19,18 @@
 (definline publish!
   "Publishes a message on the bus, returning a deferred result representing the message
    being accepted by all subscribers.  To prevent one slow consumer from blocking all
-   the others, "
+   the others, use `manifold.stream/buffer`."
   [bus topic message]
   `(.publish ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic ~message))
 
 (definline subscribe
-  "Returns a stream which consumes all messages from "
+  "Returns a stream which consumes all messages from `topic`."
   [bus topic]
   `(.subscribe ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic))
 
-(definline active? [bus topic]
+(definline active?
+  "Returns `true` if there are any subscribers to `topic`."
+  [bus topic]
   `(.isActive ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic))
 
 (defn- conj' [ary x]
@@ -55,7 +57,9 @@
           (System/arraycopy ary (inc idx) ary' idx (- len idx 1))
           ary')))))
 
-(defn event-bus []
+(defn event-bus
+  "Returns an event bus that can be used with `publish!` and `subscribe`."
+  []
   (let [topic->subscribers (ConcurrentHashMap.)]
     (reify IEventBus
       (subscribe [_ topic]
