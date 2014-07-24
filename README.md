@@ -79,7 +79,7 @@ nil
 
 A stream is both a sink and a source; any message sent via `put!` can be received via `take!`.  We can also create sinks and sources from other stream representations using `->sink` and `->source`:
 
-```
+```clj
 > (require '[clojure.core.async :as a])
 nil
 > (def c (a/chan))
