@@ -41,11 +41,12 @@
             d' (.getAndSet last-take d)
             f  (fn [_]
                  (let [s @s-ref]
-                   (if (realized? s)
+                   (if (or (not (instance? clojure.lang.IPending s))
+                         (realized? s))
                      (if (empty? s)
                        (do
                          (.markDrained this)
-                         default-val)
+                         (d/success! d default-val))
                        (let [x (first s)]
                          (when (d/success! d x)
                            (swap! s-ref rest))))
@@ -53,7 +54,7 @@
                        (if (empty? s)
                          (do
                            (.markDrained this)
-                           default-val)
+                           (d/success! d default-val))
                          (let [x (first s)]
                            (when (d/success! d x)
                              (swap! s-ref rest))))))))]

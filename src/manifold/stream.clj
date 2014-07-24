@@ -123,7 +123,7 @@
        (new ~name ~@params (utils/mutex) false (LinkedList.) nil))
 
      (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
-       (.write w# (pr-str (.description o#))))))
+       (.write w# (str "<< source: " (pr-str (.description o#)) " >>")))))
 
 (defmacro def-sink [name params & body]
   `(do
@@ -138,7 +138,7 @@
        (new ~name ~@params (utils/mutex) false (LinkedList.) nil))
 
      (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
-       (.write w# (pr-str (.description o#))))))
+       (.write w# (str "<< sink: " (pr-str (.description o#)) " >>")))))
 
 (defmacro def-sink+source [name params & body]
   `(do
@@ -155,7 +155,7 @@
        (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))
 
      (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
-       (.write w# (pr-str (.description o#))))))
+       (.write w# (str "<< stream: " (pr-str (.description o#)) " >>")))))
 
 ;;;
 
@@ -209,6 +209,10 @@
   (onClosed [_ callback]
     (.onClosed sink callback)))
 
+(defmethod print-method SinkProxy [^SinkProxy o ^java.io.Writer w]
+  (let [m (.description o)]
+    (.write w (str "<< sink: " (pr-str (if (map? m) (dissoc m :source?) m)) " >>"))))
+
 (declare connect)
 
 (deftype SourceProxy [^IEventSource source]
@@ -237,6 +241,10 @@
   (connector [_ sink]
     (fn [_ sink options]
       (connect source sink options))))
+
+(defmethod print-method SourceProxy [^SinkProxy o ^java.io.Writer w]
+  (let [m (.description o)]
+    (.write w (str "<< source: " (pr-str (if (map? m) (dissoc m :sink?) m)) " >>"))))
 
 (defn source-only
   "Returns a view of the stream which is only a source."
@@ -498,6 +506,9 @@
     (.onDrained source callback))
   (connector [_ sink]
     (.connector source sink)))
+
+(defmethod print-method SplicedStream [^SplicedStream o ^java.io.Writer w]
+  (.write w (str "<< stream: " (pr-str (.description o)) " >>")))
 
 (defn splice
   "Slices together two halves of a stream."
