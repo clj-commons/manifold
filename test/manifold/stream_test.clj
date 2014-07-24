@@ -45,6 +45,15 @@
 
 ;;;
 
+(deftest test-reduce
+  (let [inputs (range 1e2)]
+    (is
+      (= (reduce + inputs)
+        @(s/reduce + (s/->source inputs))))
+    (is
+      (= (reduce + 1 inputs)
+        @(s/reduce + 1 (s/->source inputs))))))
+
 (deftest test-zip
   (let [inputs (partition-all 1e4 (range 3e4))]
     (is
@@ -127,6 +136,8 @@
     mapcat s/mapcat list (range 10)
 
     reductions s/reductions + (range 10)
+
+    #(reductions %1 1 %2) #(s/reductions %1 1 %2) + (range 10)
     ))
 
 ;;;

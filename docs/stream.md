@@ -74,13 +74,22 @@ However, we can also create derivative streams using operators analogous to Cloj
 
 ```clj
 > (->> [1 2 3]
-    s/lazy-seq->stream
+    s/->source
     (s/map inc)
-    s/stream->lazy-seq)
+    seq)
 (2 3 4)
 ```
 
-Here, we've mapped `inc` over a stream, transforming from a sequence to a stream and then back to a sequence for the sake of a concise example.  Note that we can create multiple derived streams from the same source:
+Here, we've mapped `inc` over a stream, transforming from a sequence to a stream and then back to a sequence for the sake of a concise example.  Note that since all sources are seqable, calling `clojure.core/map` over a source is also completely valid:
+
+```clj
+> (->> [1 2 3]
+    s/->source
+    (map inc))
+(2 3 4)
+```
+
+Note that we can create multiple derived streams from the same source:
 
 ```clj
 > (def s (s/stream))
@@ -101,7 +110,10 @@ Here, we create a source stream `s`, and map `inc` and `dec` over it.  When we p
 
 If `s` is closed, both `a` and `b` will be closed, as will any other downstream sources we've created.  Likewise, if everything downstream of `s` is closed, `s` will also be closed.  This is almost always desirable, as failing to do this will simply cause `s` to exert backpressure on everything upstream of it.  However, If we wish to avoid this behavior, we can create a `(permanent-stream)`, which cannot be closed.
 
-Manifold provides a number of stream operators, including `map`, `filter`, `mapcat`, `buffer`, and `batch`.
+Manifold provides a number of stream operators that are equivalent to Clojure's seq operators, including `map`, `filter`, `mapcat`, `reductions`, `partition-by`, `concat`, and `reduce`.
+
+There's also `(periodically period f)`, which behaves like `(repeatedly f)`, but will emit the result of `(f)` every `period` milliseconds.
+
 
 ### connecting streams
 

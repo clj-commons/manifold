@@ -56,7 +56,7 @@ true
 true
 ```
 
-Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  Manifold provides a number of operators for composing over deferred values, which can be read about [here](/docs/deferred.md).
+Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  Manifold provides a number of operators for composing over deferred values, [which can be read about here](/docs/deferred.md).
 
 ### streams
 
@@ -92,7 +92,7 @@ nil
 1
 ```
 
-Manifold also provides stream operators, similar to Clojure's sequence operators, including `map`, `filter`, `mapcat`, `zip`, `buffer`, and `batch`.  To learn more about streams, go [here](/docs/stream.md).
+Manifold also provides stream operators, similar to Clojure's sequence operators, including `map`, `filter`, `mapcat`, `zip`, `reductions`, `reduce`, `buffer`, and `batch`.  [To learn more about streams, go here](/docs/stream.md).
 
 ### license
 
