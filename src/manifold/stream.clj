@@ -986,3 +986,10 @@
                      earliest-message)))))))
 
        (source-only s'))))
+
+;;;
+
+(alter-meta! #'->Callback assoc :private true)
+(alter-meta! #'->SinkProxy assoc :private true)
+(alter-meta! #'->SourceProxy assoc :private true)
+(alter-meta! #'->SplicedStream assoc :private true)

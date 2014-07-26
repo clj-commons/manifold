@@ -795,3 +795,11 @@
       " >>")))
 
 (prefer-method print-method IDeferred IDeref)
+
+;;;
+
+(alter-meta! #'->Deferred assoc :private true)
+(alter-meta! #'->ErrorDeferred assoc :private true)
+(alter-meta! #'->SuccessDeferred assoc :private true)
+(alter-meta! #'->Listener assoc :private true)
+(alter-meta! #'->Recur assoc :private true)
