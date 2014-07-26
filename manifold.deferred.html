@@ -75,11 +75,11 @@
           </div><div class="public">
             <h3><a id="var--%3Edeferred" class="source var-name" href="/src/manifold/deferred.clj">-&gt;deferred</a></h3>
             <h4 class="var-type fn" id="var-type">fn</h4>
-            <div class="usage">[x]</div>
+            <div class="usage">[x]</div><div class="usage">[x default-val]</div>
             
             
-            <div class="doc"><p>Transforms <code>x</code> into an async-deferred, or returns <code>nil</code> if no such transformation is
-possible.</p>
+            <div class="doc"><p>Transforms <code>x</code> into a deferred if possible, or returns <code>default-val</code>.  If no default value
+is given, an <code>IllegalArgumentException</code> is thrown.</p>
 </div>
           </div><div class="public">
             <h3><a id="var-add-listener%21" class="source var-name" href="/src/manifold/deferred.clj">add-listener!</a></h3>
