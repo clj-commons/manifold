@@ -1,5 +1,5 @@
 (ns manifold.deferred
-  (:refer-clojure :exclude [realized? loop])
+  (:refer-clojure :exclude [realized? loop future])
   (:require
     [clojure.tools.logging :as log]
     [manifold
@@ -469,11 +469,11 @@
           true))
       (success! b a))))
 
-(defmacro defer
+(defmacro future
   "Equivalent to Clojure's `future`, but returns a Manifold deferred."
   [& body]
   `(let [d# (deferred)]
-     (clojure.core/future
+     (utils/future
        (try
          (success! d# (do ~@body))
          (catch Throwable e#

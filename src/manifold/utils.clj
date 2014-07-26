@@ -60,11 +60,16 @@
 (def ^:const max-depth 50)
 
 (defmacro future [& body]
-  `(let [f# (fn []
-              (try
-                ~@body
-                (catch Throwable e#
-                  (log/error e# "error in manifold.utils/future"))))]
+  `(let [frame# (clojure.lang.Var/cloneThreadBindingFrame)
+         f# (fn []
+              (let [curr-frame# (clojure.lang.Var/getThreadBindingFrame)]
+                (clojure.lang.Var/resetThreadBindingFrame frame#)
+                (try
+                  ~@body
+                  (catch Throwable e#
+                    (log/error e# "error in manifold.utils/future"))
+                  (finally
+                    (clojure.lang.Var/resetThreadBindingFrame curr-frame#)))))]
      (.execute execute-pool ^Runnable f#)
      nil))
 

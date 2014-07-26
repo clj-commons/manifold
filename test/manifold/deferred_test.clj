@@ -1,13 +1,13 @@
 (ns manifold.deferred-test
   (:refer-clojure
-    :exclude (realized?))
+    :exclude (realized? future))
   (:require
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
     [manifold.deferred :refer :all :exclude [loop]]))
 
-(defmacro defer' [& body]
-  `(defer
+(defmacro future' [& body]
+  `(future
      (Thread/sleep 10)
      (try
        ~@body
@@ -76,12 +76,12 @@
 
   ;; test deref with delayed result
   (let [d (deferred)]
-    (defer' (success! d 1))
+    (future' (success! d 1))
     (is (= 1 (deref d 1000 ::timeout))))
 
   ;; test deref with delayed error result
   (let [d (deferred)]
-    (defer' (error! d (IllegalStateException. "boom")))
+    (future' (error! d (IllegalStateException. "boom")))
     (is (thrown? IllegalStateException (deref d 1000 ::timeout))))
 
   ;; multiple callbacks w/ success

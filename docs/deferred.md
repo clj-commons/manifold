@@ -114,11 +114,11 @@ Finally, we can use `manifold.deferred/timeout!` to register a timeout on the de
 
 Note that if a timeout is placed on a deferred returned by `chain`, the timeout elapsing will prevent any further stages from being executed.
 
-### `future` vs `defer`
+### `future` vs `manifold.deferred/future`
 
 Clojure's futures can be treated as deferreds, as can Clojure's promises.  However, since both of these abstractions using a blocking dereference, in order for Manifold to treat it as an asynchronous deferred value it must allocate a thread.
 
-Wherever possible, use `manifold.deferred/deferred` instead of `promise`, and `manifold.deferred/defer` instead of `future`.  They will behave identically to their Clojure counterparts (`deliver` can be used on a Manifold deferred, for instance), but allow for callbacks to be registered, so no threads are required.
+Wherever possible, use `manifold.deferred/deferred` instead of `promise`, and `manifold.deferred/future` instead of `future`.  They will behave identically to their Clojure counterparts (`deliver` can be used on a Manifold deferred, for instance), but allow for callbacks to be registered, so no additional threads are required.
 
 ### let-flow
 
