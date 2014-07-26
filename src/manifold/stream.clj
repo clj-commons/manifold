@@ -54,6 +54,23 @@
   (onDrained [callback])
   (connector [sink]))
 
+(defmethod print-method IEventStream [o ^java.io.Writer w]
+  (let [sink? (instance? IEventSink o)
+        source? (instance? IEventSource o)]
+    (.write w
+      (str
+        "<< "
+        (cond
+          (and source? sink?)
+          "stream"
+
+          source?
+          "source"
+
+          sink?
+          "sink")
+        ": " (pr-str (.description ^IEventStream o)) " >>"))))
+
 (declare stream->lazy-seq)
 
 (def ^:private default-stream-impls
@@ -120,10 +137,7 @@
 
      (defn ~(with-meta (symbol (str "create-" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))
-
-     (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
-       (.write w# (str "<< source: " (pr-str (.description o#)) " >>")))))
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
 
 (defmacro def-sink [name params & body]
   `(do
@@ -135,10 +149,7 @@
 
      (defn ~(with-meta (symbol (str "create-" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))
-
-     (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
-       (.write w# (str "<< sink: " (pr-str (.description o#)) " >>")))))
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
 
 (defmacro def-sink+source [name params & body]
   `(do
@@ -152,10 +163,7 @@
 
      (defn ~(with-meta (symbol (str "create-" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))
-
-     (defmethod print-method ~name [^manifold.stream.IEventStream o# ^java.io.Writer w#]
-       (.write w# (str "<< stream: " (pr-str (.description o#)) " >>")))))
+       (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))))
 
 ;;;
 
@@ -172,20 +180,36 @@
       (f x))))
 
 (defn ->sink
-  "Converts, if possible, the object to a Manifold sink, or `nil` if not possible."
-  [x]
-  (cond
-    (instance? IEventSink x) x
-    (sinkable? x) (to-sink x)
-    :else nil))
+  "Converts, if possible, the object to a Manifold sink, or `default-val` if it cannot.  If no
+   default value is given, an `IllegalArgumentException` is thrown."
+  ([x]
+     (let [x' (->sink x ::none)]
+       (if (identical? ::none x')
+         (throw
+           (IllegalArgumentException.
+             (str "cannot convert " (.getCanonicalName (class x)) " to sink")))
+         x')))
+  ([x default-val]
+     (cond
+       (instance? IEventSink x) x
+       (sinkable? x) (to-sink x)
+       :else default-val)))
 
 (defn ->source
-  "Converts, if possible, the object to a Manifold source, or `nil` if not possible."
-  [x]
-  (cond
-    (instance? IEventSource x) x
-    (sourceable? x) (to-source x)
-    :else nil))
+  "Converts, if possible, the object to a Manifold sink, or `default-val` if it cannot.  If no
+   default value is given, an `IllegalArgumentException` is thrown."
+  ([x]
+     (let [x' (->source x ::none)]
+       (if (identical? ::none x')
+         (throw
+           (IllegalArgumentException.
+             (str "cannot convert " (.getCanonicalName (class x)) " to source")))
+         x')))
+  ([x default-val]
+     (cond
+       (instance? IEventSource x) x
+       (sourceable? x) (to-source x)
+       :else default-val)))
 
 (deftype SinkProxy [^IEventSink sink]
   IEventStream
@@ -208,10 +232,6 @@
     (.isClosed sink))
   (onClosed [_ callback]
     (.onClosed sink callback)))
-
-(defmethod print-method SinkProxy [^SinkProxy o ^java.io.Writer w]
-  (let [m (.description o)]
-    (.write w (str "<< sink: " (pr-str (if (map? m) (dissoc m :source?) m)) " >>"))))
 
 (declare connect)
 
@@ -241,10 +261,6 @@
   (connector [_ sink]
     (fn [_ sink options]
       (connect source sink options))))
-
-(defmethod print-method SourceProxy [^SourceProxy o ^java.io.Writer w]
-  (let [m (.description o)]
-    (.write w (str "<< source: " (pr-str (if (map? m) (dissoc m :sink?) m)) " >>"))))
 
 (defn source-only
   "Returns a view of the stream which is only a source."
@@ -432,20 +448,10 @@
     options]
      (let [source (->source source)
            sink (->sink sink)
-           connector (and source sink (.connector ^IEventSource source sink))]
-       (cond
-
-         connector
+           connector (.connector ^IEventSource source sink)]
+       (if connector
          (connector source sink options)
-
-         (and source sink)
-         (manifold.stream.graph/connect source sink options)
-
-         (not source)
-         (throw (IllegalArgumentException. "invalid source passed into 'connect'"))
-
-         (not sink)
-         (throw (IllegalArgumentException. "invalid sink passed into 'connect'"))))))
+         (manifold.stream.graph/connect source sink options)))))
 
 ;;;
 
@@ -507,23 +513,10 @@
   (connector [_ sink]
     (.connector source sink)))
 
-(defmethod print-method SplicedStream [^SplicedStream o ^java.io.Writer w]
-  (.write w (str "<< stream: " (pr-str (.description o)) " >>")))
-
 (defn splice
   "Slices together two halves of a stream."
   [sink source]
-  (let [sink (->sink sink)
-        source (->source source)]
-    (cond
-      (and sink source)
-      (SplicedStream. sink source)
-
-      (not sink)
-      (throw (IllegalArgumentException. "invalid sink passed into 'splice'"))
-
-      (not source)
-      (throw (IllegalArgumentException. "invalid source passed into 'splice'")))))
+  (SplicedStream. (->sink sink) (->source source)))
 
 ;;;
 
@@ -585,12 +578,10 @@
      (connect-via src callback dst nil))
   ([src callback dst options]
      (let [dst (->sink dst)]
-       (if dst
-         (connect
-           src
-           (Callback. callback dst nil)
-           (merge options {:dst' dst}))
-         (throw (IllegalArgumentException. "both arguments to 'connect-via' must be stream-able"))))))
+       (connect
+         src
+         (Callback. callback dst nil)
+         (merge options {:dst' dst})))))
 
 (defn- connect-via-proxy
   ([src proxy dst]
@@ -659,6 +650,8 @@
 (require 'manifold.stream.queue)
 
 (require 'manifold.stream.seq)
+
+(require 'manifold.stream.deferred)
 
 ;;;
 

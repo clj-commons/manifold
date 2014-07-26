@@ -77,54 +77,62 @@
           (on-error e))))))
 
 (defn ->deferred
-  "Transforms `x` into an async-deferred, or returns `nil` if no such transformation is
-   possible."
-  [x]
-  (condp instance? x
-    IDeferred
-    x
+  "Transforms `x` into a deferred if possible, or returns `default-val`.  If no default value
+   is given, an `IllegalArgumentException` is thrown."
+  ([x]
+     (let [x' (->deferred x ::none)]
+       (if (identical? ::none x')
+         (throw
+           (IllegalArgumentException.
+             (str "cannot convert " (.getCanonicalName (class x)) " to deferred.")))
+         x')))
+  ([x default-val]
+     (condp instance? x
+       IDeferred
+       x
 
-    Future
-    (let [^Future x x]
-      (reify
-        IDeref
-        (deref [_]
-          (.get x))
-        IBlockingDeref
-        (deref [_ time timeout-value]
-          (try
-            (.get x time TimeUnit/MILLISECONDS)
-            (catch TimeoutException e
-              timeout-value)))
-        IPending
-        (isRealized [this]
-          (realized? this))
-        IDeferred
-        (realized [_]
-          (or (.isDone x) (.isCancelled x)))
-        (onRealized [_ on-success on-error]
-          (register-future-callbacks x on-success on-error))))
+       Future
+       (let [^Future x x]
+         (reify
+           IDeref
+           (deref [_]
+             (.get x))
+           IBlockingDeref
+           (deref [_ time timeout-value]
+             (try
+               (.get x time TimeUnit/MILLISECONDS)
+               (catch TimeoutException e
+                 timeout-value)))
+           IPending
+           (isRealized [this]
+             (realized? this))
+           IDeferred
+           (realized [_]
+             (or (.isDone x) (.isCancelled x)))
+           (onRealized [_ on-success on-error]
+             (register-future-callbacks x on-success on-error))))
 
-    IPending
-    (reify
-      IDeref
-      (deref [_]
-        (.deref ^IDeref x))
-      IBlockingDeref
-      (deref [_ time timeout-value]
-        (.deref ^IBlockingDeref x time timeout-value))
-      IPending
-      (isRealized [_]
-        (.isRealized ^IPending x))
-      IDeferred
-      (realized [_]
-        (.isRealized ^IPending x))
-      (onRealized [_ on-success on-error]
-        (register-future-callbacks x on-success on-error)
-        nil))
+       IPending
+       (reify
+         IDeref
+         (deref [_]
+           (.deref ^IDeref x))
+         IBlockingDeref
+         (deref [_ time timeout-value]
+           (.deref ^IBlockingDeref x time timeout-value))
+         IPending
+         (isRealized [_]
+           (.isRealized ^IPending x))
+         IDeferred
+         (realized [_]
+           (.isRealized ^IPending x))
+         (onRealized [_ on-success on-error]
+           (register-future-callbacks x on-success on-error)
+           nil))
 
-    (when (deferrable? x)
-      (to-deferred x))))
+       (if (deferrable? x)
+         (to-deferred x)
+         default-val))))
 
 ;;;
 
@@ -243,7 +251,10 @@
 
   Object
   (finalize [_]
-    (when (and (not consumed?) (identical? ::error state) debug/*enabled?*)
+    (when (and
+            (not consumed?)
+            (identical? ::error state)
+            debug/*dropped-error-logging-enabled?*)
       (log/warn val "unconsumed deferred in error state")))
 
   clojure.lang.IObj
@@ -313,14 +324,7 @@
     (deref-deferred nil))
   (deref [this time timeout-value]
     (set! consumed? true)
-    (deref-deferred timeout-value time TimeUnit/MILLISECONDS))
-
-  (toString [_]
-    (let [state state]
-      (case state
-        ::error   (str "<< ERROR: " (pr-str val) " >>")
-        ::success (str "<< " (pr-str val) " >>")
-        "<< \u2026 >>"))))
+    (deref-deferred timeout-value time TimeUnit/MILLISECONDS)))
 
 (deftype SuccessDeferred
   [val
@@ -359,10 +363,7 @@
   clojure.lang.IDeref
   clojure.lang.IBlockingDeref
   (deref [this] val)
-  (deref [this time timeout-value] val)
-
-  (toString [_]
-    (str "<< " (pr-str val) " >>")))
+  (deref [this time timeout-value] val))
 
 (deftype ErrorDeferred
   [^Throwable error
@@ -411,10 +412,7 @@
     (set! consumed? true)
     (if (instance? Throwable error)
       (throw error)
-      (throw (ex-info "" {:error error}))))
-
-  (toString [_]
-    (str "<< ERROR: " (pr-str error) " >>")))
+      (throw (ex-info "" {:error error})))))
 
 (defn deferred
   "Equivalent to Clojure's `deferred`, but also allows asynchronous callbacks to be registered
@@ -435,7 +433,7 @@
 (declare chain)
 
 (defn- unwrap [x]
-  (if-let [d (->deferred x)]
+  (if-let [d (->deferred x nil)]
     (if (realized? d)
       (let [d' (try
                  @d
@@ -601,7 +599,7 @@
              d)
 
            (let [x (first s)]
-             (if-let [x' (->deferred x)]
+             (if-let [x' (->deferred x nil)]
 
                (on-realized (chain x')
                  (fn [val]
@@ -666,8 +664,8 @@
                           (catch Throwable e#
                             (error! result# e#)
                             nil))
-                 d# (->deferred ~x-sym)]
-             (if (nil? d#)
+                 d# (->deferred ~x-sym ::none)]
+             (if (identical? ::none d#)
                (if (instance? Recur ~x-sym)
                  (~'recur
                    ~@(map
@@ -783,11 +781,17 @@
                (let [~@(interleave vars' gensyms')]
                  ~@body)))))))
 
-(defmethod print-method Deferred [o ^Writer w]
-  (.write w (str o)))
+(defmethod print-method IDeferred [o ^Writer w]
+  (.write w
+    (str
+      "<< "
+      (if (realized? o)
+       (try
+         (let [x @o]
+           (pr-str x))
+         (catch Throwable e
+           (str "ERROR: " (pr-str e))))
+       "\u2026")
+      " >>")))
 
-(defmethod print-method ErrorDeferred [o ^Writer w]
-  (.write w (str o)))
-
-(defmethod print-method SuccessDeferred [o ^Writer w]
-  (.write w (str o)))
+(prefer-method print-method IDeferred IDeref)
