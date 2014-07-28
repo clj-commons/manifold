@@ -56,7 +56,7 @@ true
 true
 ```
 
-Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  Manifold provides a number of operators for composing over deferred values, [which can be read about here](/docs/deferred.md).
+Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, **no one should ever need to use `on-realized`**.  Manifold provides a number of operators for composing over deferred values, [which can be read about here](/docs/deferred.md).
 
 ### streams
 
