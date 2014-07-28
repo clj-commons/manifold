@@ -41,7 +41,9 @@ Manifold attempts to provide a common ground between all these abstractions.  It
 * pervasive asynchrony, emulated by wrapping threads around synchronous objects where necessary
 * all asynchronous values and operations represented as deferreds
 * stream interaction reduced to `put!`, `take!`, and variations of each which can time out
-* provide a `connect` function, implemented atop `put!` and `take!`, which tracks the resulting stream topology
+* all Manifold sources can be implicitly converted to seqs via `Seqable`, so Clojure's sequence operators can be directly applied to them.
+* all Clojure sequences can be implicitly converted to Manifold sources, so Manifold's stream operators can be directly applied to them
+* explicit stream topology constructed via `(connect source sink)`, which is the underlying mechanism for Manifold's stream operators
 
 The `connect` and topology mechanisms are pluggable, allowing for other stream abstractions to "extend" a Manifold topology.  A Manifold stream can be transformed to and from a `BlockingQueue`, Clojure seq, and core.async channel.  Extending to other representations is as simple as defining `put!` and `take!` functions.  A Manifold deferred can be transparently substituted for a Clojure future or promise, and a future or promise will be automatically coerced to a deferred where necessary.
 

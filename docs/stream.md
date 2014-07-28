@@ -13,9 +13,9 @@ A stream can be thought of as two separate halves: a **sink**  which consumes me
 
 ```clj
 > (s/put! s 1)
-#<Deferred: :pending>
+<< ... >>
 > (s/take! s)
-#<SuccessDeferred: 1>
+<< 1 >>
 ```
 
 Notice that both `put!` and `take!` return [deferred values](/docs/deferred.md).  The deferred returned by `put!` will yield `true` if the message was accepted by the stream, and `false` otherwise; the deferred returned by `take!` will yield the message.
@@ -151,7 +151,7 @@ Upon connecting two streams, we can introspect on the flow of data using `downst
 > (s/connect a b {:description "a connection"})
 true
 > (s/downstream a)
-(["a connection" #<Stream>])
+(["a connection" << stream: ... >>])
 ```
 
 We can recursively apply `downstream` to traverse the entire topology of our streams.  This can be a powerful way to reason about the structure of our running processes, but sometimes we want to change the message from the source before it's placed into the sink.  For this, we can use `connect-via`:
@@ -170,9 +170,9 @@ Note that `connect-via` takes an argument between the source and sink, which is 
 > (def a (s/stream))
 #'a
 > (s/map inc a)
-#<Stream>
+<< source: ... >>
 > (s/downstream a)
-([{:op "map"} #<Stream>])
+([{:op "map"} << stream: ... >>])
 ```
 
 The value returned by the callback for `connect-via` provides backpressure - if a deferred value is returned, further messages will not be passed in until the deferred value is realized.

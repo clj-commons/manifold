@@ -91,6 +91,10 @@
        IDeferred
        x
 
+       (if (deferrable? x)
+         (to-deferred x)
+         default-val)
+
        Future
        (let [^Future x x]
          (reify
@@ -128,11 +132,7 @@
            (.isRealized ^IPending x))
          (onRealized [_ on-success on-error]
            (register-future-callbacks x on-success on-error)
-           nil))
-
-       (if (deferrable? x)
-         (to-deferred x)
-         default-val))))
+           nil)))))
 
 ;;;
 

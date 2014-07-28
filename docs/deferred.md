@@ -52,7 +52,7 @@ Callbacks are a useful building block, but they're a painful way to create async
 #'d
 
 > (d/chain d inc inc inc #(println "x + 3 =" %))
-#<Deferred: :pending>
+<< ... >>
 
 > (d/success! d 0)
 < x + 3 = 3 >
@@ -70,7 +70,7 @@ Values that can be coerced into a deferred include Clojure futures, Clojure prom
 > (d/chain d
     #(future (inc %))
     #(println "the future returned" %))
-#<Deferred: :pending>
+<< ... >>
 
 > (d/success! d 0)
 < the future returned 1 >
@@ -86,7 +86,7 @@ If any stage in `chain` throws an exception or returns a deferred that yields an
 > (-> d
     (d/chain dec #(/ 1 %))
     (d/catch Exception #(println "whoops, that didn't work:" %)))
-#<Deferred: :pending>
+<< ... >>
 
 > (d/success! d 1)
 < whoops, that didn't work: #<ArithmeticException: Divide by zero> >
