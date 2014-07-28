@@ -87,15 +87,14 @@
              (str "cannot convert " (.getCanonicalName (class x)) " to deferred.")))
          x')))
   ([x default-val]
-     (condp instance? x
-       IDeferred
+     (cond
+       (instance? IDeferred x)
        x
 
-       (if (deferrable? x)
-         (to-deferred x)
-         default-val)
+       (deferrable? x)
+       (to-deferred x)
 
-       Future
+       (instance? Future x)
        (let [^Future x x]
          (reify
            IDeref
@@ -116,7 +115,7 @@
            (onRealized [_ on-success on-error]
              (register-future-callbacks x on-success on-error))))
 
-       IPending
+       (instance? IPending x)
        (reify
          IDeref
          (deref [_]
@@ -132,7 +131,10 @@
            (.isRealized ^IPending x))
          (onRealized [_ on-success on-error]
            (register-future-callbacks x on-success on-error)
-           nil)))))
+           nil))
+
+       :else
+       default-val)))
 
 ;;;
 
