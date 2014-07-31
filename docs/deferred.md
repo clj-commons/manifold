@@ -45,7 +45,9 @@ true
 
 ### composing with deferreds
 
-Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  This is made easier by `manifold.deferred/chain`, which chains together callbacks, left to right:
+Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, no one should ever use `on-deferred`.
+
+Instead, they should use `manifold.deferred/chain`, which chains together callbacks, left to right:
 
 ```clj
 > (def d (d/deferred))

@@ -701,12 +701,11 @@
     clojure.core.async.impl.channels.ManyToManyChannel
     (to-deferred [ch]
       (let [d (deferred)]
-        (a/go
-          (if-let [x (<! ch)]
-            (if (instance? Throwable x)
-              (error! d x)
-              (success! d x))
-            (success! d nil)))
+        (a/take! ch
+          (fn [msg]
+            (if (instance? Throwable msg)
+              (error! d msg)
+              (success! d msg))))
         d))))
 
 ;;;

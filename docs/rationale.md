@@ -12,25 +12,7 @@ However, the asynchronous model does have a big advantage: it's a superset of th
 
 The most obvious problem is that core.async uses an execution model which assumes pervasive asynchrony, which is not a safe assumption on the JVM.  The programmer must manually differentiate between scopes where code will and will not block; failure to do so correctly will exhaust the non-blocking thread pool and cause a deadlock.
 
-A less obvious problem is that core.async doesn't play nicely with other asynchronous abstractions.  If I have a callback providing messages that I want to enqueue into a core.async channel, the most "obvious" approach is incorrect:
-
-```clj
-(on-message emitter #(go (>! ch %)))
-```
-
-Goroutines are not strongly ordered with respect to each other, so different messages may be enqueued on different threads, causing them to be enqueued out-of-order.  The channel returned by the goroutine can be used to provide some sort of backpressure to the asynchronous producer, but unless the backpressure mechanism atomically stops and starts the flow of messages, there's still a risk.
-
-The simplest approach that guarantees message ordering, oddly enough, is to put a synchronous queue between the two asynchronous mechamisms:
-
-```clj
-(let [q (LinkedBlockingQueue.)]
-  (on-message emitter #(.put q %))
-  (future
-    (while true
-      (>!! ch (.take q)))))
-```
-
-This may be a decent workaround in some cases, but when using asynchronous frameworks like [Netty](http://netty.io/) which feed large numbers of streams with a small number of threads, it leaves a great deal to be desired.  In practice, this means that core.async is most effectively used as an **application-level abstraction**, where the programmer can guarantee pervasive use of core.async, and can design the execution model around core.async's needs.
+In practice, this means that core.async is most effectively used as an **application-level abstraction**, where the programmer can guarantee pervasive use of core.async, and can design the execution model around core.async's needs.
 
 However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.  In general, **all of the existing stream representations are walled gardens**, including but not limited to [RxJava](https://github.com/Netflix/RxJava), [Reactive Streams](http://www.reactive-streams.org/), [Lamina](https://github.com/ztellman/lamina), and [Reactor](https://github.com/reactor/reactor).  This is strong odds with Clojure's philosophy, which focuses on a large number of functions for a very small number of universal data structures.
 

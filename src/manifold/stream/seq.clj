@@ -17,6 +17,11 @@
   (isSynchronous [_]
     true)
 
+  (close [_]
+    (let [s @s-ref]
+      (if (instance? java.io.Closeable s)
+        (.close ^java.io.Closeable s))))
+
   (description [this]
     (merge
       {:type "seq"

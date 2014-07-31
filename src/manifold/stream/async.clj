@@ -36,14 +36,12 @@
       (let [d  (d/deferred)
             d' (.getAndSet last-take d)
             f  (fn [_]
-                 (a/go
-                   (let [x (a/<! ch)]
+                 (a/take! ch
+                   (fn [msg]
                      (d/success! d
-                       (if (nil? x)
-                         (do
-                           (.markDrained this)
-                           default-val)
-                         x)))))]
+                       (if (nil? msg)
+                         default-val
+                         msg)))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
@@ -52,12 +50,15 @@
   (take [this blocking? default-val timeout timeout-val]
     (let [d  (d/deferred)
           d' (.getAndSet last-take d)
+
+          ;; if I don't take this out of the goroutine, core.async OOMs on compilation
+          mark-drained #(.markDrained this)
           f  (fn [_]
                (a/go
                  (let [result (a/alt!
                                 ch ([x] (if (nil? x)
                                           (do
-                                            (.markDrained this)
+                                            (mark-drained)
                                             default-val)
                                           x))
                                 (a/timeout timeout) timeout-val
@@ -115,9 +116,9 @@
         (let [d  (d/deferred)
               d' (.getAndSet last-put d)
               f  (fn [_]
-                   (a/go
-                     (a/>! ch x)
-                     (d/success! d true)))]
+                   (a/put! ch x
+                     (fn [result]
+                       (d/success! d result))))]
           (if (d/realized? d')
             (f nil)
             (d/on-realized d' f f))
