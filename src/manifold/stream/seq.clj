@@ -53,16 +53,18 @@
                          (.markDrained this)
                          (d/success! d default-val))
                        (let [x (first s)]
-                         (when (d/success! d x)
-                           (swap! s-ref rest))))
+                         (when-let [token (d/claim! d)]
+                           (swap! s-ref rest)
+                           (d/success! d x token))))
                      (utils/wait-for
                        (if (empty? s)
                          (do
                            (.markDrained this)
                            (d/success! d default-val))
                          (let [x (first s)]
-                           (when (d/success! d x)
-                             (swap! s-ref rest))))))))]
+                           (when-let [token (d/claim! d)]
+                             (swap! s-ref rest)
+                             (d/success! d x token))))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
