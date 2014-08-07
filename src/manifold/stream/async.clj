@@ -158,7 +158,7 @@
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (to-sink [ch]
-    (create-CoreAsyncSink
+    (->CoreAsyncSink
       ch
       (AtomicReference. (d/success-deferred true)))))
 
@@ -166,6 +166,6 @@
 
   clojure.core.async.impl.channels.ManyToManyChannel
   (to-source [ch]
-    (create-CoreAsyncSource
+    (->CoreAsyncSource
       ch
       (AtomicReference. (d/success-deferred true)))))

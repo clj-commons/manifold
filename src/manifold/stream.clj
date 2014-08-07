@@ -79,7 +79,7 @@
       (utils/with-lock ~'lock
         (or ~'__weakHandle
           (set! ~'__weakHandle (WeakReference. this# ref-queue#)))))
-    (~'close [_#])))
+    (~'close [this#])))
 
 (def ^:private sink-params
   '[lock
@@ -88,7 +88,8 @@
     ^:volatile-mutable __weakHandle])
 
 (def ^:private default-sink-impls
-  `((~'isClosed [this#] ~'__isClosed)
+  `((~'close [this#] (.markClosed this#))
+    (~'isClosed [this#] ~'__isClosed)
     (~'onClosed [this# callback#]
        (utils/with-lock ~'lock
          (if ~'__isClosed
@@ -135,7 +136,7 @@
        clojure.lang.Seqable
        ~@(merged-body default-stream-impls default-source-impls body))
 
-     (defn ~(with-meta (symbol (str "create-" name)) {:private true})
+     (defn ~(with-meta (symbol (str "->" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
        (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
 
@@ -147,7 +148,7 @@
        manifold.stream.IEventSink
        ~@(merged-body default-stream-impls default-sink-impls body))
 
-     (defn ~(with-meta (symbol (str "create-" name)) {:private true})
+     (defn ~(with-meta (symbol (str "->" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
        (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
 
@@ -161,7 +162,7 @@
        clojure.lang.Seqable
        ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
 
-     (defn ~(with-meta (symbol (str "create-" name)) {:private true})
+     (defn ~(with-meta (symbol (str "->" name)) {:private true})
        [~@(clj/map #(with-meta % nil) params)]
        (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))))
 

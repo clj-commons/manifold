@@ -205,7 +205,7 @@
 
 (defn stream
   ([]
-     (create-Stream
+     (->Stream
        false
        nil
        (LinkedBlockingQueue. 65536)
@@ -213,7 +213,7 @@
        0
        nil))
   ([buffer-size]
-     (create-Stream
+     (->Stream
        false
        nil
        (LinkedBlockingQueue. 65536)
@@ -226,7 +226,7 @@
            buffer-size
            description]
     :or {permanent? false}}]
-  (create-Stream
+  (->Stream
     permanent?
     description
     (LinkedBlockingQueue. 65536)

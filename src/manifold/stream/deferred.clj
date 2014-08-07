@@ -45,5 +45,5 @@
 
   IDeferred
   (to-source [d]
-    (create-DeferredSource
+    (->DeferredSource
       (AtomicReference. d))))

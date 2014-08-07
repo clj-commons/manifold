@@ -80,7 +80,7 @@ However, we can also create derivative streams using operators analogous to Cloj
 (2 3 4)
 ```
 
-Here, we've mapped `inc` over a stream, transforming from a sequence to a stream and then back to a sequence for the sake of a concise example.  Note that calling `s/map` on a sequence will automatically call `->source`, so we can actually omit that, leaving just:
+Here, we've mapped `inc` over a stream, transforming from a sequence to a stream and then back to a sequence for the sake of a concise example.  Note that calling `manifold.stream/map` on a sequence will automatically call `->source`, so we can actually omit that, leaving just:
 
 ```clj
 > (->> [1 2 3]

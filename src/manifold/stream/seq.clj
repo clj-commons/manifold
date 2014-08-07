@@ -81,12 +81,12 @@
 
   clojure.lang.ISeq
   (to-source [s]
-    (create-SeqSource
+    (->SeqSource
       (atom s)
       (AtomicReference. (d/success-deferred true))))
 
   clojure.lang.Seqable
   (to-source [s]
-    (create-SeqSource
+    (->SeqSource
       (atom (seq s))
       (AtomicReference. (d/success-deferred true)))))

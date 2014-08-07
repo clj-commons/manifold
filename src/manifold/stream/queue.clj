@@ -158,7 +158,7 @@
 
   BlockingQueue
   (to-sink [queue]
-    (create-BlockingQueueSink
+    (->BlockingQueueSink
       queue
       (AtomicReference. (d/success-deferred true)))))
 
@@ -166,6 +166,6 @@
 
   BlockingQueue
   (to-source [queue]
-    (create-BlockingQueueSource
+    (->BlockingQueueSource
       queue
       (AtomicReference. (d/success-deferred true)))))
