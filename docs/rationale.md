@@ -14,7 +14,7 @@ The most obvious problem is that core.async uses an execution model which assume
 
 In practice, this means that core.async is most effectively used as an **application-level abstraction**, where the programmer can guarantee pervasive use of core.async, and can design the execution model around core.async's needs.
 
-However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.  In general, **all of the existing stream representations are walled gardens**, including but not limited to [RxJava](https://github.com/Netflix/RxJava), [Reactive Streams](http://www.reactive-streams.org/), [Lamina](https://github.com/ztellman/lamina), and [Reactor](https://github.com/reactor/reactor).  This is strong odds with Clojure's philosophy, which focuses on a large number of functions for a very small number of universal data structures.
+However, when creating a library that consumes and provides stream abstractions, using core.async channels means the library will only be used by people already using core.async.  Given the impedance mismatches with both synchronous and asynchronous JVM libraries, this seems unecessarily limiting.  In general, **all of the existing stream representations are walled gardens**, including but not limited to [RxJava](https://github.com/Netflix/RxJava), [Reactive Streams](http://www.reactive-streams.org/), [Lamina](https://github.com/ztellman/lamina), and [Reactor](https://github.com/reactor/reactor).  This is at strong odds with Clojure's philosophy, which focuses on a large number of functions for a very small number of universal data structures.
 
 ### manifold
 
@@ -26,6 +26,26 @@ Manifold attempts to provide a common ground between all these abstractions.  It
 * all Manifold sources can be implicitly converted to seqs via `Seqable`, so Clojure's sequence operators can be directly applied to them.
 * all Clojure sequences can be implicitly converted to Manifold sources, so Manifold's stream operators can be directly applied to them
 * explicit stream topology constructed via `(connect source sink)`, which is the underlying mechanism for Manifold's stream operators
+
+As a result of trying to do less, Manifold's implementation is both simpler and significantly faster.  For a simple throughput test, where blocking puts and takes are performed on separate threads:
+
+```clj
+(let [ch (async/chan)]
+  (future
+    (dotimes [i 1e3]
+      (async/>!! ch i)))
+  (dotimes [i 1e3]
+    (async/<!! ch)))
+
+(let [s (s/stream)]
+  (future
+    (dotimes [i 1e3]
+      @(s/put! s i)))
+  (dotimes [_ 1e3]
+    @(s/take! s)))
+```
+
+The Manifold stream is **two orders of magnitude faster**.  Use of goroutines and non-blocking operations only makes things marginally slower.
 
 The `connect` and topology mechanisms are pluggable, allowing for other stream abstractions to "extend" a Manifold topology.  A Manifold stream can be transformed to and from a `BlockingQueue`, Clojure seq, and core.async channel.  Extending to other representations is as simple as defining `put!` and `take!` functions.  A Manifold deferred can be transparently substituted for a Clojure future or promise, and a future or promise will be automatically coerced to a deferred where necessary.
 

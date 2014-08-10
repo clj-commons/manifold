@@ -89,11 +89,12 @@ Here, we've mapped `inc` over a stream, transforming from a sequence to a stream
 (2 3 4)
 ```
 
-And since all sources are seqable, calling `clojure.core/map` over a source is also completely valid:
+Since streams are not immutable, in order to treat it as a sequence we must do an explicit transformation via `stream->seq`:
 
 ```clj
 > (->> [1 2 3]
     s/->source
+    s/stream->seq
     (map inc))
 (2 3 4)
 ```

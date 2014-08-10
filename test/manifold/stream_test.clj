@@ -26,7 +26,7 @@
     (future
       (doseq [x vs]
         (s/put! sink x)))
-    (is (= vs (s/stream->lazy-seq source 100)))))
+    (is (= vs (s/stream->seq source 100)))))
 
 (defn splice-into-stream [gen]
   #(let [x (gen)
@@ -61,7 +61,7 @@
         (->> inputs
           (map s/->source)
           (apply s/zip)
-          s/stream->lazy-seq)))))
+          s/stream->seq)))))
 
 (deftest test-partition-by
   (let [inputs (range 1e2)
@@ -71,8 +71,8 @@
         (->> inputs
           s/->source
           (s/partition-by f)
-          (s/map (comp doall s/stream->lazy-seq))
-          seq)))))
+          (s/map (comp doall s/stream->seq))
+          s/stream->seq)))))
 
 (deftest test-concat
   (let [inputs (range 1e2)
@@ -83,7 +83,7 @@
           s/->source
           (s/partition-by f)
           s/concat
-          s/stream->lazy-seq)))))
+          s/stream->seq)))))
 
 (deftest test-buffer
   (let [s (s/buffer-stream identity 10)]
@@ -117,7 +117,7 @@
       ;; single operation
       (->> (s/->source input)
         (stream-f f)
-        seq)
+        s/stream->seq)
 
       ;; three simultaneous operations
       (let [src (s/stream)
@@ -127,7 +127,7 @@
             dsts (doall (repeatedly 3 f))]
         (d/chain (s/put-all! src input)
           (fn [_] (s/close! src)))
-        (map seq dsts)))
+        (map s/stream->seq dsts)))
 
     map s/map inc (range 10)
 
@@ -166,12 +166,9 @@
 (defn stream-benchmark [s]
   (future
     (dotimes [i 1e3]
-      @(s/put! s i))
-    (s/close! s))
-  (loop []
-    (let [x @(s/take! s)]
-      (when x
-        (recur)))))
+      @(s/put! s i)))
+  (dotimes [_ 1e3]
+    @(s/take! s)))
 
 (deftest ^:benchmark benchmark-conveyance
   (let [s  (s/stream)

@@ -1,4 +1,4 @@
-(defproject manifold "0.1.0-alpha2"
+(defproject manifold "0.1.0-alpha3"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -7,7 +7,7 @@
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [org.clojure/clojure "1.5.1"]
                                   [criterium "0.4.3"]
-                                  [org.clojure/core.async "0.1.303.0-886421-alpha"]]}}
+                                  [org.clojure/core.async "0.1.319.0-6b1aca-alpha"]]}}
   :test-selectors {:default #(not (some #{:benchmark :stress}
                                         (cons (:tag %) (keys %))))
                    :benchmark :benchmark

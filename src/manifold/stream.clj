@@ -71,8 +71,6 @@
           "sink")
         ": " (pr-str (.description ^IEventStream o)) " >>"))))
 
-(declare stream->lazy-seq)
-
 (def ^:private default-stream-impls
   `((~'downstream [this#] (manifold.stream.graph/downstream this#))
     (~'weakHandle [this# ref-queue#]
@@ -107,8 +105,7 @@
     ^:volatile-mutable __weakHandle])
 
 (def ^:private default-source-impls
-  `((~'seq [this#] (stream->lazy-seq this#))
-    (~'isDrained [this#] ~'__isDrained)
+  `((~'isDrained [this#] ~'__isDrained)
     (~'onDrained [this# callback#]
       (utils/with-lock ~'lock
         (if ~'__isDrained
@@ -133,7 +130,6 @@
        ~(vec (distinct (clj/concat params source-params)))
        manifold.stream.IEventStream
        manifold.stream.IEventSource
-       clojure.lang.Seqable
        ~@(merged-body default-stream-impls default-source-impls body))
 
      (defn ~(with-meta (symbol (str "->" name)) {:private true})
@@ -159,7 +155,6 @@
        manifold.stream.IEventStream
        manifold.stream.IEventSink
        manifold.stream.IEventSource
-       clojure.lang.Seqable
        ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
 
      (defn ~(with-meta (symbol (str "->" name)) {:private true})
@@ -595,19 +590,19 @@
 
 ;;;
 
-(defn stream->lazy-seq
+(defn stream->seq
   "Transforms a stream into a lazy sequence.  If a `timeout-interval` is defined, the sequence will terminate
    if `timeout-interval` milliseconds elapses without a new event."
   ([s]
      (lazy-seq
        (let [x @(take! s ::none)]
          (when-not (identical? ::none x)
-           (cons x (stream->lazy-seq s))))))
+           (cons x (stream->seq s))))))
   ([s timeout-interval]
      (lazy-seq
        (let [x @(try-take! s ::none timeout-interval ::none)]
          (when-not (identical? ::none x)
-           (cons x (stream->lazy-seq s timeout-interval)))))))
+           (cons x (stream->seq s timeout-interval)))))))
 
 (defn- periodically-
   [stream period initial-delay f]
