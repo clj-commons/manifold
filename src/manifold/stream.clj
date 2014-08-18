@@ -89,10 +89,10 @@
   `((~'close [this#] (.markClosed this#))
     (~'isClosed [this#] ~'__isClosed)
     (~'onClosed [this# callback#]
-       (utils/with-lock ~'lock
-         (if ~'__isClosed
-           (callback#)
-           (.add ~'__closedCallbacks callback#))))
+      (utils/with-lock ~'lock
+        (if ~'__isClosed
+          (callback#)
+          (.add ~'__closedCallbacks callback#))))
     (~'markClosed [this#]
       (utils/with-lock ~'lock
         (set! ~'__isClosed true)
@@ -348,7 +348,7 @@
   (d/loop [msgs msgs]
     (if (empty? msgs)
       true
-      (d/chain (put! sink (first msgs))
+      (d/chain' (put! sink (first msgs))
         (fn [result]
           (if result
             (d/recur (rest msgs))
@@ -619,7 +619,7 @@
                     (close! stream)))
                 (do
                   (@cancel)
-                  (d/chain d
+                  (d/chain' d
                     (fn [x]
                       (if-not x
                         (close! stream)
@@ -684,7 +684,7 @@
            (connect-via a #(put! b %) b {:description {:op "zip"}}))
 
          (d/loop []
-           (d/chain
+           (d/chain'
              (->> intermediates
                (clj/map #(take! % ::drained))
                (apply d/zip))
@@ -719,9 +719,9 @@
   ([f initial-value s]
      (let [s' (stream)
            val (atom initial-value)]
-       (d/chain (if (identical? ::none initial-value)
-                  true
-                  (put! s' initial-value))
+       (d/chain' (if (identical? ::none initial-value)
+                   true
+                   (put! s' initial-value))
          (fn [_]
            (connect-via s
              (fn [msg]
@@ -730,7 +730,7 @@
                    (reset! val msg)
                    (put! s' msg))
                  (-> msg
-                   (d/chain
+                   (d/chain'
                      (partial f @val)
                      (fn [x]
                        (reset! val x)
@@ -748,18 +748,18 @@
      (reduce f ::none s))
   ([f initial-value s]
      (let [d (d/deferred)]
-       (d/chain (if (identical? ::none initial-value)
-                  (take! s ::none)
-                  initial-value)
+       (d/chain' (if (identical? ::none initial-value)
+                   (take! s ::none)
+                   initial-value)
          (fn [initial-value]
            (if (identical? ::none initial-value)
              (f)
              (d/loop [val initial-value]
                (-> (take! s ::none)
-                 (d/chain (fn [x]
-                            (if (identical? ::none x)
-                              (d/success! d val)
-                              (d/recur (f val x)))))
+                 (d/chain' (fn [x]
+                             (if (identical? ::none x)
+                               (d/success! d val)
+                               (d/recur (f val x)))))
                  (d/catch Throwable (fn [e] (d/error! d val))))))))
        d)))
 
@@ -771,7 +771,7 @@
       (fn [msg]
         (d/loop [s (f msg)]
           (when-not (empty? s)
-            (d/chain (put! s' (first s))
+            (d/chain' (put! s' (first s))
               (fn [_]
                 (d/recur (rest s)))))))
       s'
@@ -788,7 +788,7 @@
 
     ;; TODO: how is this represented in the topology?
     (d/loop [prev ::x, s' nil]
-      (d/chain (take! in ::none)
+      (d/chain' (take! in ::none)
         (fn [msg]
           (if (identical? ::none msg)
             (do
@@ -803,11 +803,11 @@
                            ::error))]
               (when-not (identical? ::error curr)
                 (if (= prev curr)
-                  (d/chain (put! s' msg)
+                  (d/chain' (put! s' msg)
                     (fn [_] (d/recur curr s')))
                   (let [s'' (stream)]
                     (when s' (close! s'))
-                    (d/chain (put! out s'')
+                    (d/chain' (put! out s'')
                       (fn [_] (put! s'' msg))
                       (fn [_] (d/recur curr s'')))))))))))
 
@@ -822,14 +822,14 @@
     (connect-via-proxy s in out {:description {:op "concat"}})
 
     (d/loop []
-      (d/chain (take! in ::none)
+      (d/chain' (take! in ::none)
         (fn [s']
           (if (identical? ::none s')
             (do
               (close! out)
               s')
             (d/loop []
-              (d/chain (take! s' ::none)
+              (d/chain' (take! s' ::none)
                 (fn [msg]
                   (if (identical? ::none msg)
                     msg
@@ -849,81 +849,85 @@
 (defn buffer-stream
   "A stream which will buffer at most `limit` data, where the size of each message
    is defined by `(metric message)`."
-  [metric limit]
-  (let [buf (stream Integer/MAX_VALUE)
-        buffer-size (atom 0)
-        last-put (AtomicReference. (d/success-deferred true))
-        buf+ (fn [n]
-               (loop []
-                 (let [buf @buffer-size
-                       buf' (+ buf n)]
-                   (if (compare-and-set! buffer-size buf buf')
-                     (cond
-                       (< buf limit buf')
-                       (d/success!
-                         (.getAndSet last-put (d/deferred))
-                         true)
+  ([metric limit]
+     (buffer-stream metric limit nil))
+  ([metric limit description]
+     (let [buf (stream Integer/MAX_VALUE)
+           buffer-size (atom 0)
+           last-put (AtomicReference. (d/success-deferred true))
+           buf+ (fn [n]
+                  (loop []
+                    (let [buf @buffer-size
+                          buf' (+ buf n)]
+                      (if (compare-and-set! buffer-size buf buf')
+                        (cond
+                          (< buf limit buf')
+                          (d/success!
+                            (.getAndSet last-put (d/deferred))
+                            true)
 
-                       (< buf' limit buf)
-                       (d/success! (.get last-put) true))
-                     (recur)))))
-        handle (atom nil)]
+                          (< buf' limit buf)
+                          (d/success! (.get last-put) true))
+                        (recur)))))
+           handle (atom nil)]
 
-    (reify
-      IEventStream
-      (isSynchronous [_]
-        false)
-      (downstream [this]
-        (manifold.stream.graph/downstream this))
-      (close [_]
-        (.close ^IEventStream buf))
-      (description [_]
-        (merge
-          (description buf)
-          {:buffer-size @buffer-size
-           :buffer-capacity limit}))
-      (weakHandle [this ref-queue]
-        (or @handle
-          (do
-            (compare-and-set! handle nil (WeakReference. this ref-queue))
-            @handle)))
+       (reify
+         IEventStream
+         (isSynchronous [_]
+           false)
+         (downstream [this]
+           (manifold.stream.graph/downstream this))
+         (close [_]
+           (.close ^IEventStream buf))
+         (description [_]
+           (merge
+             (description buf)
+             description
+             {:buffer-size @buffer-size
+              :buffer-capacity limit}))
+         (weakHandle [this ref-queue]
+           (or @handle
+             (do
+               (compare-and-set! handle nil (WeakReference. this ref-queue))
+               @handle)))
 
-      IEventSink
-      (put [_ x blocking?]
-        (.put ^IEventSink buf x blocking?)
-        (buf+ (metric x))
-        (.get last-put))
-      (put [_ x blocking? timeout timeout-val]
-        ;; TODO: this doesn't really time out, because that would
-        ;; require consume-side filtering of messages
-        (.put ^IEventSink buf x blocking? timeout timeout-val)
-        (buf+ (metric x))
-        (.get last-put))
-      (isClosed [_]
-        (.isClosed ^IEventSink buf))
-      (onClosed [_ callback]
-        (.onClosed ^IEventSink buf callback))
+         IEventSink
+         (put [_ x blocking?]
+           (.put ^IEventSink buf x blocking?)
+           (buf+ (metric x))
+           (.get last-put))
+         (put [_ x blocking? timeout timeout-val]
+           ;; TODO: this doesn't really time out, because that would
+           ;; require consume-side filtering of messages
+           (.put ^IEventSink buf x blocking? timeout timeout-val)
+           (buf+ (metric x))
+           (.get last-put))
+         (isClosed [_]
+           (.isClosed ^IEventSink buf))
+         (onClosed [_ callback]
+           (.onClosed ^IEventSink buf callback))
 
-      IEventSource
-      (take [_ default-val blocking?]
-        (d/chain (.take ^IEventSource buf default-val blocking?)
-          (fn [x]
-            (buf+ (- (metric x)))
-            x)))
-      (take [_ default-val blocking? timeout timeout-val]
-        (d/chain (.take ^IEventSource buf default-val blocking? timeout ::timeout)
-          (fn [x]
-            (if (identical? ::timeout x)
-              timeout-val
-              (do
-                (buf+ (- (metric x)))
-                x)))))
-      (isDrained [_]
-        (.isDrained ^IEventSource buf))
-      (onDrained [_ callback]
-        (.onDrained ^IEventSource buf callback))
-      (connector [_ sink]
-        (.connector ^IEventSource buf sink)))))
+         IEventSource
+         (take [_ default-val blocking?]
+           (d/chain' (.take ^IEventSource buf default-val blocking?)
+             (fn [x]
+               (buf+ (- (metric x)))
+               x)))
+         (take [_ default-val blocking? timeout timeout-val]
+           (d/chain' (.take ^IEventSource buf default-val blocking? timeout ::timeout)
+             (fn [x]
+               (if (identical? ::timeout x)
+                 timeout-val
+                 (do
+                   (buf+ (- (metric x)))
+                   x)))))
+         (isDrained [_]
+           (.isDrained ^IEventSource buf))
+         (onDrained [_ callback]
+           (.onDrained ^IEventSource buf callback))
+         (connector [_ sink]
+           (.connector ^IEventSource buf sink))))))
+
 
 (defn buffer
   "Takes a stream, and returns a stream which is a buffered view of that stream.  The buffer
@@ -954,23 +958,23 @@
        (d/loop [msgs [], earliest-message -1]
          (if (= max-size (count msgs))
 
-           (d/chain (put! s' msgs)
+           (d/chain' (put! s' msgs)
              (fn [_]
                (d/recur [] -1)))
 
-           (d/chain (if (or
-                          (neg? max-latency)
-                          (neg? earliest-message)
-                          (empty? msgs))
-                      (take! buf ::none)
-                      (try-take! buf
-                        ::none
-                        (- max-latency (- (System/currentTimeMillis) earliest-message))
-                        ::none))
+           (d/chain' (if (or
+                           (neg? max-latency)
+                           (neg? earliest-message)
+                           (empty? msgs))
+                       (take! buf ::none)
+                       (try-take! buf
+                         ::none
+                         (- max-latency (- (System/currentTimeMillis) earliest-message))
+                         ::none))
              (fn [msg]
                (if (identical? ::none msg)
-                 (d/chain (when-not (empty? msgs)
-                            (put! s' msgs))
+                 (d/chain' (when-not (empty? msgs)
+                             (put! s' msgs))
                    (fn [_]
                      (if (drained? s)
                        (close! s')

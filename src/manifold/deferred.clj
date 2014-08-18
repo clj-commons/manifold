@@ -88,7 +88,7 @@
          x')))
   ([x default-val]
      (cond
-       (instance? IDeferred x)
+       (deferred? x)
        x
 
        (deferrable? x)
@@ -372,6 +372,13 @@
    ^:volatile-mutable mta
    ^:volatile-mutable consumed?]
 
+  Object
+  (finalize [_]
+    (when (and
+            (not consumed?)
+            debug/*dropped-error-logging-enabled?*)
+      (log/warn error "unconsumed deferred in error state")))
+
   clojure.lang.IObj
   (meta [_] mta)
   clojure.lang.IReference
@@ -434,29 +441,37 @@
 
 (declare chain)
 
-(defn- unwrap [x]
-  (if-let [d (->deferred x nil)]
-    (if (realized? d)
-      (let [d' (try
-                 @d
+(defn- unwrap' [x]
+  (if (deferred? x)
+    (if (realized? x)
+      (let [x' (try
+                 @x
                  (catch Throwable _
                    ::error))]
-        (cond
-          (identical? ::error d')
-          d
-
-          (deferrable? d')
-          (recur d')
-
-          :else
-          d'))
-      d)
+        (if (identical? ::error x')
+          x
+          (recur x')))
+      x)
     x))
+
+(defn- unwrap [x]
+  (let [d (->deferred x nil)]
+    (if (nil? d)
+      x
+      (if (realized? d)
+        (let [x' (try
+                   @x
+                   (catch Throwable _
+                     ::error))]
+          (if (identical? ::error x')
+            x
+            (recur x')))
+        x))))
 
 (defn connect
   "Conveys the realized value of `a` into `b`."
   [a b]
-  (assert (instance? IDeferred b) "sink `b` must be a Manifold deferred")
+  (assert (deferred? b) "sink `b` must be a Manifold deferred")
   (let [a (unwrap a)]
     (if (instance? IDeferred a)
       (if (realized? b)
@@ -464,7 +479,7 @@
         (do
           (on-realized a
             #(let [a' (unwrap %)]
-               (if (instance? IDeferred a')
+               (if (deferred? a')
                  (connect a' b)
                  (success! b a')))
             #(error! b %))
@@ -484,43 +499,100 @@
 
 ;;;
 
+(defn- chain'-
+  ([d x]
+     (if (nil? d)
+       (if (deferred? x)
+         x
+         (success-deferred x))
+       (if (deferred? x)
+         (connect x d)
+         (success! d x))))
+  ([d x f]
+     (chain'- d x f identity))
+  ([d x f g]
+     (try
+       (let [x' (unwrap' x)]
+
+         (if (deferred? x')
+           (let [d (or d (deferred))]
+             (on-realized x'
+               #(chain'- d % f g)
+               #(error! d %))
+             d)
+
+           (let [x'' (f x')]
+             (if (deferred? x'')
+               (chain'- d x'' g identity)
+               (let [x''' (g x'')]
+                 (if (deferred? x''')
+                   (chain'- d x''' identity identity)
+                   (if (nil? d)
+                     (success-deferred x''')
+                     (success! d x'''))))))))
+       (catch Throwable e
+         (error-deferred e))))
+  ([d x f g & fs]
+     (let [d (or d (deferred))
+           d' (deferred)
+           _ (chain'- d' x f g)]
+       (on-realized d'
+         #(utils/without-overflow
+            (apply chain'- d % fs))
+         #(error! d %))
+       d)))
+
 (defn- chain-
-  ([d x f g h]
-     (when (or (nil? d) (not (realized? d)))
+  ([d x]
+     (chain- d x identity identity))
+  ([d x f]
+     (chain- d x f identity))
+  ([d x f g]
+     (if (or (nil? d) (not (realized? d)))
        (try
          (let [x' (unwrap x)]
 
            (if (deferred? x')
              (let [d (or d (deferred))]
                (on-realized x'
-                 #(chain- d % f g h)
+                 #(chain- d % f g)
                  #(error! d %))
                d)
 
              (let [x'' (f x')]
                (if (and (not (identical? x x'')) (deferrable? x''))
-                 (chain- d x'' g h identity)
+                 (chain- d x'' g identity)
                  (let [x''' (g x'')]
                    (if (and (not (identical? x'' x''')) (deferrable? x'''))
-                     (chain- d x''' h identity identity)
-                     (let [x'''' (h x''')]
-                       (if (and (not (identical? x''' x'''')) (deferrable? x''''))
-                         (chain- d x'''' identity identity identity)
-                         (if d
-                           (success! d x'''')
-                           (success-deferred x''''))))))))))
-
+                     (chain- d x''' identity identity)
+                     (if (nil? d)
+                       (success-deferred x''')
+                       (success! d x'''))))))))
          (catch Throwable e
-           (error-deferred e)))))
-  ([d x f g h & fs]
+           (error-deferred e)))
+       d))
+  ([d x f g & fs]
      (when (or (nil? d) (not (realized? d)))
        (let [d (or d (deferred))
-             x' (chain- d x f g h)]
-         (on-realized x'
+             d' (deferred)
+             _ (chain- d' x f g)]
+         (on-realized d'
            #(utils/without-overflow
-              (connect (apply chain- d % fs) d))
+              (apply chain- d % fs))
            #(error! d %))
          d))))
+
+(defn chain'
+  "Like `chain`, but does not coerce deferrable values.  This is useful both when coercion
+   is undesired, or for 2-4x better performance than `chain`."
+  ([x]
+     (chain'- nil x identity identity))
+  ([x f]
+     (chain'- nil x f identity))
+  ([x f g]
+     (chain'- nil x f g))
+  ([x f g & fs]
+     (apply chain'- nil x f g fs)))
 
 (defn chain
   "Composes functions, left to right, over the value `x`, returning a deferred containing
@@ -536,15 +608,13 @@
 
    "
   ([x]
-     (chain- nil x identity identity identity))
+     (chain- nil x identity identity))
   ([x f]
-     (chain- nil x f identity identity))
+     (chain- nil x f identity))
   ([x f g]
-     (chain- nil x f g identity))
-  ([x f g h]
-     (chain- nil x f g h))
-  ([x f g h & fs]
-     (apply chain- nil x f g h fs)))
+     (chain- nil x f g))
+  ([x f g & fs]
+     (apply chain- nil x f g fs)))
 
 (defn catch
   "An equivalent of the catch clause, which takes an `error-handler` function that will be invoked
@@ -646,7 +716,7 @@
 
 (defmacro loop
   "A version of Clojure's loop which allows for asynchronous loops, via `manifold.deferred/recur`.
-  `loop` will always return a deferred value, even if the body is synchronous.
+  `loop` will always return a deferred value, even if the body is synchronous.  Note that `loop` does **not** coerce values to deferreds, actual Manifold deferreds must be used.
 
    (loop [i 1e6]
      (chain (future i)
@@ -665,30 +735,29 @@
                           ~@body
                           (catch Throwable e#
                             (error! result# e#)
-                            nil))
-                 d# (->deferred ~x-sym ::none)]
-             (if (identical? ::none d#)
-               (if (instance? Recur ~x-sym)
-                 (~'recur
-                   ~@(map
-                       (fn [n] `(nth @~x-sym ~n))
-                       (range (count vars))))
-                 (success! result# ~x-sym))
-               (if (realized? d#)
-                 (let [~x-sym @d#]
+                            nil))]
+             (if (deferred? ~x-sym)
+               (if (realized? ~x-sym)
+                 (let [~x-sym @~x-sym]
                    (if (instance? Recur ~x-sym)
                      (~'recur
                        ~@(map
                            (fn [n] `(nth @~x-sym ~n))
                            (range (count vars))))
                      (success! result# ~x-sym)))
-                 (on-realized (chain d#)
+                 (on-realized (chain ~x-sym)
                    (fn [x#]
                      (if (instance? Recur x#)
                        (apply this# result# @x#)
                        (success! result# x#)))
                    (fn [err#]
-                     (error! result# err#))))))))
+                     (error! result# err#))))
+               (if (instance? Recur ~x-sym)
+                 (~'recur
+                   ~@(map
+                       (fn [n] `(nth @~x-sym ~n))
+                       (range (count vars))))
+                 (success! result# ~x-sym))))))
         result#
         ~@vals)
        result#)))

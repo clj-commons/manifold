@@ -120,14 +120,18 @@
 ;;;
 
 (deftest ^:benchmark benchmark-chain
-  (bench "invoke comp x3"
-    ((comp inc inc inc) 0))
-  (bench "chain x3"
-    @(chain 0 inc inc inc))
+  (bench "invoke comp x2"
+    ((comp inc inc) 0))
+  (bench "chain x2"
+    @(chain 0 inc inc))
+  (bench "chain' x2"
+    @(chain' 0 inc inc))
   (bench "invoke comp x5"
     ((comp inc inc inc inc inc) 0))
   (bench "chain x5"
-    @(chain 0 inc inc inc inc inc)))
+    @(chain 0 inc inc inc inc inc))
+  (bench "chain' x5"
+    @(chain' 0 inc inc inc inc inc)))
 
 (deftest ^:benchmark benchmark-deferred
   (bench "create deferred"

@@ -54,9 +54,14 @@
 (defn- sync-send
   [^Downstream d msg ^CopyOnWriteArrayList dsts ^IEventSink upstream]
   (let [^IEventSink sink (.sink d)
-        x (if (== (.timeout d) -1)
-            (.put sink msg true)
-            (.put sink msg true (.timeout d) ::timeout))]
+        x (try
+            (if (== (.timeout d) -1)
+              (.put sink msg true)
+              (.put sink msg true (.timeout d) ::timeout))
+            (catch Throwable e
+              (log/error e "error in message propagation")
+              (s/close! sink)
+              false))]
     (when (false? x)
       (.remove dsts d)
       (when upstream
@@ -81,6 +86,7 @@
           (instance? IEventSink x')
           (s/close! x')))
       (catch Throwable e
+        (log/error e "error in message propagation")
         (.remove ^CopyOnWriteArrayList (.dsts x) (.dst x))
         (when (.upstream? x)
           (s/close! source))))))

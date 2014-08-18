@@ -27,26 +27,6 @@ Manifold attempts to provide a common ground between all these abstractions.  It
 * all Clojure sequences can be implicitly converted to Manifold sources, so Manifold's stream operators can be directly applied to them
 * explicit stream topology constructed via `(connect source sink)`, which is the underlying mechanism for Manifold's stream operators
 
-As a result of trying to do less, Manifold's implementation is both simpler and significantly faster.  For a simple throughput test, where blocking puts and takes are performed on separate threads:
-
-```clj
-(let [ch (async/chan)]
-  (future
-    (dotimes [i 1e3]
-      (async/>!! ch i)))
-  (dotimes [i 1e3]
-    (async/<!! ch)))
-
-(let [s (s/stream)]
-  (future
-    (dotimes [i 1e3]
-      @(s/put! s i)))
-  (dotimes [_ 1e3]
-    @(s/take! s)))
-```
-
-The Manifold stream is **two orders of magnitude faster**.  Use of goroutines and non-blocking operations only makes things marginally slower.
-
 The `connect` and topology mechanisms are pluggable, allowing for other stream abstractions to "extend" a Manifold topology.  A Manifold stream can be transformed to and from a `BlockingQueue`, Clojure seq, and core.async channel.  Extending to other representations is as simple as defining `put!` and `take!` functions.  A Manifold deferred can be transparently substituted for a Clojure future or promise, and a future or promise will be automatically coerced to a deferred where necessary.
 
 Manifold is not intended to be as feature-rich as other stream libraries, but rather to be just feature-rich enough to enable library developers to use it as an asynchronous [lingua franca](http://en.wikipedia.org/wiki/Lingua_franca).  It is, at this moment, fully functional but subject to change.  Feedback is welcomed.

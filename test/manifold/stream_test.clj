@@ -42,7 +42,6 @@
   (run-sink-source-test (splice-into-stream #(ArrayBlockingQueue. 100)))
   (run-sink-source-test (splice-into-stream #(async/chan 100))))
 
-
 ;;;
 
 (deftest test-reduce
@@ -228,6 +227,9 @@
     (bench "core.async blocking channel throughput w/ 1024 buffer"
       (core-async-blocking-benchmark ch)))
   (let [ch (async/chan 1)]
+    (bench "core.async put then take"
+      (async/>!! ch 1)
+      (async/<!! ch))
     (bench "core.async channel throughput w/ 1 buffer"
       (core-async-benchmark ch))
     (bench "core.async blocking channel throughput w/ 1 buffer"
