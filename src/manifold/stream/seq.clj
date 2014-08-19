@@ -15,7 +15,10 @@
    ^AtomicReference last-take]
 
   (isSynchronous [_]
-    true)
+    (let [s @s-ref]
+      (and
+        (instance? clojure.lang.IPending s)
+        (not (realized? s)))))
 
   (close [_]
     (let [s @s-ref]

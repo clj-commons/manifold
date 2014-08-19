@@ -51,13 +51,15 @@
   [x]
   `(instance? IDeferred ~x))
 
-(let [f (utils/fast-satisfies #'Deferrable)]
-  (defn deferrable? [x]
-    (or
-      (instance? IDeferred x)
-      (instance? Future x)
-      (instance? IPending x)
-      (f x))))
+(def ^:private satisfies-deferrable?
+  (utils/fast-satisfies #'Deferrable))
+
+(defn deferrable? [x]
+  (or
+    (instance? IDeferred x)
+    (instance? Future x)
+    (instance? IPending x)
+    (satisfies-deferrable? x)))
 
 ;; TODO: do some sort of periodic sampling so multiple futures can share a thread
 (defn- register-future-callbacks [x on-success on-error]
@@ -91,7 +93,7 @@
        (deferred? x)
        x
 
-       (deferrable? x)
+       (satisfies-deferrable? x)
        (to-deferred x)
 
        (instance? Future x)

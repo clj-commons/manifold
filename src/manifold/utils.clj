@@ -94,7 +94,8 @@
       (try
         (c)
         (catch Throwable e
-          (log/error e "error in invoke-callbacks"))))))
+          (log/error e "error in invoke-callbacks")))
+      (recur))))
 
 ;;;
 
