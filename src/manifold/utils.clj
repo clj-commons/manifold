@@ -126,20 +126,18 @@
        (finally
          (.unlock lock#)))))
 
+(defmacro with-lock* [lock & body]
+  `(let [^java.util.concurrent.locks.Lock lock# ~lock]
+     (.lock lock#)
+     (let [x# (do ~@body)]
+       (.unlock lock#)
+       x#)))
+
 ;;;
 
 (defmacro when-core-async [& body]
   (when (try
           (require '[clojure.core.async :as a])
-          true
-          (catch Exception _
-            false))
-    `(do ~@body)))
-
-(defmacro when-lamina [& body]
-  (when (try
-          (require '[lamina.core :as l])
-          (require '[lamina.api :as la])
           true
           (catch Exception _
             false))

@@ -7,6 +7,9 @@
     [manifold.stream.graph :as g]
     [manifold.time :as time])
   (:import
+    [java.util
+     LinkedList
+     ArrayDeque]
     [java.util.concurrent
      BlockingQueue
      ArrayBlockingQueue
@@ -23,10 +26,10 @@
   [
    ^boolean permanent?
    description
-   ^BlockingQueue producers
-   ^BlockingQueue consumers
+   ^LinkedList producers
+   ^LinkedList consumers
    ^long capacity
-   ^BlockingQueue messages
+   ^ArrayDeque messages
    ]
 
   (isSynchronous [_] false)
@@ -50,9 +53,8 @@
     (when-not permanent?
       (utils/with-lock lock
         (when-not (s/closed? this)
-          (let [l (java.util.ArrayList.)]
-            (.drainTo consumers l)
-            (doseq [^Consumer c l]
+          (loop []
+            (when-let [^Consumer c (.poll consumers)]
               (try
                 (d/success! (.deferred c) (.default-val c))
                 (catch Throwable e
@@ -86,7 +88,8 @@
               ;; see if we can enqueue into the buffer
               (and
                 messages
-                (.offer messages msg)
+                (when (< (.size messages) capacity)
+                  (.offer messages msg))
                 (d/success-deferred true))
 
               ;; add to the producers queue
@@ -102,7 +105,7 @@
       (cond
         (instance? Producer result)
         (do
-          (.put producers result)
+          (.add producers result)
           (let [d (.deferred ^Producer result)]
             (if blocking?
               @d
@@ -178,7 +181,7 @@
 
         (instance? Consumer result)
         (do
-          (.put consumers result)
+          (.add consumers result)
           (let [d (.deferred ^Consumer result)]
             (if blocking?
               @d
@@ -208,18 +211,18 @@
      (->Stream
        false
        nil
-       (LinkedBlockingQueue. 65536)
-       (LinkedBlockingQueue. 65536)
+       (LinkedList.)
+       (LinkedList.)
        0
        nil))
   ([buffer-size]
      (->Stream
        false
        nil
-       (LinkedBlockingQueue. 65536)
-       (LinkedBlockingQueue. 65536)
+       (LinkedList.)
+       (LinkedList.)
        (long buffer-size)
-       (LinkedBlockingQueue. (long buffer-size)))))
+       (ArrayDeque.))))
 
 (defn stream*
   [{:keys [permanent?
@@ -229,7 +232,7 @@
   (->Stream
     permanent?
     description
-    (LinkedBlockingQueue. 65536)
-    (LinkedBlockingQueue. 65536)
+    (LinkedList.)
+    (LinkedList.)
     (if buffer-size (long buffer-size) 0)
-    (when buffer-size (LinkedBlockingQueue. (long buffer-size)))))
+    (when buffer-size (ArrayDeque.))))

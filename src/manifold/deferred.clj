@@ -18,6 +18,8 @@
      TimeUnit
      ConcurrentHashMap
      CountDownLatch]
+    [java.util.concurrent.locks
+     Lock]
     [java.util.concurrent.atomic
      AtomicBoolean
      AtomicInteger]
@@ -197,7 +199,7 @@
   (.cancelListener deferred listener))
 
 (defmacro ^:private set-deferred [val token success? claimed?]
-  `(utils/with-lock ~'lock
+  `(utils/with-lock* ~'lock
      (if (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
                  ~@(when claimed?
@@ -219,10 +221,12 @@
          (finally
            (.clear ~'listeners)))
        ~(if claimed?
-         `(throw (IllegalStateException.
-                   (if (identical? ~'claim-token ~token)
-                     "deferred isn't claimed"
-                     "invalid claim-token")))
+          `(do
+             (.unlock ~'lock)
+             (throw (IllegalStateException.
+                      (if (identical? ~'claim-token ~token)
+                        "deferred isn't claimed"
+                        "invalid claim-token"))))
          false))))
 
 (defmacro ^:private deref-deferred [timeout-value & await-args]
@@ -243,21 +247,42 @@
               `((catch TimeoutException _#
                   ~timeout-value)))))))
 
-(deftype Deferred
+(deftype DeferredState
+  [val state claim-token consumed?])
+
+(deftype Deferred2
+  [
+   ^:volatile-mutable ^DeferredState state
+   ^Lock lock
+   ^LinkedList listeners
+   ^:volatile-mutable mta
+   creation-trace])
+
+(deftype Deferred3
   [^:volatile-mutable val
    ^:volatile-mutable state
    ^:unsynchronized-mutable claim-token
-   lock
+   ^Lock lock
+   ^LinkedList listeners
+   ^:volatile-mutable mta
+   ^:volatile-mutable consumed?
+   creation-trace])
+
+(deftype Deferred
+  [^:volatile-mutable val
+   ^:volatile-mutable state
+   ^:volatile-mutable claim-token
+   ^Lock lock
    ^LinkedList listeners
    ^:volatile-mutable mta
    ^:volatile-mutable consumed?
    creation-trace]
 
   Object
-  (finalize [_]
+  #_(finalize [_]
     (when (and
-            (not consumed?)
             (identical? ::error state)
+            (not consumed?)
             debug/*dropped-error-logging-enabled?*)
       (log/warn val "unconsumed deferred in error state")))
 
@@ -265,21 +290,21 @@
   (meta [_] mta)
   clojure.lang.IReference
   (resetMeta [_ m]
-    (utils/with-lock lock
+    (utils/with-lock* lock
       (set! mta m)))
   (alterMeta [_ f args]
-    (utils/with-lock lock
+    (utils/with-lock* lock
       (set! mta (apply f mta args))))
 
   IMutableDeferred
   (claim [_]
-    (utils/with-lock lock
+    (utils/with-lock* lock
       (when (identical? state ::unset)
         (set! state ::claimed)
         (set! claim-token (Object.)))))
   (addListener [_ listener]
     (set! consumed? true)
-    (when-let [f (utils/with-lock lock
+    (when-let [f (utils/with-lock* lock
                    (condp identical? state
                      ::success #(.onSuccess ^IDeferredListener listener val)
                      ::error   #(.onError ^IDeferredListener listener val)
@@ -289,7 +314,7 @@
       (f))
     true)
   (cancelListener [_ listener]
-    (utils/with-lock lock
+    (utils/with-lock* lock
       (let [state state]
         (if (or (identical? ::unset state)
               (identical? ::set state))
@@ -497,6 +522,20 @@
          (success! d# (do ~@body))
          (catch Throwable e#
            (error! d# e#))))
+     d#))
+
+(defmacro future-with
+  "Equivalent to Clojure's `future`, but allows specification of the executor
+   and returns a Manifold deferred."
+  [executor & body]
+  `(let [d# (deferred)
+         ^java.util.concurrent.Executor e# ~executor]
+     (.execute e#
+       (fn []
+         (try
+           (success! d# (do ~@body))
+           (catch Throwable e#
+             (error! d# e#)))))
      d#))
 
 ;;;
