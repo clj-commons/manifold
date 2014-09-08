@@ -146,7 +146,7 @@
     (trampoline
       (fn this
         ([]
-           (let [d (.take source false ::drained)]
+           (let [d (.take source ::drained false)]
              (if (d/realized? d)
                (this @d)
                (d/on-realized d
@@ -213,7 +213,7 @@
         (let [i (.iterator dsts)]
           (if (.hasNext i)
 
-            (let [msg (.take source true ::drained)]
+            (let [msg (.take source ::drained true)]
               (if (identical? ::drained msg)
 
                 (do

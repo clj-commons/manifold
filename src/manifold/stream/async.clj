@@ -23,7 +23,7 @@
   (close [_]
     (a/close! ch))
 
-  (take [this blocking? default-val]
+  (take [this default-val blocking?]
     (if blocking?
 
       (let [x (a/<!! ch)]
@@ -47,7 +47,7 @@
           (d/on-realized d' f f))
         d)))
 
-  (take [this blocking? default-val timeout timeout-val]
+  (take [this default-val blocking? timeout timeout-val]
     (let [d  (d/deferred)
           d' (.getAndSet last-take d)
 

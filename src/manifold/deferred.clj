@@ -250,24 +250,6 @@
 (deftype DeferredState
   [val state claim-token consumed?])
 
-(deftype Deferred2
-  [
-   ^:volatile-mutable ^DeferredState state
-   ^Lock lock
-   ^LinkedList listeners
-   ^:volatile-mutable mta
-   creation-trace])
-
-(deftype Deferred3
-  [^:volatile-mutable val
-   ^:volatile-mutable state
-   ^:unsynchronized-mutable claim-token
-   ^Lock lock
-   ^LinkedList listeners
-   ^:volatile-mutable mta
-   ^:volatile-mutable consumed?
-   creation-trace])
-
 (deftype Deferred
   [^:volatile-mutable val
    ^:volatile-mutable state

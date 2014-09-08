@@ -129,7 +129,7 @@
   (put [this msg blocking?]
     (.put this msg blocking? nil nil))
 
-  (take [this blocking? default-val timeout timeout-val]
+  (take [this default-val blocking? timeout timeout-val]
     (let [result
           (utils/with-lock lock
             (or
@@ -203,8 +203,8 @@
           @result
           result))))
 
-  (take [this blocking? default-val]
-    (.take this blocking? default-val nil nil)))
+  (take [this default-val blocking?]
+    (.take this default-val blocking? nil nil)))
 
 (defn stream
   ([]

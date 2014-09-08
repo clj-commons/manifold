@@ -379,13 +379,13 @@
    between actual `nil` values and failures."
   {:inline (fn
              ([source]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) false nil))
+                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) nil false))
              ([source default-val]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) false ~default-val)))}
+                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) ~default-val false)))}
   ([^IEventSource source]
-     (.take source false nil))
+     (.take source nil false))
   ([^IEventSource source default-val]
-     (.take source false default-val)))
+     (.take source default-val false)))
 
 (defn try-take!
   "Takes a value from a stream, returning a deferred that yields the value if it is
@@ -396,13 +396,13 @@
    important to differentiate between actual `nil` values and failures."
   {:inline (fn
              ([source timeout]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) false nil ~timeout nil))
+                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) nil false ~timeout nil))
              ([source default-val timeout timeout-val]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) false ~default-val ~timeout ~timeout-val)))}
+                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) ~default-val false ~timeout ~timeout-val)))}
   ([^IEventSource source ^double timeout]
-     (.take source false nil timeout nil))
+     (.take source nil false timeout nil))
   ([^IEventSource source default-val ^double timeout timeout-val]
-     (.take source false default-val timeout timeout-val)))
+     (.take source default-val false timeout timeout-val)))
 
 ;;;
 
@@ -895,13 +895,19 @@
          (put [_ x blocking?]
            (.put ^IEventSink buf x blocking?)
            (buf+ (metric x))
-           (.get last-put))
+           (let [val (.get last-put)]
+             (if blocking?
+               @val
+               val)))
          (put [_ x blocking? timeout timeout-val]
            ;; TODO: this doesn't really time out, because that would
            ;; require consume-side filtering of messages
            (.put ^IEventSink buf x blocking? timeout timeout-val)
            (buf+ (metric x))
-           (.get last-put))
+           (let [val (.get last-put)]
+             (if blocking?
+               @val
+               val)))
          (isClosed [_]
            (.isClosed ^IEventSink buf))
          (onClosed [_ callback]
@@ -909,18 +915,34 @@
 
          IEventSource
          (take [_ default-val blocking?]
-           (d/chain' (.take ^IEventSource buf default-val blocking?)
-             (fn [x]
-               (buf+ (- (metric x)))
-               x)))
+           (let [val (d/chain' (.take ^IEventSource buf default-val blocking?)
+                       (fn [x]
+                         (if (identical? default-val x)
+                           x
+                           (do
+                             (buf+ (- (metric x)))
+                             x))))]
+             (if blocking?
+               @val
+               val)))
          (take [_ default-val blocking? timeout timeout-val]
-           (d/chain' (.take ^IEventSource buf default-val blocking? timeout ::timeout)
-             (fn [x]
-               (if (identical? ::timeout x)
-                 timeout-val
-                 (do
-                   (buf+ (- (metric x)))
-                   x)))))
+           (let [val (d/chain' (.take ^IEventSource buf default-val blocking? timeout ::timeout)
+                       (fn [x]
+                         (cond
+
+                           (identical? ::timeout x)
+                           timeout-val
+
+                           (identical? default-val x)
+                           x
+
+                           :else
+                           (do
+                             (buf+ (- (metric x)))
+                             x))))]
+             (if blocking?
+               @val
+               val)))
          (isDrained [_]
            (.isDrained ^IEventSource buf))
          (onDrained [_ callback]

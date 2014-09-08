@@ -33,7 +33,7 @@
         (when (counted? s)
           {:count (count s)}))))
 
-  (take [this blocking? default-val]
+  (take [this default-val blocking?]
     (if blocking?
 
       (let [s @s-ref]
@@ -73,7 +73,7 @@
           (d/on-realized d' f f))
         d)))
 
-  (take [this blocking? default-val timeout timeout-val]
+  (take [this default-val blocking? timeout timeout-val]
     (if (nil? timeout)
       (.take this blocking? default-val)
       (let [d (-> (.take this false default-val)
