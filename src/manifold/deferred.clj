@@ -651,13 +651,31 @@
          (catch             #(str \"something unexpected: \" (.getMessage %))))
 
     "
-  ([d error-handler]
-     (catch d Throwable error-handler))
-  ([d error-class error-handler]
-     (if-not (deferrable? d)
-       (throw (IllegalArgumentException. "'catch' expects a value that can be treated as a deferred."))
+  ([x error-handler]
+     (catch x Throwable error-handler))
+  ([x error-class error-handler]
+     (if-let [d (->deferred x nil)]
        (let [d' (deferred)]
          (on-realized d
+           #(success! d' %)
+           #(try
+              (if (instance? error-class %)
+                (success! d' (error-handler %))
+                (error! d' %))
+              (catch Throwable e
+                (error! d' e))))
+         d')
+       x)))
+
+(defn catch'
+  "Like `catch`, but does not coerce deferrable values."
+  ([x error-handler]
+     (catch' x Throwable error-handler))
+  ([x error-class error-handler]
+     (if-not (instance? IDeferred x)
+       x
+       (let [d' (deferred)]
+         (on-realized x
            #(success! d' %)
            #(try
               (if (instance? error-class %)

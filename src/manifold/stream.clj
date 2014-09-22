@@ -846,11 +846,11 @@
 
 ;;;
 
-(defn buffer-stream
+(defn buffered-stream
   "A stream which will buffer at most `limit` data, where the size of each message
    is defined by `(metric message)`."
   ([metric limit]
-     (buffer-stream metric limit nil))
+     (buffered-stream metric limit nil))
   ([metric limit description]
      (let [buf (stream Integer/MAX_VALUE)
            buffer-size (atom 0)
@@ -881,7 +881,7 @@
            (.close ^IEventStream buf))
          (description [_]
            (merge
-             (description buf)
+             (manifold.stream/description buf)
              description
              {:buffer-size @buffer-size
               :buffer-capacity limit}))
@@ -960,7 +960,7 @@
        (connect s s')
        (source-only s')))
   ([metric limit s]
-     (let [s' (buffer-stream metric limit)]
+     (let [s' (buffered-stream metric limit)]
        (connect s s')
        (source-only s'))))
 

@@ -85,7 +85,7 @@
           s/stream->seq)))))
 
 (deftest test-buffer
-  (let [s (s/buffer-stream identity 10)]
+  (let [s (s/buffered-stream identity 10)]
 
     (let [a (s/put! s 9)
           b (s/put! s 2)]
