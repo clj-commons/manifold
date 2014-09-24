@@ -554,7 +554,7 @@
                      (success-deferred x''')
                      (success! d x'''))))))))
        (catch Throwable e
-         (error-deferred e))))
+         (error! d e))))
   ([d x f g & fs]
      (let [d (or d (deferred))
            d' (deferred)
@@ -592,7 +592,7 @@
                        (success-deferred x''')
                        (success! d x'''))))))))
          (catch Throwable e
-           (error-deferred e)))
+           (error! d e)))
        d))
   ([d x f g & fs]
      (when (or (nil? d) (not (realized? d)))

@@ -19,7 +19,8 @@
      ConcurrentLinkedQueue
      TimeUnit]
     [java.util.concurrent.atomic
-     AtomicReference]
+     AtomicReference
+     AtomicLong]
     [java.util
      LinkedList
      Iterator]))
@@ -853,20 +854,18 @@
      (buffered-stream metric limit nil))
   ([metric limit description]
      (let [buf (stream Integer/MAX_VALUE)
-           buffer-size (atom 0)
+           buffer-size (AtomicLong. 0)
            last-put (AtomicReference. (d/success-deferred true))
-           buf+ (fn [n]
+           buf+ (fn [^long n]
                   (loop []
-                    (let [buf @buffer-size
-                          buf' (+ buf n)]
-                      (if (compare-and-set! buffer-size buf buf')
+                    (let [buf (.get buffer-size)
+                          buf' (unchecked-add buf n)]
+                      (if (.compareAndSet buffer-size buf buf')
                         (cond
-                          (< buf limit buf')
-                          (d/success!
-                            (.getAndSet last-put (d/deferred))
-                            true)
+                          (and (<= buf limit) (< limit buf'))
+                          (d/success! (.getAndSet last-put (d/deferred)) true)
 
-                          (< buf' limit buf)
+                          (and (< limit buf) (<= buf' limit))
                           (d/success! (.get last-put) true))
                         (recur)))))
            handle (atom nil)]
@@ -883,7 +882,7 @@
            (merge
              (manifold.stream/description buf)
              description
-             {:buffer-size @buffer-size
+             {:buffer-size (.get buffer-size)
               :buffer-capacity limit}))
          (weakHandle [this ref-queue]
            (or @handle
@@ -893,8 +892,8 @@
 
          IEventSink
          (put [_ x blocking?]
-           (.put ^IEventSink buf x blocking?)
            (buf+ (metric x))
+           (.put ^IEventSink buf x blocking?)
            (let [val (.get last-put)]
              (if blocking?
                @val
@@ -902,8 +901,8 @@
          (put [_ x blocking? timeout timeout-val]
            ;; TODO: this doesn't really time out, because that would
            ;; require consume-side filtering of messages
-           (.put ^IEventSink buf x blocking? timeout timeout-val)
            (buf+ (metric x))
+           (.put ^IEventSink buf x blocking? timeout timeout-val)
            (let [val (.get last-put)]
              (if blocking?
                @val
