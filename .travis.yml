@@ -4,4 +4,4 @@ script: lein2 do clean, test
 jdk:
   - openjdk7
   - oraclejdk7
-  - openjdk6
+  - oraclejdk8
