@@ -665,10 +665,8 @@
          {:description {:op "map"}})
        (source-only s')))
   ([f s & rest]
-     (apply zip
-       #(apply f %)
-       s
-       rest)))
+     (map #(apply f %)
+       (apply zip s rest))))
 
 (let [some-drained? (partial some #{::drained})]
   (defn zip
