@@ -433,8 +433,8 @@
       (throw (ex-info "" {:error error})))))
 
 (defn deferred
-  "Equivalent to Clojure's `deferred`, but also allows asynchronous callbacks to be registered
-   via `on-realized`."
+  "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
+   and composed via `chain`."
   []
   (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil))
 
