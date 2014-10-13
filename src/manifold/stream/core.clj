@@ -227,7 +227,8 @@
 (defn stream*
   [{:keys [permanent?
            buffer-size
-           description]
+           description
+           xform]
     :or {permanent? false}}]
   (->Stream
     permanent?

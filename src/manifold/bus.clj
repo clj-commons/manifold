@@ -50,12 +50,14 @@
                      (if (identical? x (aget ary i))
                        i
                        (recur (inc i)))))]
-      (if (== 1 len)
-        nil
-        (let [ary' (object-array (dec len))]
-          (System/arraycopy ary 0 ary' 0 idx)
-          (System/arraycopy ary (inc idx) ary' idx (- len idx 1))
-          ary')))))
+      (let [idx (long idx)]
+        (if (== 1 len)
+          nil
+          (let [ary' (object-array (dec len))]
+            (System/arraycopy ary 0 ary' 0 idx)
+            (System/arraycopy ary (inc idx) ary' idx (- len idx 1))
+            ary')))
+      ary)))
 
 (defn event-bus
   "Returns an event bus that can be used with `publish!` and `subscribe`."

@@ -848,6 +848,8 @@
 (defn buffered-stream
   "A stream which will buffer at most `limit` data, where the size of each message
    is defined by `(metric message)`."
+  ([buffer-size]
+     (buffered-stream (constantly 1) buffer-size))
   ([metric limit]
      (buffered-stream metric limit nil))
   ([metric limit description]
@@ -953,7 +955,7 @@
    size may either be measured in messages, or if a `metric` is defined, by the sum of `metric`
    mapped over all messages currently buffered."
   ([limit s]
-     (let [s' (stream limit)]
+     (let [s' (buffered-stream limit)]
        (connect s s')
        (source-only s')))
   ([metric limit s]

@@ -685,6 +685,16 @@
                 (error! d' e))))
          d'))))
 
+(defn finally
+  "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
+   no matter what the result."
+  [x f]
+  (try
+    (f)
+    x
+    (catch Throwable e
+      (error-deferred (Exception. "error in 'finally' clause" e)))))
+
 (defn zip
   "Takes a list of values, some of which may be deferreds, and returns a deferred that will yield a list
    of realized values.

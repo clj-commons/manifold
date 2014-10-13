@@ -70,8 +70,8 @@
         (->> inputs
           s/->source
           (s/partition-by f)
-          (s/map (comp doall s/stream->seq))
-          s/stream->seq)))))
+          s/stream->seq
+          (map (comp doall s/stream->seq)))))))
 
 (deftest test-concat
   (let [inputs (range 1e2)
