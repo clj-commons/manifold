@@ -1,9 +1,9 @@
-(defproject manifold "0.1.0-SNAPSHOT"
+(defproject manifold "0.1.0-beta2"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/ztellman/manifold"
-  :dependencies [[org.clojure/tools.logging "0.2.6"]
+  :dependencies [[org.clojure/tools.logging "0.3.1"]
                  [riddley "0.1.7"]]
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [org.clojure/clojure "1.7.0-alpha2"]
