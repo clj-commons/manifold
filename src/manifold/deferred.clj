@@ -655,16 +655,27 @@
      (catch x Throwable error-handler))
   ([x error-class error-handler]
      (if-let [d (->deferred x nil)]
-       (let [d' (deferred)]
-         (on-realized d
-           #(success! d' %)
-           #(try
-              (if (instance? error-class %)
-                (success! d' (error-handler %))
-                (error! d' %))
-              (catch Throwable e
-                (error! d' e))))
-         d')
+       (if (realized? d)
+
+         ;; see what's inside
+         (try
+           @x
+           x
+           (catch Throwable e
+             (if (instance? error-class e)
+               (error-handler e)
+               x)))
+
+         (let [d' (deferred)]
+           (on-realized d
+             #(success! d' %)
+             #(try
+                (if (instance? error-class %)
+                  (success! d' (error-handler %))
+                  (error! d' %))
+                (catch Throwable e
+                  (error! d' e))))
+          d'))
        x)))
 
 (defn catch'
@@ -674,26 +685,68 @@
   ([x error-class error-handler]
      (if-not (instance? IDeferred x)
        x
-       (let [d' (deferred)]
-         (on-realized x
-           #(success! d' %)
-           #(try
-              (if (instance? error-class %)
-                (success! d' (error-handler %))
-                (error! d' %))
-              (catch Throwable e
-                (error! d' e))))
-         d'))))
+       (if (realized? x)
+
+         ;; see what's inside
+         (try
+           @x
+           x
+           (catch Throwable e
+             (if (instance? error-class e)
+               (error-handler e)
+               x)))
+
+         (let [d' (deferred)]
+           (on-realized x
+             #(success! d' %)
+             #(try
+                (if (instance? error-class %)
+                  (success! d' (error-handler %))
+                  (error! d' %))
+                (catch Throwable e
+                  (error! d' e))))
+           d')))))
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
    no matter what the result."
   [x f]
-  (try
-    (f)
-    x
-    (catch Throwable e
-      (error-deferred (Exception. "error in 'finally' clause" e)))))
+  (if-let [d (->deferred x nil)]
+    (if (realized? d)
+      (try
+        (f)
+        d
+        (catch Throwable e
+          (error-deferred e)))
+      (d/chain' d
+        (fn [x']
+          (f)
+          x')))
+    (try
+      (f)
+      x
+      (catch Throwable e
+        (error-deferred e)))))
+
+(defn finally'
+  "Like `finally`, but doesn't coerce deferrable values."
+  [x f]
+  (if (instance? IDeferred x)
+    (if (realized? x)
+      (try
+        (f)
+        x
+        (catch Throwable e
+          (error-deferred e)))
+      (d/chain' x
+        (fn [x']
+          (f)
+          x')))
+    (try
+      (f)
+      x
+      (catch Throwable e
+        (error-deferred e)))))
 
 (defn zip
   "Takes a list of values, some of which may be deferreds, and returns a deferred that will yield a list
