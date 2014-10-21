@@ -718,7 +718,7 @@
         d
         (catch Throwable e
           (error-deferred e)))
-      (d/chain' d
+      (chain' d
         (fn [x']
           (f)
           x')))
@@ -738,7 +738,7 @@
         x
         (catch Throwable e
           (error-deferred e)))
-      (d/chain' x
+      (chain' x
         (fn [x']
           (f)
           x')))
