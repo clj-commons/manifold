@@ -74,7 +74,7 @@
               (if (nil? subscribers)
                 (when (.putIfAbsent topic->subscribers topic subscribers')
                   (recur))
-                (when-not (.replace topic->subscribers subscribers subscribers')
+                (when-not (.replace topic->subscribers topic subscribers subscribers')
                   (recur)))))
 
           ;; CAS to remove
@@ -86,7 +86,7 @@
                   (if (nil? subscribers')
                     (when-not (.remove topic->subscribers topic subscribers)
                       (recur))
-                    (when-not (.replace topic->subscribers subscribers subscribers')
+                    (when-not (.replace topic->subscribers topic subscribers subscribers')
                       (recur)))))))
           (s/source-only s)))
 

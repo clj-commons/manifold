@@ -9,6 +9,7 @@
 (deftest test-bus
   (let [b (b/event-bus)]
     (is (= false @(b/publish! b :foo 1)))
+    (is (= false @(b/publish! b :bar 2)))
     (let [s (b/subscribe b :foo)
           d (b/publish! b :foo 2)]
       (is (= 2 @(s/take! s)))
