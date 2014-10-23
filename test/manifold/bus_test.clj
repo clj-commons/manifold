@@ -13,4 +13,6 @@
     (let [s (b/subscribe b :foo)
           d (b/publish! b :foo 2)]
       (is (= 2 @(s/take! s)))
-      (is (= true @d)))))
+      (is (= true @d))
+      (s/close! s)
+      (is (= false @(b/publish! b :foo 2))))))

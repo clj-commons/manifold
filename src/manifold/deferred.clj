@@ -199,35 +199,31 @@
   (.cancelListener deferred listener))
 
 (defmacro ^:private set-deferred [val token success? claimed?]
-  `(utils/with-lock* ~'lock
-     (if (when (and
+  `(if (utils/with-lock* ~'lock
+         (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
                  ~@(when claimed?
                      `((identical? ~'claim-token ~token))))
            (set! ~'val ~val)
            (set! ~'state ~(if success? ::success ::error))
-           true)
-       (try
-         (clojure.core/loop []
-           (if (.isEmpty ~'listeners)
-             nil
-             (do
-               (try
-                 (~(if success? `.onSuccess `.onError) ^IDeferredListener (.pop ~'listeners) ~val)
-                 (catch Throwable e#
-                   (log/error "error in deferred handler" e#)))
-               (recur))))
-         true
-         (finally
-           (.clear ~'listeners)))
-       ~(if claimed?
-          `(do
-             (.unlock ~'lock)
-             (throw (IllegalStateException.
-                      (if (identical? ~'claim-token ~token)
-                        "deferred isn't claimed"
-                        "invalid claim-token"))))
-         false))))
+           true))
+     (do
+       (clojure.core/loop []
+         (if (.isEmpty ~'listeners)
+           nil
+           (do
+             (try
+               (~(if success? `.onSuccess `.onError) ^IDeferredListener (.pop ~'listeners) ~val)
+               (catch Throwable e#
+                 (log/error "error in deferred handler" e#)))
+             (recur))))
+       true)
+     ~(if claimed?
+        `(throw (IllegalStateException.
+                  (if (identical? ~'claim-token ~token)
+                    "deferred isn't claimed"
+                    "invalid claim-token")))
+        false)))
 
 (defmacro ^:private deref-deferred [timeout-value & await-args]
   `(condp identical? ~'state
@@ -749,7 +745,7 @@
         (error-deferred e)))))
 
 (defn zip
-  "Takes a list of values, some of which may be deferreds, and returns a deferred that will yield a list
+  "Takes a list of values, some of which may be deferrable, and returns a deferred that will yield a list
    of realized values.
 
         @(zip 1 2 3) => [1 2 3]
@@ -762,9 +758,8 @@
      (let [deferred-or-values (list* a rst)
            cnt (count deferred-or-values)
            ^objects ary (object-array cnt)
-           counter (AtomicInteger. cnt)
-           d (deferred)]
-       (clojure.core/loop [idx 0, s deferred-or-values]
+           counter (AtomicInteger. cnt)]
+       (clojure.core/loop [d nil, idx 0, s deferred-or-values]
 
          (if (empty? s)
 
@@ -774,23 +769,78 @@
              (success-deferred (or (seq ary) (list)))
              d)
 
-           (let [x (first s)]
+           (let [x (first s)
+                 rst (rest s)
+                 idx' (unchecked-inc idx)]
              (if-let [x' (->deferred x nil)]
 
-               (on-realized (chain x')
-                 (fn [val]
-                   (aset ary idx val)
-                   (when (zero? (.decrementAndGet counter))
-                     (success! d (seq ary))))
-                 (fn [err]
-                   (error! d err)))
+               (if (realized? x')
+                 (do
+                   (aset ary idx @x')
+                   (.decrementAndGet counter)
+                   (recur d idx' rst))
+
+                 (let [d (or d (deferred))]
+                   (on-realized (chain' x')
+                     (fn [val]
+                       (aset ary idx val)
+                       (when (zero? (.decrementAndGet counter))
+                         (success! d (seq ary))))
+                     (fn [err]
+                       (error! d err)))
+                   (recur d idx' rst)))
 
                ;; not deferrable - set, decrement, and recur
                (do
                  (aset ary idx x)
-                 (.decrementAndGet counter)))
+                 (.decrementAndGet counter)
+                 (recur d idx' rst)))))))))
 
-             (recur (unchecked-inc idx) (rest s))))))))
+(defn zip'
+  "Like `zip`, but only unwraps Manifold deferreds."
+  ([x]
+     (chain' x vector))
+  ([a & rst]
+     (let [deferred-or-values (list* a rst)
+           cnt (count deferred-or-values)
+           ^objects ary (object-array cnt)
+           counter (AtomicInteger. cnt)]
+       (clojure.core/loop [d nil, idx 0, s deferred-or-values]
+
+         (if (empty? s)
+
+           ;; no further results, decrement the counter one last time
+           ;; and return the result if everything else has been realized
+           (if (zero? (.get counter))
+             (success-deferred (or (seq ary) (list)))
+             d)
+
+           (let [x (first s)
+                 rst (rest s)
+                 idx' (unchecked-inc idx)]
+             (if (deferred? x)
+
+               (if (realized? x)
+                 (do
+                   (aset ary idx @x)
+                   (.decrementAndGet counter)
+                   (recur d idx' rst))
+
+                 (let [d (or d (deferred))]
+                   (on-realized (chain' x)
+                     (fn [val]
+                       (aset ary idx val)
+                       (when (zero? (.decrementAndGet counter))
+                         (success! d (seq ary))))
+                     (fn [err]
+                       (error! d err)))
+                   (recur d idx' rst)))
+
+               ;; not deferrable - set, decrement, and recur
+               (do
+                 (aset ary idx x)
+                 (.decrementAndGet counter)
+                 (recur d idx' rst)))))))))
 
 (defn timeout!
   "Takes a deferred, and sets a timeout on it, such that it will be realized as `timeout-value`

@@ -88,14 +88,15 @@
                       (recur))
                     (when-not (.replace topic->subscribers topic subscribers subscribers')
                       (recur)))))))
+
           (s/source-only s)))
 
       (publish [_ topic message]
         (let [subscribers (.get topic->subscribers topic)]
           (if (nil? subscribers)
             (d/success-deferred false)
-            (-> (apply d/zip (map #(s/put! % message) subscribers))
-              (d/chain (fn [_] true))))))
+            (-> (apply d/zip' (map #(s/put! % message) subscribers))
+              (d/chain' (fn [_] true))))))
 
       (isActive [_ topic]
         (boolean (.get topic->subscribers topic))))))
