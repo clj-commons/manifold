@@ -17,7 +17,8 @@
      TimeoutException
      TimeUnit
      ConcurrentHashMap
-     CountDownLatch]
+     CountDownLatch
+     Executor]
     [java.util.concurrent.locks
      Lock]
     [java.util.concurrent.atomic
@@ -198,7 +199,7 @@
   [^IMutableDeferred deferred listener]
   (.cancelListener deferred listener))
 
-(defmacro ^:private set-deferred [val token success? claimed?]
+(defmacro ^:private set-deferred [val token success? claimed? executor]
   `(if (utils/with-lock* ~'lock
          (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
@@ -213,9 +214,13 @@
            nil
            (do
              (try
-               (~(if success? `.onSuccess `.onError) ^IDeferredListener (.pop ~'listeners) ~val)
+               (let [^IDeferredListener l# (.pop ~'listeners)]
+                 (if (nil? ~executor)
+                   (~(if success? `.onSuccess `.onError) ^IDeferredListener l# ~val)
+                   (.execute ~(with-meta executor {:tag "java.util.concurrent.Executor"})
+                     (fn [] (~(if success? `.onSuccess `.onError) l# ~val)))))
                (catch Throwable e#
-                 (log/error "error in deferred handler" e#)))
+                 (log/error e# "error in deferred handler")))
              (recur))))
        true)
      ~(if claimed?
@@ -254,7 +259,7 @@
    ^LinkedList listeners
    ^:volatile-mutable mta
    ^:volatile-mutable consumed?
-   creation-trace]
+   ^Executor executor]
 
   Object
   #_(finalize [_]
@@ -299,13 +304,13 @@
           (.remove listeners listener)
           false))))
   (success [_ x]
-    (set-deferred x nil true false))
+    (set-deferred x nil true false executor))
   (success [_ x token]
-    (set-deferred x token true true))
+    (set-deferred x token true true executor))
   (error [_ x]
-    (set-deferred x nil false false))
+    (set-deferred x nil false false executor))
   (error [_ x token]
-    (set-deferred x token false true))
+    (set-deferred x token false true executor))
 
   clojure.lang.IFn
   (invoke [this x]
@@ -335,7 +340,8 @@
 
 (deftype SuccessDeferred
   [val
-   ^:volatile-mutable mta]
+   ^:volatile-mutable mta
+   ^Executor executor]
 
   clojure.lang.IObj
   (meta [_] mta)
@@ -349,7 +355,9 @@
   IMutableDeferred
   (claim [_] false)
   (addListener [_ listener]
-    (.onSuccess ^IDeferredListener listener val)
+    (if (nil? executor)
+      (.onSuccess ^IDeferredListener listener val)
+      (.execute executor #(.onSuccess ^IDeferredListener listener val)))
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -361,11 +369,14 @@
   (invoke [this x] nil)
 
   IDeferred
-  (realized [_] true)
-  (onRealized [this on-success on-error] (on-success val))
+  (realized [this] true)
+  (onRealized [this on-success on-error]
+    (if executor
+      (.execute executor #(on-success val))
+      (on-success val)))
 
   clojure.lang.IPending
-  (isRealized [this] true)
+  (isRealized [this] (realized? this))
 
   clojure.lang.IDeref
   clojure.lang.IBlockingDeref
@@ -375,7 +386,8 @@
 (deftype ErrorDeferred
   [^Throwable error
    ^:volatile-mutable mta
-   ^:volatile-mutable consumed?]
+   ^:volatile-mutable consumed?
+   ^Executor executor]
 
   Object
   (finalize [_]
@@ -410,10 +422,13 @@
 
   IDeferred
   (realized [_] true)
-  (onRealized [this on-success on-error] (on-error error))
+  (onRealized [this on-success on-error]
+    (if (nil? executor)
+      (on-error error)
+      (.execute executor #(on-error executor))))
 
   clojure.lang.IPending
-  (isRealized [this] true)
+  (isRealized [this] (realized? this))
 
   clojure.lang.IDeref
   clojure.lang.IBlockingDeref
@@ -431,18 +446,31 @@
 (defn deferred
   "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
    and composed via `chain`."
-  []
-  (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil))
+  ([]
+     (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil))
+  ([executor]
+     (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)))
 
-(defn success-deferred
-  "A deferred which already contains a realized value"
-  [val]
-  (SuccessDeferred. val nil))
+(let [true-d   (SuccessDeferred. true nil nil)
+      false-d  (SuccessDeferred. false nil nil)
+      nil-d    (SuccessDeferred. nil nil nil)]
+  (defn success-deferred
+    "A deferred which already contains a realized value"
+    ([val]
+       (condp identical? val
+         true true-d
+         false false-d
+         nil nil-d
+         (SuccessDeferred. val nil nil)))
+    ([val executor]
+       (SuccessDeferred. val nil executor))))
 
 (defn error-deferred
   "A deferred which already contains a realized error"
-  [error]
-  (ErrorDeferred. error nil false))
+  ([error]
+     (ErrorDeferred. error nil false nil))
+  ([error executor]
+     (ErrorDeferred. error nil false executor)))
 
 (declare chain)
 
@@ -490,6 +518,11 @@
             #(error! b %))
           true))
       (success! b a))))
+
+(defn onto
+  "Returns a deferred whose callbacks will be run on `executor`."
+  [d executor]
+  (connect d (deferred executor)))
 
 (defmacro future
   "Equivalent to Clojure's `future`, but returns a Manifold deferred."
@@ -552,14 +585,22 @@
        (catch Throwable e
          (error! d e))))
   ([d x f g & fs]
-     (let [d (or d (deferred))
-           d' (deferred)
-           _ (chain'- d' x f g)]
-       (on-realized d'
-         #(utils/without-overflow
-            (apply chain'- d % fs))
-         #(error! d %))
-       d)))
+     (when (or (nil? d) (not (realized? d)))
+       (let [d (or d (deferred))]
+         (clojure.core/loop [x x, fs (list* f g fs)]
+           (if (empty? fs)
+             (success! d x)
+             (let [[f g & fs] fs
+                   d' (deferred)
+                   _ (if (nil? g)
+                       (chain'- d' x f)
+                       (chain'- d' x f g))]
+               (if (realized? d')
+                 (recur @d' fs)
+                 (on-realized d'
+                   #(apply chain'- d % fs)
+                   #(error! d %))))))
+         d))))
 
 (defn- chain-
   ([d x]
@@ -592,13 +633,21 @@
        d))
   ([d x f g & fs]
      (when (or (nil? d) (not (realized? d)))
-       (let [d (or d (deferred))
-             d' (deferred)
-             _ (chain- d' x f g)]
-         (on-realized d'
-           #(utils/without-overflow
-              (apply chain- d % fs))
-           #(error! d %))
+       (let [d (or d (deferred))]
+         (clojure.core/loop [x x, fs (list* f g fs)]
+           (if (empty? fs)
+             (success! d x)
+             (let [[f g & fs] fs
+                   d' (deferred)
+                   _ (if (nil? g)
+                       (chain- d' x f)
+                       (chain- d' x f g))]
+               (if (realized? d')
+                 (recur @d' fs)
+                 (on-realized d'
+                   #(utils/without-overflow
+                      (apply chain- d % fs))
+                   #(error! d %))))))
          d))))
 
 (defn chain'

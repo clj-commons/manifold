@@ -1,4 +1,4 @@
-(ns manifold.stream.core
+(ns manifold.stream.seq
   (:require
     [clojure.tools.logging :as log]
     [manifold.deferred :as d]

@@ -461,7 +461,9 @@
   ([]
      (manifold.stream.core/stream))
   ([buffer-size]
-     (manifold.stream.core/stream buffer-size)))
+     (manifold.stream.core/stream buffer-size))
+  ([buffer-size xform]
+     (manifold.stream.core/stream buffer-size xform)))
 
 (defn stream* [options]
   (manifold.stream.core/stream* options))
@@ -742,7 +744,7 @@
        s')))
 
 (defn reduce
-  "Equivalent to Clojure's `reductions`, but for streams instead of sequences."
+  "Equivalent to Clojure's `reduce`, but returns a deferred representing the return value."
   ([f s]
      (reduce f ::none s))
   ([f initial-value s]

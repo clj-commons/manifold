@@ -44,6 +44,15 @@
 
 ;;;
 
+(deftest test-transducers
+  (let [s (s/stream 0
+            (comp
+              (map inc)
+              (filter even?)
+              (take 3)))]
+    (s/put-all! s (range 10))
+    (is (= [2 4 6] (s/stream->seq s)))))
+
 (deftest test-reduce
   (let [inputs (range 1e2)]
     (is
