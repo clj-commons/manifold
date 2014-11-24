@@ -30,6 +30,7 @@
    ^LinkedList consumers
    ^long capacity
    ^ArrayDeque messages
+   executor
    add!
    ]
 
@@ -54,6 +55,7 @@
     (when-not permanent?
       (utils/with-lock lock
         (when-not (s/closed? this)
+          (add!)
           (loop []
             (when-let [^Consumer c (.poll consumers)]
               (try
@@ -96,15 +98,15 @@
               (log/error e "error in callback")))
           (if blocking?
             true
-            (d/success-deferred true)))
+            (d/success-deferred true executor)))
 
         (identical? this result)
-        (d/success-deferred true)
+        (d/success-deferred true executor)
 
         (reduced? result)
         (do
           (.close this)
-          (d/success-deferred false))
+          (d/success-deferred false executor))
 
         :else
         (do
@@ -134,8 +136,8 @@
                     (do
                       (.offer messages (.message p))
                       (Consumption. msg (.deferred p) token))
-                    (d/success-deferred msg))
-                  (d/success-deferred msg)))
+                    (d/success-deferred msg executor))
+                  (d/success-deferred msg executor)))
 
               ;; see if there are any unclaimed producers left
               (loop [^Producer p (.poll producers)]
@@ -152,11 +154,11 @@
 
               ;; closed, return << default-val >>
               (and (s/closed? this)
-                (d/success-deferred default-val))
+                (d/success-deferred default-val executor))
 
               ;; add to the consumers queue
               (if (and timeout (<= timeout 0))
-                (d/success-deferred timeout-val)
+                (d/success-deferred timeout-val executor)
                 (let [d (d/deferred)]
                   (when timeout
                     (time/in timeout #(d/success! d timeout-val)))
@@ -184,7 +186,7 @@
           (let [msg (.message result)]
             (if blocking?
               msg
-              (d/success-deferred msg))))
+              (d/success-deferred msg executor))))
 
         :else
         (if blocking?
@@ -199,9 +201,12 @@
    ^LinkedList consumers
    ^ArrayDeque messages
    capacity
+   executor
    this]
   (let [capacity (long capacity)]
     (fn
+      ([]
+         )
       ([_]
          (d/success-deferred false))
       ([_ msg]
@@ -223,10 +228,10 @@
              messages
              (when (< (.size messages) capacity)
                (.offer messages msg))
-             (d/success-deferred true))
+             (d/success-deferred true executor))
 
            ;; add to the producers queue
-           (let [d (d/deferred)]
+           (let [d (d/deferred executor)]
              (let [pr (Producer. msg d)]
                (if (.offer producers pr)
                  d
@@ -234,16 +239,18 @@
 
 (defn stream
   ([]
-     (stream 0))
+     (stream 0 nil nil))
   ([buffer-size]
-     (stream buffer-size nil))
+     (stream buffer-size nil nil))
   ([buffer-size xform]
+     (stream buffer-size xform nil))
+  ([buffer-size xform executor]
      (let [consumers    (LinkedList.)
            producers    (LinkedList.)
            buffer-size  (long (max 0 buffer-size))
            messages     (when (pos? buffer-size) (ArrayDeque.))
            this         (promise)
-           add!         (add! producers consumers messages buffer-size this)
+           add!         (add! producers consumers messages buffer-size executor this)
            add!         (if xform (xform add!) add!)]
        @(deliver this
           (->Stream
@@ -253,12 +260,14 @@
             consumers
             buffer-size
             messages
+            executor
             add!)))))
 
 (defn stream*
   [{:keys [permanent?
            buffer-size
            description
+           executor
            xform]
     :or {permanent? false}}]
   (let [consumers   (LinkedList.)
@@ -266,7 +275,7 @@
         messages    (when buffer-size (ArrayDeque.))
         buffer-size (if buffer-size (long (max 0 buffer-size)) 0)
         this        (promise)
-        add!        (add! producers consumers messages buffer-size this)
+        add!        (add! producers consumers messages buffer-size executor this)
         add!        (if xform (xform add!) add!)]
     @(deliver this
        (->Stream
@@ -276,4 +285,5 @@
          consumers
          buffer-size
          messages
+         executor
          add!))))

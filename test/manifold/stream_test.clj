@@ -7,6 +7,7 @@
     [manifold.deferred :as d])
   (:import
     [java.util.concurrent
+     Executors
      BlockingQueue
      ArrayBlockingQueue
      SynchronousQueue
@@ -34,11 +35,15 @@
      (s/connect x s nil)
      (s/splice x s)))
 
+(def executor (Executors/newFixedThreadPool 1))
+
 (deftest test-streams
   (run-sink-source-test s/stream)
+  (run-sink-source-test #(s/stream 1 nil executor))
   (run-sink-source-test #(async/chan 100))
   (run-sink-source-test #(ArrayBlockingQueue. 100))
   (run-sink-source-test (splice-into-stream s/stream))
+  (run-sink-source-test (splice-into-stream #(s/stream 1 nil executor)))
   (run-sink-source-test (splice-into-stream #(ArrayBlockingQueue. 100)))
   (run-sink-source-test (splice-into-stream #(async/chan 100))))
 

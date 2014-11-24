@@ -463,7 +463,9 @@
   ([buffer-size]
      (manifold.stream.core/stream buffer-size))
   ([buffer-size xform]
-     (manifold.stream.core/stream buffer-size xform)))
+     (manifold.stream.core/stream buffer-size xform))
+  ([buffer-size xform executor]
+     (manifold.stream.core/stream buffer-size xform executor)))
 
 (defn stream* [options]
   (manifold.stream.core/stream* options))

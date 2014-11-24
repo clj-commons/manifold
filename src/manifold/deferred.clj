@@ -36,6 +36,7 @@
 
 ;; implies IDeref, IBlockingDeref, IPending
 (definterface IDeferred
+  (executor [])
   (^boolean realized [])
   (onRealized [on-success on-error]))
 
@@ -218,7 +219,11 @@
                  (if (nil? ~executor)
                    (~(if success? `.onSuccess `.onError) ^IDeferredListener l# ~val)
                    (.execute ~(with-meta executor {:tag "java.util.concurrent.Executor"})
-                     (fn [] (~(if success? `.onSuccess `.onError) l# ~val)))))
+                     (fn []
+                       (try
+                         (~(if success? `.onSuccess `.onError) l# ~val)
+                         (catch Throwable e#
+                           (log/error e# "error in deferred handler")))))))
                (catch Throwable e#
                  (log/error e# "error in deferred handler")))
              (recur))))
@@ -294,7 +299,9 @@
                      (do
                        (.add listeners listener)
                        nil)))]
-      (f))
+      (if executor
+        (.execute executor f)
+        (f)))
     true)
   (cancelListener [_ listener]
     (utils/with-lock* lock
@@ -319,6 +326,8 @@
       nil))
 
   IDeferred
+  (executor [_]
+    executor)
   (realized [_]
     (let [state state]
       (or (identical? ::success state)
@@ -369,6 +378,7 @@
   (invoke [this x] nil)
 
   IDeferred
+  (executor [_] executor)
   (realized [this] true)
   (onRealized [this on-success on-error]
     (if executor
@@ -421,6 +431,7 @@
   (invoke [this x] nil)
 
   IDeferred
+  (executor [_] executor)
   (realized [_] true)
   (onRealized [this on-success on-error]
     (if (nil? executor)
@@ -521,8 +532,10 @@
 
 (defn onto
   "Returns a deferred whose callbacks will be run on `executor`."
-  [d executor]
-  (connect d (deferred executor)))
+  [^IDeferred d executor]
+  (if (identical? executor (.executor d) )
+    d
+    (connect d (deferred executor))))
 
 (defmacro future
   "Equivalent to Clojure's `future`, but returns a Manifold deferred."
