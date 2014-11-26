@@ -721,7 +721,10 @@
            x
            (catch Throwable e
              (if (instance? error-class e)
-               (error-handler e)
+               (try
+                 (success-deferred (error-handler e))
+                 (catch Throwable e
+                   (error-deferred e)))
                x)))
 
          (let [d' (deferred)]
@@ -751,7 +754,10 @@
            x
            (catch Throwable e
              (if (instance? error-class e)
-               (error-handler e)
+               (try
+                 (success-deferred (error-handler e))
+                 (catch Throwable e
+                   (error-deferred e)))
                x)))
 
          (let [d' (deferred)]
