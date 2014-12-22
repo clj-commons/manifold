@@ -36,8 +36,8 @@
 
 (deftest test-let-flow
   (is (= 5
-        @(let [z (future 1)]
-           (let-flow [x (future (future z))
+        @(let [z (clojure.core/future 1)]
+           (let-flow [x (future (clojure.core/future z))
                       y (future (+ z x))]
              (future (+ x x y z)))))))
 

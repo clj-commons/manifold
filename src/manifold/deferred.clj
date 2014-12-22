@@ -508,9 +508,9 @@
                    (catch Throwable _
                      ::error))]
           (if (identical? ::error x')
-            x
+            d
             (recur x')))
-        x))))
+        d))))
 
 (defn connect
   "Conveys the realized value of `a` into `b`."
