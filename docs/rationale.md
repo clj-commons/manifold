@@ -8,7 +8,7 @@ However, the asynchronous model does have a big advantage: it's a superset of th
 
 ### core.async
 
-[core.async](https://github.com/clojure/core.async) does something of an end-run on this problem by emulating Java's structural backpressure without using threads.  This has a number of nice properties, but also introduces some problems of its own.
+[core.async](https://github.com/clojure/core.async) avoids tackling this problem head-on by emulating Java's structural backpressure without using threads.  This has a number of nice properties, but also introduces some problems of its own.
 
 The most obvious problem is that core.async uses an execution model which assumes pervasive asynchrony, which is not a safe assumption on the JVM.  The programmer must manually differentiate between scopes where code will and will not block; failure to do so correctly will exhaust the non-blocking thread pool and cause a deadlock.
 
