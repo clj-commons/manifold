@@ -41,6 +41,29 @@
                       y (future (+ z x))]
              (future (+ x x y z)))))))
 
+(deftest test-chain-errors
+  (let [boom (fn [n] (throw (ex-info "" {:n n})))]
+    (doseq [b [boom (fn [n] (future (boom n)))]]
+      (dorun
+        (for [i (range 10)
+              j (range 10)]
+          (let [fs (concat (repeat i inc) [boom] (repeat j inc))]
+            (is (not= i (-> (apply chain 0 fs)
+                          (catch (fn [e] (:n (ex-data e)))))))))))))
+
+(deftest test-chain
+  (dorun
+    (for [i (range 10)
+          j (range i)]
+      (let [fs (take i (cycle [inc #(* % 2)]))
+            fs' (-> fs
+                  vec
+                  (update-in [j] (fn [f] #(future %))))]
+        (is
+          (= (reduce #(%2 %1) 0 fs)
+            @(apply chain 0 fs)
+            @(apply chain' 0 fs)))))))
+
 (deftest test-deferred
   ;; success!
   (let [d (deferred)]

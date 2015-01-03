@@ -566,13 +566,7 @@
 
 (defn- chain'-
   ([d x]
-     (if (nil? d)
-       (if (deferred? x)
-         x
-         (success-deferred x))
-       (if (deferred? x)
-         (connect x d)
-         (success! d x))))
+     (chain'- d x identity identity))
   ([d x f]
      (chain'- d x f identity))
   ([d x f g]
@@ -609,7 +603,13 @@
                        (chain'- d' x f)
                        (chain'- d' x f g))]
                (if (realized? d')
-                 (recur @d' fs)
+                 (when (try
+                         @d'
+                         true
+                         (catch Throwable e
+                           (error! d e)
+                           false))
+                   (recur @d' fs))
                  (on-realized d'
                    #(apply chain'- d % fs)
                    #(error! d %))))))
@@ -642,7 +642,11 @@
                        (success-deferred x''')
                        (success! d x'''))))))))
          (catch Throwable e
-           (error! d e)))
+           (if (nil? d)
+             (error-deferred e)
+             (do
+               (error! d e)
+               d))))
        d))
   ([d x f g & fs]
      (when (or (nil? d) (not (realized? d)))
@@ -656,7 +660,13 @@
                        (chain- d' x f)
                        (chain- d' x f g))]
                (if (realized? d')
-                 (recur @d' fs)
+                 (when (try
+                         @d'
+                         true
+                         (catch Throwable e
+                           (error! d e)
+                           false))
+                   (recur @d' fs))
                  (on-realized d'
                    #(utils/without-overflow
                       (apply chain- d % fs))
@@ -712,7 +722,7 @@
   ([x error-handler]
      (catch x Throwable error-handler))
   ([x error-class error-handler]
-     (if-let [d (->deferred x nil)]
+     (if-let [d (chain (->deferred x nil))]
        (if (realized? d)
 
          ;; see what's inside
@@ -736,7 +746,7 @@
                   (error! d' %))
                 (catch Throwable e
                   (error! d' e))))
-          d'))
+           d'))
        x)))
 
 (defn catch'
@@ -744,32 +754,33 @@
   ([x error-handler]
      (catch' x Throwable error-handler))
   ([x error-class error-handler]
-     (if-not (instance? IDeferred x)
-       x
-       (if (realized? x)
+     (let [x (chain' x)]
+       (if-not (instance? IDeferred x)
+         x
+         (if (realized? x)
 
-         ;; see what's inside
-         (try
-           @x
-           x
-           (catch Throwable e
-             (if (instance? error-class e)
-               (try
-                 (success-deferred (error-handler e))
-                 (catch Throwable e
-                   (error-deferred e)))
-               x)))
+           ;; see what's inside
+           (try
+             @x
+             x
+             (catch Throwable e
+               (if (instance? error-class e)
+                 (try
+                   (success-deferred (error-handler e))
+                   (catch Throwable e
+                     (error-deferred e)))
+                 x)))
 
-         (let [d' (deferred)]
-           (on-realized x
-             #(success! d' %)
-             #(try
-                (if (instance? error-class %)
-                  (success! d' (error-handler %))
-                  (error! d' %))
-                (catch Throwable e
-                  (error! d' e))))
-           d')))))
+           (let [d' (deferred)]
+             (on-realized x
+               #(success! d' %)
+               #(try
+                  (if (instance? error-class %)
+                    (success! d' (error-handler %))
+                    (error! d' %))
+                  (catch Throwable e
+                    (error! d' e))))
+             d'))))))
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
