@@ -48,8 +48,9 @@
         (for [i (range 10)
               j (range 10)]
           (let [fs (concat (repeat i inc) [boom] (repeat j inc))]
-            (is (not= i (-> (apply chain 0 fs)
-                          (catch (fn [e] (:n (ex-data e)))))))))))))
+            (is (= i
+                  @(-> (apply chain 0 fs)
+                     (catch (fn [e] (:n (ex-data e)))))))))))))
 
 (deftest test-chain
   (dorun

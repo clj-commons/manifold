@@ -8,7 +8,7 @@
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [org.clojure/clojure "1.7.0-alpha3"]
                                   [criterium "0.4.3"]
-                                  [org.clojure/core.async "0.1.319.0-6b1aca-alpha"]]}}
+                                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]}}
   :test-selectors {:default #(not (some #{:benchmark :stress}
                                         (cons (:tag %) (keys %))))
                    :benchmark :benchmark

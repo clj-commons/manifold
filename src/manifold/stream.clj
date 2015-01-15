@@ -448,7 +448,8 @@
            connector (.connector ^IEventSource source sink)]
        (if connector
          (connector source sink options)
-         (manifold.stream.graph/connect source sink options)))))
+         (manifold.stream.graph/connect source sink options))
+       nil)))
 
 ;;;
 
