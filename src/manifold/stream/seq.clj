@@ -3,8 +3,9 @@
     [clojure.tools.logging :as log]
     [manifold.deferred :as d]
     [manifold.utils :as utils]
-    [manifold.stream :as s]
-    [manifold.stream.graph :as g]
+    [manifold.stream
+     [core :as s]
+     [graph :as g]]
     [manifold.time :as time])
   (:import
     [java.util.concurrent.atomic

@@ -2,8 +2,9 @@
   (:require
     [manifold.deferred :as d]
     [clojure.core.async :as a]
-    [manifold.stream.graph :as g]
-    [manifold.stream :as s]
+    [manifold.stream
+     [graph :as g]
+     [core :as s]]
     [manifold.utils :as utils])
   (:import
     [java.util.concurrent.atomic

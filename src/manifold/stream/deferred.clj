@@ -1,7 +1,7 @@
 (ns manifold.stream.deferred
   (:require
     [manifold.deferred :as d]
-    [manifold.stream :as s])
+    [manifold.stream.core :as s])
   (:import
     [manifold.deferred
      IDeferred]

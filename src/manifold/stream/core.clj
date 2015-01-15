@@ -1,289 +1,164 @@
-(ns manifold.stream.core
-  (:require
-    [clojure.tools.logging :as log]
-    [manifold.deferred :as d]
-    [manifold.utils :as utils]
-    [manifold.stream :as s]
-    [manifold.stream.graph :as g]
-    [manifold.time :as time])
-  (:import
-    [java.util
-     LinkedList
-     ArrayDeque]
-    [java.util.concurrent
-     BlockingQueue
-     ArrayBlockingQueue
-     LinkedBlockingQueue]))
+(ns manifold.stream.core)
+
+(defprotocol Sinkable
+  (to-sink [_] "Provides a conversion mechanism to Manifold sinks."))
+
+(defprotocol Sourceable
+  (to-source [_] "Provides a conversion mechanism to Manifold source."))
+
+(definterface IEventStream
+  (description [])
+  (isSynchronous [])
+  (downstream [])
+  (weakHandle [reference-queue])
+  (close []))
+
+(definterface IEventSink
+  (put [x blocking?])
+  (put [x blocking? timeout timeout-val])
+  (markClosed [])
+  (isClosed [])
+  (onClosed [callback]))
+
+(definterface IEventSource
+  (take [default-val blocking?])
+  (take [default-val blocking? timeout timeout-val])
+  (markDrained [])
+  (isDrained [])
+  (onDrained [callback])
+  (connector [sink]))
+
+(definline close!
+  "Closes an event sink, so that it can't accept any more messages."
+  [sink]
+  `(.close ~(with-meta sink {:tag "manifold.stream.core.IEventStream"})))
+
+(definline closed?
+  "Returns true if the event sink is closed."
+  [sink]
+  `(.isClosed ~(with-meta sink {:tag "manifold.stream.core.IEventSink"})))
+
+(definline drained?
+  "Returns true if the event source is drained."
+  [source]
+  `(.isDrained ~(with-meta source {:tag "manifold.stream.core.IEventSource"})))
+
+(definline weak-handle
+  "Returns a weak reference that can be used to construct topologies of streams."
+  [x]
+  `(.weakHandle ~(with-meta x {:tag "manifold.stream.core.IEventStream"}) nil))
+
+(definline synchronous?
+  "Returns true if the underlying abstraction behaves synchronously, using thread blocking
+   to provide backpressure."
+  [x]
+  `(.isSynchronous ~(with-meta x {:tag "manifold.stream.core.IEventStream"})))
+
+(defmethod print-method IEventStream [o ^java.io.Writer w]
+  (let [sink? (instance? IEventSink o)
+        source? (instance? IEventSource o)]
+    (.write w
+      (str
+        "<< "
+        (cond
+          (and source? sink?)
+          "stream"
+
+          source?
+          "source"
+
+          sink?
+          "sink")
+        ": " (pr-str (.description ^IEventStream o)) " >>"))))
 
 ;;;
 
-(deftype Production [deferred token])
-(deftype Consumption [message deferred token])
-(deftype Producer [message deferred])
-(deftype Consumer [deferred default-val])
+(def ^:private default-stream-impls
+  `((~'downstream [this#] (manifold.stream.graph/downstream this#))
+    (~'weakHandle [this# ref-queue#]
+      (manifold.utils/with-lock ~'lock
+        (or ~'__weakHandle
+          (set! ~'__weakHandle (java.lang.ref.WeakReference. this# ref-queue#)))))
+    (~'close [this#])))
 
-(s/def-sink+source Stream
-  [
-   ^boolean permanent?
-   description
-   ^LinkedList producers
-   ^LinkedList consumers
-   ^long capacity
-   ^ArrayDeque messages
-   executor
-   add!
-   ]
+(def ^:private sink-params
+  '[lock
+    ^:volatile-mutable __isClosed
+    ^java.util.LinkedList __closedCallbacks
+    ^:volatile-mutable __weakHandle])
 
-  (isSynchronous [_] false)
+(def ^:private default-sink-impls
+  `((~'close [this#] (.markClosed this#))
+    (~'isClosed [this#] ~'__isClosed)
+    (~'onClosed [this# callback#]
+      (manifold.utils/with-lock ~'lock
+        (if ~'__isClosed
+          (callback#)
+          (.add ~'__closedCallbacks callback#))))
+    (~'markClosed [this#]
+      (manifold.utils/with-lock ~'lock
+        (set! ~'__isClosed true)
+        (manifold.utils/invoke-callbacks ~'__closedCallbacks)))))
 
-  (description [this]
-    (let [m {:type "manifold"
-             :sink? true
-             :source? true
-             :pending-puts (.size producers)
-             :buffer-capacity capacity
-             :buffer-size (if messages (.size messages) 0)
-             :pending-takes (.size consumers)
-             :permanent? permanent?
-             :closed? (s/closed? this)
-             :drained? (s/drained? this)}]
-      (if description
-        (description m)
-        m)))
+(def ^:private source-params
+  '[lock
+    ^:volatile-mutable __isDrained
+    ^java.util.LinkedList __drainedCallbacks
+    ^:volatile-mutable __weakHandle])
 
-  (close [this]
-    (when-not permanent?
-      (utils/with-lock lock
-        (when-not (s/closed? this)
-          (add!)
-          (loop []
-            (when-let [^Consumer c (.poll consumers)]
-              (try
-                (d/success! (.deferred c) (.default-val c))
-                (catch Throwable e
-                  (log/error e "error in callback")))))
-          (.markClosed this)
-          (when (s/drained? this)
-            (.markDrained this))))))
+(def ^:private default-source-impls
+  `((~'isDrained [this#] ~'__isDrained)
+    (~'onDrained [this# callback#]
+      (manifold.utils/with-lock ~'lock
+        (if ~'__isDrained
+          (callback#)
+          (.add ~'__drainedCallbacks callback#))))
+    (~'markDrained [this#]
+      (manifold.utils/with-lock ~'lock
+        (set! ~'__isDrained true)
+        (manifold.utils/invoke-callbacks ~'__drainedCallbacks)))
+    (~'connector [this# _#] nil)))
 
-  (isDrained [this]
-    (utils/with-lock lock
-      (and (s/closed? this)
-        (or (nil? messages)
-          (nil? (.peek messages))))))
+(defn- merged-body [& bodies]
+  (let [bs (apply concat bodies)]
+    (->> bs
+      (map #(vector [(first %) (count (second %))] %))
+      (into {})
+      vals)))
 
-  (put [this msg blocking? timeout timeout-val]
-    (let [result (utils/with-lock lock
-                   (try
-                     (add! this msg)
-                     (catch Throwable e
-                       (d/error-deferred e)
-                       (.close this))))]
-      (cond
-        (instance? Producer result)
-        (do
-          (.add producers result)
-          (let [d (.deferred ^Producer result)]
-            (when timeout
-              (time/in timeout #(d/success! d timeout-val)))
-            (if blocking?
-              @d
-              d)))
+(defmacro def-source [name params & body]
+  `(do
+     (deftype ~name
+       ~(vec (distinct (concat params source-params)))
+       manifold.stream.core.IEventStream
+       manifold.stream.core.IEventSource
+       ~@(merged-body default-stream-impls default-source-impls body))
 
-        (instance? Production result)
-        (let [^Production result result]
-          (try
-            (d/success! (.deferred result) msg (.token result))
-            (catch Throwable e
-              (log/error e "error in callback")))
-          (if blocking?
-            true
-            (d/success-deferred true executor)))
+     (defn ~(with-meta (symbol (str "->" name)) {:private true})
+       [~@(map #(with-meta % nil) params)]
+       (new ~name ~@params (manifold.utils/mutex) false (java.util.LinkedList.) nil))))
 
-        (identical? this result)
-        (d/success-deferred true executor)
+(defmacro def-sink [name params & body]
+  `(do
+     (deftype ~name
+       ~(vec (distinct (concat params sink-params)))
+       manifold.stream.core.IEventStream
+       manifold.stream.core.IEventSink
+       ~@(merged-body default-stream-impls default-sink-impls body))
 
-        (reduced? result)
-        (do
-          (.close this)
-          (d/success-deferred false executor))
+     (defn ~(with-meta (symbol (str "->" name)) {:private true})
+       [~@(map #(with-meta % nil) params)]
+       (new ~name ~@params (manifold.utils/mutex) false (java.util.LinkedList.) nil))))
 
-        :else
-        (do
-          (when timeout
-            (time/in timeout #(d/success! result timeout-val)))
-          (if blocking?
-            @result
-            result)))))
+(defmacro def-sink+source [name params & body]
+  `(do
+     (deftype ~name
+       ~(vec (distinct (concat params source-params sink-params)))
+       manifold.stream.core.IEventStream
+       manifold.stream.core.IEventSink
+       manifold.stream.core.IEventSource
+       ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
 
-  (put [this msg blocking?]
-    (.put this msg blocking? nil nil))
-
-  (take [this default-val blocking? timeout timeout-val]
-    (let [result
-          (utils/with-lock lock
-            (or
-
-              ;; see if we can dequeue from the buffer
-              (when-let [msg (and messages (.poll messages))]
-
-                ;; check if we're drained
-                (when (and (s/closed? this) (s/drained? this))
-                  (.markDrained this))
-
-                (if-let [^Producer p (.poll producers)]
-                  (if-let [token (d/claim! (.deferred p))]
-                    (do
-                      (.offer messages (.message p))
-                      (Consumption. msg (.deferred p) token))
-                    (d/success-deferred msg executor))
-                  (d/success-deferred msg executor)))
-
-              ;; see if there are any unclaimed producers left
-              (loop [^Producer p (.poll producers)]
-                (when p
-                  (if-let [token (d/claim! (.deferred p))]
-                    (let [c (Consumption. (.message p) (.deferred p) token)]
-
-                      ;; check if we're drained
-                      (when (and (s/closed? this) (s/drained? this))
-                        (.markDrained this))
-
-                      c)
-                    (recur (.poll producers)))))
-
-              ;; closed, return << default-val >>
-              (and (s/closed? this)
-                (d/success-deferred default-val executor))
-
-              ;; add to the consumers queue
-              (if (and timeout (<= timeout 0))
-                (d/success-deferred timeout-val executor)
-                (let [d (d/deferred)]
-                  (when timeout
-                    (time/in timeout #(d/success! d timeout-val)))
-                  (let [c (Consumer. d default-val)]
-                    (if (.offer consumers c)
-                      d
-                      c))))))]
-
-      (cond
-
-        (instance? Consumer result)
-        (do
-          (.add consumers result)
-          (let [d (.deferred ^Consumer result)]
-            (if blocking?
-              @d
-              d)))
-
-        (instance? Consumption result)
-        (let [^Consumption result result]
-          (try
-            (d/success! (.deferred result) true (.token result))
-            (catch Throwable e
-              (log/error e "error in callback")))
-          (let [msg (.message result)]
-            (if blocking?
-              msg
-              (d/success-deferred msg executor))))
-
-        :else
-        (if blocking?
-          @result
-          result))))
-
-  (take [this default-val blocking?]
-    (.take this default-val blocking? nil nil)))
-
-(defn add!
-  [^LinkedList producers
-   ^LinkedList consumers
-   ^ArrayDeque messages
-   capacity
-   executor
-   this]
-  (let [capacity (long capacity)]
-    (fn
-      ([]
-         )
-      ([_]
-         (d/success-deferred false))
-      ([_ msg]
-         (or
-
-           ;; closed, return << false >>
-           (and (s/closed? @this)
-             (d/success-deferred false))
-
-           ;; see if there are any unclaimed consumers left
-           (loop [^Consumer c (.poll consumers)]
-             (when c
-               (if-let [token (d/claim! (.deferred c))]
-                 (Production. (.deferred c) token)
-                 (recur (.poll consumers)))))
-
-           ;; see if we can enqueue into the buffer
-           (and
-             messages
-             (when (< (.size messages) capacity)
-               (.offer messages msg))
-             (d/success-deferred true executor))
-
-           ;; add to the producers queue
-           (let [d (d/deferred executor)]
-             (let [pr (Producer. msg d)]
-               (if (.offer producers pr)
-                 d
-                 pr))))))))
-
-(defn stream
-  ([]
-     (stream 0 nil nil))
-  ([buffer-size]
-     (stream buffer-size nil nil))
-  ([buffer-size xform]
-     (stream buffer-size xform nil))
-  ([buffer-size xform executor]
-     (let [consumers    (LinkedList.)
-           producers    (LinkedList.)
-           buffer-size  (long (max 0 buffer-size))
-           messages     (when (pos? buffer-size) (ArrayDeque.))
-           this         (promise)
-           add!         (add! producers consumers messages buffer-size executor this)
-           add!         (if xform (xform add!) add!)]
-       @(deliver this
-          (->Stream
-            false
-            nil
-            producers
-            consumers
-            buffer-size
-            messages
-            executor
-            add!)))))
-
-(defn stream*
-  [{:keys [permanent?
-           buffer-size
-           description
-           executor
-           xform]
-    :or {permanent? false}}]
-  (let [consumers   (LinkedList.)
-        producers   (LinkedList.)
-        messages    (when buffer-size (ArrayDeque.))
-        buffer-size (if buffer-size (long (max 0 buffer-size)) 0)
-        this        (promise)
-        add!        (add! producers consumers messages buffer-size executor this)
-        add!        (if xform (xform add!) add!)]
-    @(deliver this
-       (->Stream
-         permanent?
-         description
-         producers
-         consumers
-         buffer-size
-         messages
-         executor
-         add!))))
+     (defn ~(with-meta (symbol (str "->" name)) {:private true})
+       [~@(map #(with-meta % nil) params)]
+       (new ~name ~@params (manifold.utils/mutex) false (java.util.LinkedList.) nil false (java.util.LinkedList.)))))

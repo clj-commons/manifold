@@ -2,7 +2,7 @@
   (:require
     [manifold.deferred :as d]
     [manifold.utils :as utils]
-    [manifold.stream :as s]
+    [manifold.stream.core :as s]
     [clojure.tools.logging :as log])
   (:import
     [java.util
@@ -12,7 +12,7 @@
     [java.util.concurrent
      ConcurrentHashMap
      CopyOnWriteArrayList]
-    [manifold.stream
+    [manifold.stream.core
      IEventStream
      IEventSink
      IEventSource]))

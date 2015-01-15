@@ -2,7 +2,7 @@
   (:require
     [manifold.stream.graph :as g]
     [manifold.deferred :as d]
-    [manifold.stream :as s]
+    [manifold.stream.core :as s]
     [manifold.utils :as utils])
   (:import
     [java.util.concurrent.atomic
@@ -88,7 +88,7 @@
        :buffer-capacity (+ (.remainingCapacity queue) size)
        :buffer-size size
        :sink? true
-       :closed? (s/closed? this)}))
+       :closed? (.isClosed this)}))
 
   (put [this x blocking?]
 
@@ -106,7 +106,7 @@
                  (utils/with-lock lock
                    (try
                      (or
-                       (and (s/closed? this)
+                       (and (.isClosed this)
                          (d/success! d false))
 
                        (and (.offer queue x)
@@ -136,7 +136,7 @@
                  (utils/with-lock lock
                    (try
                      (or
-                       (and (s/closed? this)
+                       (and (.isClosed this)
                          (d/success! d false))
 
                        (and (.offer queue x)

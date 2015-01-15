@@ -6,8 +6,18 @@
     [manifold.deferred :as d]
     [manifold.utils :as utils]
     [manifold.time :as time]
+    [manifold.stream
+     [core :as core]
+     [default :as default]
+     queue
+     seq
+     deferred]
     [clojure.tools.logging :as log])
   (:import
+    [manifold.stream.core
+     IEventSink
+     IEventSource
+     IEventStream]
     [java.lang.ref
      WeakReference]
     [java.util.concurrent
@@ -25,152 +35,18 @@
      LinkedList
      Iterator]))
 
-;;;
-
-(defprotocol Sinkable
-  (^:private to-sink [_] "Provides a conversion mechanism to Manifold sinks."))
-
-(defprotocol Sourceable
-  (^:private to-source [_] "Provides a conversion mechanism to Manifold source."))
-
-(definterface IEventStream
-  (description [])
-  (isSynchronous [])
-  (downstream [])
-  (weakHandle [reference-queue])
-  (close []))
-
-(definterface IEventSink
-  (put [x blocking?])
-  (put [x blocking? timeout timeout-val])
-  (markClosed [])
-  (isClosed [])
-  (onClosed [callback]))
-
-(definterface IEventSource
-  (take [default-val blocking?])
-  (take [default-val blocking? timeout timeout-val])
-  (markDrained [])
-  (isDrained [])
-  (onDrained [callback])
-  (connector [sink]))
-
-(defmethod print-method IEventStream [o ^java.io.Writer w]
-  (let [sink? (instance? IEventSink o)
-        source? (instance? IEventSource o)]
-    (.write w
-      (str
-        "<< "
-        (cond
-          (and source? sink?)
-          "stream"
-
-          source?
-          "source"
-
-          sink?
-          "sink")
-        ": " (pr-str (.description ^IEventStream o)) " >>"))))
-
-(def ^:private default-stream-impls
-  `((~'downstream [this#] (manifold.stream.graph/downstream this#))
-    (~'weakHandle [this# ref-queue#]
-      (utils/with-lock ~'lock
-        (or ~'__weakHandle
-          (set! ~'__weakHandle (WeakReference. this# ref-queue#)))))
-    (~'close [this#])))
-
-(def ^:private sink-params
-  '[lock
-    ^:volatile-mutable __isClosed
-    ^java.util.LinkedList __closedCallbacks
-    ^:volatile-mutable __weakHandle])
-
-(def ^:private default-sink-impls
-  `((~'close [this#] (.markClosed this#))
-    (~'isClosed [this#] ~'__isClosed)
-    (~'onClosed [this# callback#]
-      (utils/with-lock ~'lock
-        (if ~'__isClosed
-          (callback#)
-          (.add ~'__closedCallbacks callback#))))
-    (~'markClosed [this#]
-      (utils/with-lock ~'lock
-        (set! ~'__isClosed true)
-        (utils/invoke-callbacks ~'__closedCallbacks)))))
-
-(def ^:private source-params
-  '[lock
-    ^:volatile-mutable __isDrained
-    ^java.util.LinkedList __drainedCallbacks
-    ^:volatile-mutable __weakHandle])
-
-(def ^:private default-source-impls
-  `((~'isDrained [this#] ~'__isDrained)
-    (~'onDrained [this# callback#]
-      (utils/with-lock ~'lock
-        (if ~'__isDrained
-          (callback#)
-          (.add ~'__drainedCallbacks callback#))))
-    (~'markDrained [this#]
-      (utils/with-lock ~'lock
-        (set! ~'__isDrained true)
-        (utils/invoke-callbacks ~'__drainedCallbacks)))
-    (~'connector [this# _#] nil)))
-
-(defn- merged-body [& bodies]
-  (let [bs (apply clj/concat bodies)]
-    (->> bs
-      (clj/map #(vector [(first %) (clj/count (second %))] %))
-      (into {})
-      vals)))
-
-(defmacro def-source [name params & body]
-  `(do
-     (deftype ~name
-       ~(vec (distinct (clj/concat params source-params)))
-       manifold.stream.IEventStream
-       manifold.stream.IEventSource
-       ~@(merged-body default-stream-impls default-source-impls body))
-
-     (defn ~(with-meta (symbol (str "->" name)) {:private true})
-       [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
-
-(defmacro def-sink [name params & body]
-  `(do
-     (deftype ~name
-       ~(vec (distinct (clj/concat params sink-params)))
-       manifold.stream.IEventStream
-       manifold.stream.IEventSink
-       ~@(merged-body default-stream-impls default-sink-impls body))
-
-     (defn ~(with-meta (symbol (str "->" name)) {:private true})
-       [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil))))
-
-(defmacro def-sink+source [name params & body]
-  `(do
-     (deftype ~name
-       ~(vec (distinct (clj/concat params source-params sink-params)))
-       manifold.stream.IEventStream
-       manifold.stream.IEventSink
-       manifold.stream.IEventSource
-       ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
-
-     (defn ~(with-meta (symbol (str "->" name)) {:private true})
-       [~@(clj/map #(with-meta % nil) params)]
-       (new ~name ~@params (utils/mutex) false (LinkedList.) nil false (LinkedList.)))))
+(utils/when-core-async
+  (require 'manifold.stream.async))
 
 ;;;
 
-(let [f (utils/fast-satisfies #'Sinkable)]
+(let [f (utils/fast-satisfies #'core/Sinkable)]
   (defn sinkable? [x]
     (or
       (instance? IEventSink x)
       (f x))))
 
-(let [f (utils/fast-satisfies #'Sourceable)]
+(let [f (utils/fast-satisfies #'core/Sourceable)]
   (defn sourceable? [x]
     (or
       (instance? IEventSource x)
@@ -189,7 +65,7 @@
   ([x default-val]
      (cond
        (instance? IEventSink x) x
-       (sinkable? x) (to-sink x)
+       (sinkable? x) (core/to-sink x)
        :else default-val)))
 
 (defn ->source
@@ -205,7 +81,7 @@
   ([x default-val]
      (cond
        (instance? IEventSource x) x
-       (sourceable? x) (to-source x)
+       (sourceable? x) (core/to-source x)
        :else default-val)))
 
 (deftype SinkProxy [^IEventSink sink]
@@ -289,56 +165,56 @@
 (definline description
   "Returns a description of the stream."
   [x]
-  `(.description ~(with-meta x {:tag "manifold.stream.IEventStream"})))
+  `(.description ~(with-meta x {:tag "manifold.stream.core.IEventStream"})))
 
 (definline downstream
   "Returns all sinks downstream of the given source as a sequence of 2-tuples, with the
    first element containing the connection's description, and the second element containing
    the sink."
   [x]
-  `(.downstream ~(with-meta x {:tag "manifold.stream.IEventStream"})))
+  `(.downstream ~(with-meta x {:tag "manifold.stream.core.IEventStream"})))
 
 (definline weak-handle
   "Returns a weak reference that can be used to construct topologies of streams."
   [x]
-  `(.weakHandle ~(with-meta x {:tag "manifold.stream.IEventStream"}) nil))
+  `(.weakHandle ~(with-meta x {:tag "manifold.stream.core.IEventStream"}) nil))
 
 (definline synchronous?
   "Returns true if the underlying abstraction behaves synchronously, using thread blocking
    to provide backpressure."
   [x]
-  `(.isSynchronous ~(with-meta x {:tag "manifold.stream.IEventStream"})))
+  `(.isSynchronous ~(with-meta x {:tag "manifold.stream.core.IEventStream"})))
 
 (definline close!
   "Closes an event sink, so that it can't accept any more messages."
   [sink]
-  `(.close ~(with-meta sink {:tag "manifold.stream.IEventStream"})))
+  `(.close ~(with-meta sink {:tag "manifold.stream.core.IEventStream"})))
 
 (definline closed?
   "Returns true if the event sink is closed."
   [sink]
-  `(.isClosed ~(with-meta sink {:tag "manifold.stream.IEventSink"})))
+  `(.isClosed ~(with-meta sink {:tag "manifold.stream.core.IEventSink"})))
 
 (definline on-closed
   "Registers a no-arg callback which is invoked when the sink is closed."
   [sink callback]
-  `(.onClosed ~(with-meta sink {:tag "manifold.stream.IEventSink"}) ~callback))
+  `(.onClosed ~(with-meta sink {:tag "manifold.stream.core.IEventSink"}) ~callback))
 
 (definline drained?
   "Returns true if the event source is drained."
   [source]
-  `(.isDrained ~(with-meta source {:tag "manifold.stream.IEventSource"})))
+  `(.isDrained ~(with-meta source {:tag "manifold.stream.core.IEventSource"})))
 
 (definline on-drained
   "Registers a no-arg callback which is invoked when the source is drained."
   [source callback]
-  `(.onDrained ~(with-meta source {:tag "manifold.stream.IEventSource"}) ~callback))
+  `(.onDrained ~(with-meta source {:tag "manifold.stream.core.IEventSource"}) ~callback))
 
 (defn put!
   "Puts a value into a sink, returning a deferred that yields `true` if it succeeds,
    and `false` if it fails.  Guaranteed to be non-blocking."
   {:inline (fn [sink x]
-             `(.put ~(with-meta sink {:tag "manifold.stream.IEventSink"}) ~x false))}
+             `(.put ~(with-meta sink {:tag "manifold.stream.core.IEventSink"}) ~x false))}
   ([^IEventSink sink x]
      (.put sink x false)))
 
@@ -364,9 +240,9 @@
    between failure due to timeout and other failures."
   {:inline (fn
              ([sink x timeout]
-                `(.put ~(with-meta sink {:tag "manifold.stream.IEventSink"}) ~x false ~timeout false))
+                `(.put ~(with-meta sink {:tag "manifold.stream.core.IEventSink"}) ~x false ~timeout false))
              ([sink x timeout timeout-val]
-                `(.put ~(with-meta sink {:tag "manifold.stream.IEventSink"}) ~x false ~timeout ~timeout-val)))}
+                `(.put ~(with-meta sink {:tag "manifold.stream.core.IEventSink"}) ~x false ~timeout ~timeout-val)))}
   ([^IEventSink sink x ^double timeout]
      (.put sink x false timeout false))
   ([^IEventSink sink x ^double timeout timeout-val]
@@ -380,9 +256,9 @@
    between actual `nil` values and failures."
   {:inline (fn
              ([source]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) nil false))
+                `(.take ~(with-meta source {:tag "manifold.stream.core.IEventSource"}) nil false))
              ([source default-val]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) ~default-val false)))}
+                `(.take ~(with-meta source {:tag "manifold.stream.core.IEventSource"}) ~default-val false)))}
   ([^IEventSource source]
      (.take source nil false))
   ([^IEventSource source default-val]
@@ -397,9 +273,9 @@
    important to differentiate between actual `nil` values and failures."
   {:inline (fn
              ([source timeout]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) nil false ~timeout nil))
+                `(.take ~(with-meta source {:tag "manifold.stream.core.IEventSource"}) nil false ~timeout nil))
              ([source default-val timeout timeout-val]
-                `(.take ~(with-meta source {:tag "manifold.stream.IEventSource"}) ~default-val false ~timeout ~timeout-val)))}
+                `(.take ~(with-meta source {:tag "manifold.stream.core.IEventSource"}) ~default-val false ~timeout ~timeout-val)))}
   ([^IEventSource source ^double timeout]
      (.take source nil false timeout nil))
   ([^IEventSource source default-val ^double timeout timeout-val]
@@ -453,23 +329,27 @@
 
 ;;;
 
-(require '[manifold.stream.core])
-
 (defn stream
   "Returns a Manifold stream with a configurable `buffer-size`.  If a capacity is specified,
    `put!` will yield `true` when the message is in the buffer.  Otherwise it will only yield
-   `true` once it has been consumed."
+   `true` once it has been consumed.
+
+   `xform` is an optional transducer, which will transform all messages that are enqueued
+   via `put!` before they are dequeued via `take!`.
+
+   `executor`, if defined, specifies which java.util.concurrent.Executor will be used to
+   handle the deferreds returned by `put!` and `take!`."
   ([]
-     (manifold.stream.core/stream))
+     (default/stream))
   ([buffer-size]
-     (manifold.stream.core/stream buffer-size))
+     (default/stream buffer-size))
   ([buffer-size xform]
-     (manifold.stream.core/stream buffer-size xform))
+     (default/stream buffer-size xform))
   ([buffer-size xform executor]
-     (manifold.stream.core/stream buffer-size xform executor)))
+     (default/stream buffer-size xform executor)))
 
 (defn stream* [options]
-  (manifold.stream.core/stream* options))
+  (default/stream* options))
 
 ;;;
 
@@ -643,19 +523,6 @@
        (source-only s)))
   ([period f]
      (periodically period (- period (rem (System/currentTimeMillis) period)) f)))
-
-;;;
-
-(utils/when-core-async
-  (require 'manifold.stream.async))
-
-(require 'manifold.stream.queue)
-
-(require 'manifold.stream.seq)
-
-(require 'manifold.stream.deferred)
-
-;;;
 
 (declare zip)
 
