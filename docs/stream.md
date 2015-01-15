@@ -76,7 +76,7 @@ However, we can also create derivative streams using operators analogous to Cloj
 > (->> [1 2 3]
     s/->source
     (s/map inc)
-    seq)
+    s/stream->seq)
 (2 3 4)
 ```
 
@@ -85,7 +85,7 @@ Here, we've mapped `inc` over a stream, transforming from a sequence to a stream
 ```clj
 > (->> [1 2 3]
     (s/map inc)
-    seq)
+    s/stream->seq)
 (2 3 4)
 ```
 
