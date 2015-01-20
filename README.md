@@ -92,6 +92,21 @@ nil
 1
 ```
 
+We can also turn a Manifold stream into a different representation by using `connect` to join them together:
+
+```clj
+> (def s (s/stream))
+#'s
+> (def c (a/chan))
+#'c
+> (s/connect s c)
+nil
+> (s/put! s 1)
+...
+> (a/<!! c)
+1
+```
+
 Manifold also provides stream operators, similar to Clojure's sequence operators, including `map`, `filter`, `mapcat`, `zip`, `reductions`, `reduce`, `buffer`, and `batch`.  [To learn more about streams, go here](/docs/stream.md).
 
 ### license
