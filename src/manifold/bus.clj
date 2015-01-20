@@ -1,4 +1,7 @@
-(ns manifold.bus
+(ns
+  ^{:author "Zach Tellman"
+    :doc "An implementation of an event bus, where publishers and subscribers can interact via topics."}
+  manifold.bus
   (:require
     [manifold
      [stream :as s]
@@ -19,7 +22,8 @@
 (definline publish!
   "Publishes a message on the bus, returning a deferred result representing the message
    being accepted by all subscribers.  To prevent one slow consumer from blocking all
-   the others, use `manifold.stream/buffer`."
+   the others, use `manifold.stream/buffer`, or `manifold.stream/connect` with a timeout
+   specified."
   [bus topic message]
   `(.publish ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic ~message))
 

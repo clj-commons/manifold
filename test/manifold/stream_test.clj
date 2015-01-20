@@ -76,6 +76,17 @@
           (apply s/zip)
           s/stream->seq)))))
 
+(deftest test-lazily-partition-by
+  (let [inputs (range 1e2)
+        f #(long (/ % 10))]
+    (is
+      (= (partition-by f inputs)
+        (->> inputs
+          s/->source
+          (s/lazily-partition-by f)
+          s/stream->seq
+          (map (comp doall s/stream->seq)))))))
+
 (deftest test-partition-by
   (let [inputs (range 1e2)
         f #(long (/ % 10))]
@@ -84,8 +95,7 @@
         (->> inputs
           s/->source
           (s/partition-by f)
-          s/stream->seq
-          (map (comp doall s/stream->seq)))))))
+          s/stream->seq)))))
 
 (deftest test-concat
   (let [inputs (range 1e2)
@@ -94,7 +104,7 @@
       (= inputs
         (->> inputs
           s/->source
-          (s/partition-by f)
+          (s/lazily-partition-by f)
           s/concat
           s/stream->seq)))))
 

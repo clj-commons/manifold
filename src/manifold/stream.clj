@@ -1,4 +1,7 @@
-(ns manifold.stream
+(ns
+  ^{:author "Zach Tellman"
+    :doc "Methods for creating, transforming, and interacting with asynchronous streams of values."}
+  manifold.stream
   (:refer-clojure
     :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by])
   (:require
@@ -288,22 +291,13 @@
 (defn connect
   "Connects a source to a sink, propagating all messages from the former into the latter.
 
-   Optionally takes a map of parameters, which include:
+   Optionally takes a map of parameters:
 
-
-   `upstream?` - if closing the sink should always close the source, even if there are other
-   sinks downstream of the source.  Defaults to `false`.  Note that if the sink is the only
-   thing downstream of the source, the source will always be closed, unless it is permanent.
-
-   `downstream?` - if closing the source will close the sink.  Defaults to `true`.
-
-   `timeout` - if defined, the maximum time, in milliseconds, that will be spent trying to
-    put a message into the sink before closing it.  Useful when there are multiple sinks
-    downstream of a source, and you want to avoid a single backed up sink from blocking
-    all the others.
-
-    `description` - describes the connection, useful for traversing the stream topology via
-    `downstream`."
+   |:---|:---
+   | `upstream?` | if closing the sink should always close the source, even if there are other sinks downstream of the source.  Defaults to `false`.  Note that if the sink is the only thing downstream of the source, the source will always be closed, unless it is permanent.
+   | `downstream?` | if closing the source will close the sink.  Defaults to `true`.
+   | `timeout` | if defined, the maximum time, in milliseconds, that will be spent trying to put a message into the sink before closing it.  Useful when there are multiple sinks downstream of a source, and you want to avoid a single backed up sink from blocking all the others.
+   | `description` | describes the connection, useful for traversing the stream topology via `downstream`."
   {:arglists
    '[[source sink]
      [source
@@ -348,7 +342,17 @@
   ([buffer-size xform executor]
      (default/stream buffer-size xform executor)))
 
-(defn stream* [options]
+(defn stream*
+  "An alternate way to build a stream, via a map of parameters.
+
+   |:---|:---
+   | `permanent?` | if `true`, the channel cannot be closed
+   | `buffer-size` | the number of messages that can accumulate in the channel before backpressure is applied
+   | `description` | the description of the channel, typically a map of properties
+   | `executor` | the `java.util.concurrent.Executor` that will execute all callbacks registered on the deferreds returns by `put!` and `take!`
+   | `xform` | a transducer which will transform all messages that are enqueued via `put!` before they are dequeued via `take!`."
+  {:arglists '[[{:keys [permanent? buffer-size description executor xform]}]]}
+  [options]
   (default/stream* options))
 
 ;;;
@@ -396,7 +400,8 @@
     (.connector source sink)))
 
 (defn splice
-  "Slices together two halves of a stream."
+  "Splices together two halves of a stream, such that all messages enqueued via `put!` go
+   into `sink`, and all messages dequeued via `take!` come from `source`."
   [sink source]
   (SplicedStream. (->sink sink) (->source source)))
 
@@ -454,8 +459,8 @@
     (connect source (Callback. callback nil result) nil)))
 
 (defn connect-via
-  "Feeds all messages from `src` into `callback`, with the understanding that they will eventually
-   be propagated into `dst` in some form."
+  "Feeds all messages from `src` into `callback`, with the understanding that they will
+   eventually be propagated into `dst` in some form."
   ([src callback dst]
      (connect-via src callback dst nil))
   ([src callback dst options]
@@ -477,8 +482,8 @@
 ;;;
 
 (defn stream->seq
-  "Transforms a stream into a lazy sequence.  If a `timeout-interval` is defined, the sequence will terminate
-   if `timeout-interval` milliseconds elapses without a new event."
+  "Transforms a stream into a lazy sequence.  If a `timeout-interval` is defined, the sequence
+   will terminate if `timeout-interval` milliseconds elapses without a new event."
   ([s]
      (lazy-seq
        (let [x @(take! s ::none)]
@@ -649,13 +654,16 @@
       {:description {:op "mapcat"}})
     (source-only s')))
 
-(defn partition-by
-  "Equivalent to Clojure's `partition-by`, but returns a stream of streams."
+(defn lazily-partition-by
+  "Equivalent to Clojure's `partition-by`, but returns a stream of streams.  This meanst that
+   if a sub-stream is not completely consumed, the next sub-stream will never be emitted.
+
+   Use with caution."
   [f s]
   (let [in (stream)
         out (stream)]
 
-    (connect-via-proxy s in out {:description {:op "partition-by"}})
+    (connect-via-proxy s in out {:description {:op "lazily-partition-by"}})
 
     ;; TODO: how is this represented in the topology?
     (d/loop [prev ::x, s' nil]
@@ -670,7 +678,7 @@
                          (catch Throwable e
                            (close! in)
                            (close! out)
-                           (log/error e "error in partition-by")
+                           (log/error e "error in lazily-partition-by")
                            ::error))]
               (when-not (identical? ::error curr)
                 (if (= prev curr)
@@ -683,6 +691,36 @@
                       (fn [_] (d/recur curr s'')))))))))))
 
     out))
+
+(defn partition-by
+  "Equivalent to Clojure's `partition-by`."
+  [f s]
+  (let [s' (stream)]
+    (d/loop [prev ::x, acc []]
+      (d/chain (take! s ::closed)
+        (fn [msg]
+          (if (identical? msg ::closed)
+            (do
+              (when-not (empty? acc)
+                (put! s' acc))
+              (close! s'))
+            (let [curr (try
+                         (f msg)
+                         (catch Throwable e
+                           (close! s)
+                           (close! s')
+                           (log/error e "error in partition-by")
+                           :error))]
+              (when-not (identical? :error curr)
+                (if (= prev curr)
+                  (d/recur curr (conj acc msg))
+                  (d/chain (if (empty? acc)
+                             true
+                             (put! s' acc))
+                    (fn [result]
+                      (when result
+                        (d/recur curr [msg])))))))))))
+    s'))
 
 (defn concat
   "Takes a stream of streams, and flattens it into a single stream."

@@ -1,4 +1,7 @@
-(ns manifold.deferred
+(ns
+  ^{:author "Zach Tellman"
+    :doc "Methods for creating, transforming, and interacting with asynchronous values."}
+  manifold.deferred
   (:refer-clojure :exclude [realized? loop future])
   (:require
     [clojure.tools.logging :as log]
@@ -1102,6 +1105,7 @@
 ;;;
 
 (alter-meta! #'->Deferred assoc :private true)
+(alter-meta! #'->DeferredState assoc :private true)
 (alter-meta! #'->ErrorDeferred assoc :private true)
 (alter-meta! #'->SuccessDeferred assoc :private true)
 (alter-meta! #'->Listener assoc :private true)

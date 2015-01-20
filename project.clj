@@ -1,4 +1,4 @@
-(defproject manifold "0.1.0-beta7"
+(defproject manifold "0.1.0-beta8"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -9,13 +9,16 @@
                                   [org.clojure/clojure "1.7.0-alpha5"]
                                   [criterium "0.4.3"]
                                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]]}}
-  :test-selectors {:default #(not (some #{:benchmark :stress}
-                                        (cons (:tag %) (keys %))))
+  :test-selectors {:default #(not
+                               (some #{:benchmark :stress}
+                                 (cons (:tag %) (keys %))))
                    :benchmark :benchmark
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
-  :plugins [[codox "0.6.4"]]
-  :codox {:writer codox-md.writer/write-docs
+  :plugins [[codox "0.8.10"]]
+  :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"
+          :src-linenum-anchor-prefix "L"
+          :defaults {:doc/format :markdown}
           :include [manifold.deferred manifold.stream manifold.time manifold.bus]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ["-server"

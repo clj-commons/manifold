@@ -1,4 +1,7 @@
-(ns manifold.time
+(ns
+  ^{:author "Zach Tellman"
+    :doc "This namespace contains methods for converting units of time, with milliseconds as the base representation, and for deferring execution of functions to some time in the future.  In practice, the methods here are not necessary to use Manifold effectively - `manifold.deferred/timeout` and `manifold.stream/periodically` are more directly useful - but they are available for anyone who should need them."}
+  manifold.time
   (:require
     [manifold.utils :as utils]
     [clojure.string :as str])
@@ -8,6 +11,7 @@
      TimeZone]
     [java.util.concurrent
      Future
+     Executor
      Executors
      TimeUnit
      ScheduledThreadPoolExecutor
@@ -123,14 +127,16 @@
 
 ;;;
 
-(let [scheduler     (ScheduledThreadPoolExecutor.
-                      1
-                      (utils/thread-factory (constantly "manifold-scheduler-queue")))
+(let [scheduler     (delay
+                      (ScheduledThreadPoolExecutor.
+                        1
+                        (utils/thread-factory (constantly "manifold-scheduler-queue"))))
       num-cores     (.availableProcessors (Runtime/getRuntime))
       cnt           (atom 0)
-      executor      (Executors/newFixedThreadPool
-                      num-cores
-                      (utils/thread-factory #(str "manifold-scheduler-" (swap! cnt inc))))]
+      executor      (delay
+                      (Executors/newFixedThreadPool
+                        num-cores
+                        (utils/thread-factory #(str "manifold-scheduler-" (swap! cnt inc)))))]
 
   (defn in
     "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred
@@ -143,8 +149,8 @@
                           (manifold.deferred/success! d (f))
                           (catch Throwable e
                             (manifold.deferred/error! d e))))]
-                (.execute executor ^Runnable f)))]
-      (.schedule scheduler
+                (.execute ^Executor @executor ^Runnable f)))]
+      (.schedule ^ScheduledThreadPoolExecutor @scheduler
         ^Runnable f
         (long (* interval 1e3))
         TimeUnit/MICROSECONDS)
@@ -169,8 +175,8 @@
                        (.cancel future false))
                      (throw e))))]
          (deliver future-ref
-           (.scheduleAtFixedRate scheduler
-             ^Runnable (fn [] (.execute executor ^Runnable f))
+           (.scheduleAtFixedRate ^ScheduledThreadPoolExecutor @scheduler
+             ^Runnable (fn [] (.execute ^Executor @executor ^Runnable f))
              (long (* initial-delay 1e3))
              (long (* period 1e3))
              TimeUnit/MICROSECONDS))
