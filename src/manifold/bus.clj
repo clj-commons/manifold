@@ -65,42 +65,44 @@
 
 (defn event-bus
   "Returns an event bus that can be used with `publish!` and `subscribe`."
-  []
-  (let [topic->subscribers (ConcurrentHashMap.)]
-    (reify IEventBus
-      (subscribe [_ topic]
-        (let [s (s/stream)]
+  ([]
+     (event-bus s/stream))
+  ([stream-generator]
+     (let [topic->subscribers (ConcurrentHashMap.)]
+       (reify IEventBus
+         (subscribe [_ topic]
+           (let [s (stream-generator)]
 
-          ;; CAS to add
-          (loop []
-            (let [subscribers (.get topic->subscribers topic)
-                  subscribers' (conj' subscribers s)]
-              (if (nil? subscribers)
-                (when (.putIfAbsent topic->subscribers topic subscribers')
-                  (recur))
-                (when-not (.replace topic->subscribers topic subscribers subscribers')
-                  (recur)))))
+             ;; CAS to add
+             (loop []
+               (let [subscribers (.get topic->subscribers topic)
+                     subscribers' (conj' subscribers s)]
+                 (if (nil? subscribers)
+                   (when (.putIfAbsent topic->subscribers topic subscribers')
+                     (recur))
+                   (when-not (.replace topic->subscribers topic subscribers subscribers')
+                     (recur)))))
 
-          ;; CAS to remove
-          (s/on-closed s
-            (fn []
-              (loop []
-                (let [subscribers (.get topic->subscribers topic)
-                      subscribers' (disj' subscribers s)]
-                  (if (nil? subscribers')
-                    (when-not (.remove topic->subscribers topic subscribers)
-                      (recur))
-                    (when-not (.replace topic->subscribers topic subscribers subscribers')
-                      (recur)))))))
+             ;; CAS to remove
+             (s/on-closed s
+               (fn []
+                 (loop []
+                   (let [subscribers (.get topic->subscribers topic)
+                         subscribers' (disj' subscribers s)]
+                     (if (nil? subscribers')
+                       (when-not (.remove topic->subscribers topic subscribers)
+                         (recur))
+                       (when-not (.replace topic->subscribers topic subscribers subscribers')
+                         (recur)))))))
 
-          (s/source-only s)))
+             (s/source-only s)))
 
-      (publish [_ topic message]
-        (let [subscribers (.get topic->subscribers topic)]
-          (if (nil? subscribers)
-            (d/success-deferred false)
-            (-> (apply d/zip' (map #(s/put! % message) subscribers))
-              (d/chain' (fn [_] true))))))
+         (publish [_ topic message]
+           (let [subscribers (.get topic->subscribers topic)]
+             (if (nil? subscribers)
+               (d/success-deferred false)
+               (-> (apply d/zip' (map #(s/put! % message) subscribers))
+                 (d/chain' (fn [_] true))))))
 
-      (isActive [_ topic]
-        (boolean (.get topic->subscribers topic))))))
+         (isActive [_ topic]
+           (boolean (.get topic->subscribers topic)))))))

@@ -1,4 +1,4 @@
-(defproject manifold "0.1.0-beta8"
+(defproject manifold "0.1.0-beta9"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -22,6 +22,7 @@
           :include [manifold.deferred manifold.stream manifold.time manifold.bus]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ["-server"
+             "-XX:-OmitStackTraceInFastThrow"
              "-XX:+UseConcMarkSweepGC"
              "-Xmx2g"
              "-XX:NewSize=1g"

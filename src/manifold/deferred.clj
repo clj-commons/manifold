@@ -932,13 +932,31 @@
    This will act directly on the deferred value passed in.  If the deferred represents a value
    returned by `chain`, all actions not yet completed will be short-circuited upon timeout."
   ([d interval]
-     (time/in interval
-       #(error! d
-          (TimeoutException.
-            (str "timed out after " interval " milliseconds"))))
+     (cond
+       (realized? d)
+       nil
+
+       (not (pos? interval))
+       (error! d
+         (TimeoutException.
+           (str "timed out after " interval " milliseconds")))
+
+       :else
+       (time/in interval
+        #(error! d
+           (TimeoutException.
+             (str "timed out after " interval " milliseconds")))))
      d)
   ([d interval timeout-value]
-     (time/in interval #(success! d timeout-value))
+     (cond
+       (or (nil? interval) (realized? d))
+       nil
+
+       (not (pos? interval))
+       (success! d timeout-value)
+
+       :else
+       (time/in interval #(success! d timeout-value)))
      d))
 
 (deftype Recur [s]

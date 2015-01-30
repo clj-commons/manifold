@@ -78,15 +78,14 @@
                    (try
                      (add! this msg)
                      (catch Throwable e
-                       (d/error-deferred e)
-                       (.close this))))]
+                       (.close this)
+                       (d/error-deferred e))))]
       (cond
         (instance? Producer result)
         (do
           (.add producers result)
           (let [d (.deferred ^Producer result)]
-            (when timeout
-              (time/in timeout #(d/success! d timeout-val)))
+            (d/timeout! d timeout timeout-val)
             (if blocking?
               @d
               d)))
@@ -111,8 +110,7 @@
 
         :else
         (do
-          (when timeout
-            (time/in timeout #(d/success! result timeout-val)))
+          (d/timeout! result timeout timeout-val)
           (if blocking?
             @result
             result)))))
@@ -161,8 +159,7 @@
               (if (and timeout (<= timeout 0))
                 (d/success-deferred timeout-val executor)
                 (let [d (d/deferred)]
-                  (when timeout
-                    (time/in timeout #(d/success! d timeout-val)))
+                  (d/timeout! d timeout timeout-val)
                   (let [c (Consumer. d default-val)]
                     (if (.offer consumers c)
                       d
