@@ -72,7 +72,7 @@
        :else default-val)))
 
 (defn ->source
-  "Converts, if possible, the object to a Manifold sink, or `default-val` if it cannot.  If no
+  "Converts, if possible, the object to a Manifold source, or `default-val` if it cannot.  If no
    default value is given, an `IllegalArgumentException` is thrown."
   ([x]
      (let [x' (->source x ::none)]
