@@ -158,7 +158,7 @@
               ;; add to the consumers queue
               (if (and timeout (<= timeout 0))
                 (d/success-deferred timeout-val executor)
-                (let [d (d/deferred)]
+                (let [d (d/deferred executor)]
                   (d/timeout! d timeout timeout-val)
                   (let [c (Consumer. d default-val)]
                     (if (.offer consumers c)

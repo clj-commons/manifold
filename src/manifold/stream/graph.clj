@@ -206,7 +206,7 @@
 (defn- sync-connect
   [^IEventSource source
    ^CopyOnWriteArrayList dsts]
-  (utils/future
+  (utils/future-with @utils/execute-pool
     (let [sync-sinks (LinkedList.)
           deferreds  (LinkedList.)]
       (loop []

@@ -540,30 +540,22 @@
     d
     (connect d (deferred executor))))
 
-(defmacro future
-  "Equivalent to Clojure's `future`, but returns a Manifold deferred."
-  [& body]
+(defmacro future-with
+  "Equivalent to Clojure's `future`, but allows specification of the executor
+   and returns a Manifold deferred."
+  [executor & body]
   `(let [d# (deferred)]
-     (utils/future
+     (utils/future-with ~executor
        (try
          (success! d# (do ~@body))
          (catch Throwable e#
            (error! d# e#))))
      d#))
 
-(defmacro future-with
-  "Equivalent to Clojure's `future`, but allows specification of the executor
-   and returns a Manifold deferred."
-  [executor & body]
-  `(let [d# (deferred)
-         ^java.util.concurrent.Executor e# ~executor]
-     (.execute e#
-       (fn []
-         (try
-           (success! d# (do ~@body))
-           (catch Throwable e#
-             (error! d# e#)))))
-     d#))
+(defmacro future
+  "Equivalent to Clojure's `future`, but returns a Manifold deferred."
+  [& body]
+  `(future-with @utils/execute-pool ~@body))
 
 ;;;
 

@@ -34,10 +34,11 @@
 
 ;;;
 
-(def ^Executor wait-pool
-  (let [cnt (atom 0)]
-    (Executors/newCachedThreadPool
-      (thread-factory #(str "manifold-wait-" (swap! cnt inc)) 1e2))))
+(def wait-pool
+  (delay
+    (let [cnt (atom 0)]
+      (Executors/newCachedThreadPool
+        (thread-factory #(str "manifold-wait-" (swap! cnt inc)) 1e2)))))
 
 (defmacro wait-for [& body]
   `(let [f# (fn []
@@ -45,32 +46,34 @@
                 ~@body
                 (catch Throwable e#
                   (log/error e# "error in manifold.utils/wait-for"))))]
-     (.execute wait-pool ^Runnable f#)
+     (.execute ^Executor @wait-pool ^Runnable f#)
      nil))
 
 ;;;
 
 (def ^ThreadLocal stack-depth (ThreadLocal.))
 
-(def ^Executor execute-pool
-  (let [cnt (atom 0)]
-    (Executors/newCachedThreadPool
-      (thread-factory #(str "manifold-execute-" (swap! cnt inc))))))
+(def execute-pool
+  (delay
+    (let [cnt (atom 0)]
+      (Executors/newCachedThreadPool
+        (thread-factory #(str "manifold-execute-" (swap! cnt inc)))))))
 
 (def ^:const max-depth 50)
 
-(defmacro future [& body]
+(defmacro future-with [executor & body]
   `(let [frame# (clojure.lang.Var/cloneThreadBindingFrame)
+         ^Executor executor# ~executor
          f# (fn []
               (let [curr-frame# (clojure.lang.Var/getThreadBindingFrame)]
                 (clojure.lang.Var/resetThreadBindingFrame frame#)
                 (try
                   ~@body
                   (catch Throwable e#
-                    (log/error e# "error in manifold.utils/future"))
+                    (log/error e# "error in manifold.utils/future-with"))
                   (finally
                     (clojure.lang.Var/resetThreadBindingFrame curr-frame#)))))]
-     (.execute execute-pool ^Runnable f#)
+     (.execute executor# ^Runnable f#)
      nil))
 
 (defmacro without-overflow [& body]
@@ -78,7 +81,7 @@
          depth'# (if (nil? depth#) 0 depth#)
          f# (fn [] ~@body)]
      (if (> depth'# max-depth)
-       (future (f#))
+       (future-with @execute-pool (f#))
        (try
          (.set stack-depth (unchecked-inc (unchecked-long depth'#)))
          (f#)
