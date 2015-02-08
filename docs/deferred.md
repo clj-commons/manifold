@@ -45,7 +45,7 @@ true
 
 ### composing with deferreds
 
-Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, no one should ever use `on-deferred`.
+Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, no one should ever use `on-realized`.
 
 Instead, they should use `manifold.deferred/chain`, which chains together callbacks, left to right:
 
