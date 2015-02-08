@@ -925,7 +925,7 @@
    returned by `chain`, all actions not yet completed will be short-circuited upon timeout."
   ([d interval]
      (cond
-       (realized? d)
+       (or (nil? interval) (realized? d))
        nil
 
        (not (pos? interval))
@@ -1054,7 +1054,8 @@
           (+ y 1)))"
   [bindings & body]
   (require 'riddley.walk)
-  (let [locals (keys ((resolve 'riddley.compiler/locals)))
+  (let [bindings (second (macroexpand `(let ~bindings)))
+        locals (keys ((resolve 'riddley.compiler/locals)))
         vars (->> bindings (partition 2) (map first))
         vars' (->> vars (concat locals) (map #(vary-meta % assoc ::flow-var true)))
         gensyms (repeatedly (count vars') gensym)
