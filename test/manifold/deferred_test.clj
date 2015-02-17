@@ -139,7 +139,11 @@
     (is (= true (cancel-listener! d l)))
     (is (= true (success! d :foo)))
     (is (= :foo @(capture-success d)))
-    (is (= false (cancel-listener! d l)))))
+    (is (= false (cancel-listener! d l))))
+
+  ; timeouts
+  (let [d (deferred)]
+    (is (= ::timeout (deref d 10 ::timeout)))))
 
 ;;;
 
