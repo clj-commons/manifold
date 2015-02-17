@@ -5,6 +5,8 @@
   (:refer-clojure :exclude [realized? loop future])
   (:require
     [clojure.tools.logging :as log]
+    [riddley.walk :as walk]
+    [riddley.compiler :as compiler]
     [manifold
      [utils :as utils]
      [time :as time]
@@ -239,22 +241,25 @@
         false)))
 
 (defmacro ^:private deref-deferred [timeout-value & await-args]
-  `(condp identical? ~'state
-     ::success ~'val
-     ::error   (if (instance? Throwable ~'val)
-                 (throw ~'val)
-                 (throw (ex-info "" {:error ~'val})))
-     (let [latch# (CountDownLatch. 1)
-            f# (fn [_#] (.countDown latch#))]
-        (try
-          (on-realized ~'this f# f#)
-          (.await latch# ~@await-args)
-          (if (identical? ::success ~'state)
-            ~'val
-            (throw ~'val))
-          ~@(when-not (empty? await-args)
-              `((catch TimeoutException _#
-                  ~timeout-value)))))))
+  (let [latch-sym (with-meta (gensym "latch") {:tag "java.util.concurrent.CountDownLatch"})]
+    `(condp identical? ~'state
+       ::success ~'val
+       ::error   (if (instance? Throwable ~'val)
+                   (throw ~'val)
+                   (throw (ex-info "" {:error ~'val})))
+       (let [~latch-sym (CountDownLatch. 1)
+             f# (fn [_#] (.countDown ~latch-sym))]
+         (on-realized ~'this f# f#)
+         (let [result# ~(if (empty? await-args)
+                          `(do
+                             (.await ~latch-sym)
+                             true)
+                          `(.await ~latch-sym ~@await-args))]
+           (if result#
+             (if (identical? ::success ~'state)
+               ~'val
+               (throw ~'val))
+             ~timeout-value))))))
 
 (deftype DeferredState
   [val state claim-token consumed?])
@@ -1025,12 +1030,12 @@
 
 ;;;
 
-(defn- back-references [form]
+(defn- back-references [marker form]
   (let [syms (atom #{})]
-    ((resolve 'riddley.walk/walk-exprs)
+    (walk/walk-exprs
       symbol?
       (fn [s]
-        (when (some-> ((resolve 'riddley.compiler/locals)) (find s) key meta ::flow-var)
+        (when (some-> (compiler/locals) (find s) key meta (get marker))
           (swap! syms conj s)))
       form)
     @syms))
@@ -1053,12 +1058,13 @@
         (let-flow [y (future (+ x 1))]
           (+ y 1)))"
   [bindings & body]
-  (require 'riddley.walk)
-  (let [bindings (second (macroexpand `(let ~bindings)))
-        locals (keys ((resolve 'riddley.compiler/locals)))
+  (let [[_ bindings & body] (walk/macroexpand-all `(let ~bindings ~@body))
+        locals (keys (compiler/locals))
         vars (->> bindings (partition 2) (map first))
-        vars' (->> vars (concat locals) (map #(vary-meta % assoc ::flow-var true)))
+        marker (gensym)
+        vars' (->> vars (concat locals) (map #(vary-meta % assoc marker true)))
         gensyms (repeatedly (count vars') gensym)
+        gensym->var (zipmap gensyms vars')
         vals' (->> bindings (partition 2) (map second) (concat locals))
         gensym->deps (zipmap
                        gensyms
@@ -1068,35 +1074,39 @@
                            (fn [n]
                              `(let [~@(interleave (take n vars') (repeat nil))
                                     ~(nth vars' n) ~(nth vals' n)])))
-                         (map back-references)))
-        var->gensym (zipmap vars' gensyms)]
-    `(let [~@(interleave
-               gensyms
-               (map
-                 (fn [n var val gensym]
-                   (let [var->gensym (zipmap (take n vars') gensyms)
-                         deps (gensym->deps gensym)]
-                     (if (empty? deps)
-                       val
-                       `(chain (zip ~@(map var->gensym deps))
-                          (fn [[~@deps]]
-                            ~val)))))
-                 (range)
-                 vars'
-                 vals'
-                 gensyms))]
-       ~(let [dep? (set/union
-                     (back-references `(let [~@(interleave
-                                                 vars'
-                                                 (repeat nil))]
-                                         ~@body))
-                     (apply set/union (vals gensym->deps)))
-              vars' (filter dep? vars')
-              gensyms' (map var->gensym vars')]
-          `(chain (zip ~@gensyms')
-             (fn [[~@gensyms']]
-               (let [~@(interleave vars' gensyms')]
-                 ~@body)))))))
+                         (map
+                           (fn [n form]
+                             (map
+                               (zipmap vars' (take n gensyms))
+                               (back-references marker form)))
+                           (range))))
+        binding-dep? (->> gensym->deps vals (apply concat) set)
+        body-dep? (->> `(let [~@(interleave
+                                  vars'
+                                  (repeat nil))]
+                          ~@body)
+                    (back-references marker)
+                    (map (zipmap vars' gensyms))
+                    set)
+        dep? (set/union binding-dep? body-dep?)]
+    `(let [~@(mapcat
+               (fn [n var val gensym]
+                 (let [var->gensym (zipmap (take n vars') gensyms)
+                       deps (gensym->deps gensym)]
+                   (if (empty? deps)
+                     (when (dep? gensym)
+                       [gensym val])
+                     [gensym
+                      `(chain (zip ~@deps)
+                         (fn [[~@(map gensym->var deps)]]
+                           ~val))])))
+               (range)
+               vars'
+               vals'
+               gensyms)]
+       (chain (zip ~@body-dep?)
+         (fn [[~@(map gensym->var body-dep?)]]
+           ~@body)))))
 
 (defmethod print-method IDeferred [o ^Writer w]
   (.write w

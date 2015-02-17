@@ -39,7 +39,14 @@
         @(let [z (clojure.core/future 1)]
            (let-flow [x (future (clojure.core/future z))
                       y (future (+ z x))]
-             (future (+ x x y z)))))))
+             (future (+ x x y z))))))
+
+  (is (= 2
+        @(let [d (deferred)]
+           (let-flow [[x] (future' [1])]
+             (let-flow [[x'] (future' [(inc x)])
+                        y (future' true)]
+               (when y x')))))))
 
 (deftest test-chain-errors
   (let [boom (fn [n] (throw (ex-info "" {:n n})))]
@@ -139,7 +146,15 @@
     (is (= true (cancel-listener! d l)))
     (is (= true (success! d :foo)))
     (is (= :foo @(capture-success d)))
-    (is (= false (cancel-listener! d l)))))
+    (is (= false (cancel-listener! d l))))
+
+  ;; deref
+  (let [d (deferred)]
+    (is (= :foo (deref d 10 :foo)))
+    (success! d 1)
+    (is (= 1 @d))
+    (is (= 1 (deref d 10 :foo))))
+  )
 
 ;;;
 
