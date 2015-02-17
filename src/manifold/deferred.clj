@@ -249,9 +249,10 @@
         (try
           (on-realized ~'this f# f#)
           (.await latch# ~@await-args)
-          (if (identical? ::success ~'state)
-            ~'val
-            (throw ~'val))
+          (cond
+            (identical? ::success ~'state) ~'val
+            (instance? Throwable ~'val) (throw ~'val)
+            :else ~timeout-value)
           ~@(when-not (empty? await-args)
               `((catch TimeoutException _#
                   ~timeout-value)))))))
