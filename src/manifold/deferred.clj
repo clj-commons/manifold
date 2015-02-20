@@ -989,13 +989,19 @@
                             nil))]
              (if (deferred? ~x-sym)
                (if (realized? ~x-sym)
-                 (let [~x-sym @~x-sym]
-                   (if (instance? Recur ~x-sym)
-                     (~'recur
-                       ~@(map
-                           (fn [n] `(nth @~x-sym ~n))
-                           (range (count vars))))
-                     (success! result# ~x-sym)))
+                 (when (try
+                         @~x-sym
+                         true
+                         (catch Throwable e#
+                           (error! result# e#)
+                           false))
+                   (let [~x-sym @~x-sym]
+                     (if (instance? Recur ~x-sym)
+                       (~'recur
+                         ~@(map
+                             (fn [n] `(nth @~x-sym ~n))
+                             (range (count vars))))
+                       (success! result# ~x-sym))))
                  (on-realized (chain ~x-sym)
                    (fn [x#]
                      (if (instance? Recur x#)

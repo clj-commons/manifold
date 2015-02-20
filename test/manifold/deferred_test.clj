@@ -1,10 +1,10 @@
 (ns manifold.deferred-test
   (:refer-clojure
-    :exclude (realized? future))
+    :exclude (realized? future loop))
   (:require
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold.deferred :refer :all :exclude [loop]]))
+    [manifold.deferred :refer :all]))
 
 (defmacro future' [& body]
   `(future
@@ -13,6 +13,12 @@
        ~@body
        (catch Exception e#
          (.printStackTrace e#)))))
+
+(defn future-error
+  [ex]
+  (future
+    (Thread/sleep 10)
+    (throw ex)))
 
 (defn capture-success
   ([result]
@@ -155,6 +161,34 @@
     (is (= 1 @d))
     (is (= 1 (deref d 10 :foo))))
   )
+
+(deftest test-loop
+  ;; body produces a non-deferred value
+  (is @(capture-success
+         (loop [] true)))
+
+  ;; body raises exception
+  (let [ex (Exception.)]
+    (is (= ex @(capture-error
+                 (loop [] (throw ex))))))
+
+  ;; body produces a realized result
+  (is @(capture-success
+         (loop [] (success-deferred true))))
+
+  ;; body produces a realized error result
+  (let [ex (Exception.)]
+    (is (= ex @(capture-error
+                 (loop [] (error-deferred ex))))))
+
+  ;; body produces a delayed result
+  (is @(capture-success
+         (loop [] (future' true))))
+
+  ;; body produces a delayed error result
+  (let [ex (Exception.)]
+    (is (= ex @(capture-error
+                 (loop [] (future-error ex)))))))
 
 ;;;
 
