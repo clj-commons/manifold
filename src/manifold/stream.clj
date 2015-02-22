@@ -3,7 +3,7 @@
     :doc "Methods for creating, transforming, and interacting with asynchronous streams of values."}
   manifold.stream
   (:refer-clojure
-    :exclude [map filter mapcat reductions reduce partition partition-all concat partition-by])
+    :exclude [transduce map filter mapcat reductions reduce partition partition-all concat partition-by])
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]
@@ -531,9 +531,19 @@
 
 (declare zip)
 
+(defn transform
+  "Takes a transducer `xform` and returns a source which applies it to source `s`. A buffer-size
+   may optionally be defined for the output source."
+  ([xform s]
+     (transform xform 0 s))
+  ([xform buffer-size ^IEventSource s]
+     (let [s' (stream buffer-size xform)]
+       (connect s s' {:description {:op "transducer"}})
+       (source-only s'))))
+
 (defn map
   "Equivalent to Clojure's `map`, but for streams instead of sequences."
-  ([f ^IEventSource s]
+  ([f s]
      (let [s' (stream)]
        (connect-via s
          (fn [msg]
@@ -641,18 +651,21 @@
 
 (defn mapcat
   "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
-  [f s]
-  (let [s' (stream)]
-    (connect-via s
-      (fn [msg]
-        (d/loop [s (f msg)]
-          (when-not (empty? s)
-            (d/chain' (put! s' (first s))
-              (fn [_]
-                (d/recur (rest s)))))))
-      s'
-      {:description {:op "mapcat"}})
-    (source-only s')))
+  ([f s]
+     (let [s' (stream)]
+       (connect-via s
+         (fn [msg]
+           (d/loop [s (f msg)]
+             (when-not (empty? s)
+               (d/chain' (put! s' (first s))
+                 (fn [_]
+                   (d/recur (rest s)))))))
+         s'
+         {:description {:op "mapcat"}})
+       (source-only s')))
+  ([f s & rest]
+     (->> (apply zip s rest)
+       (mapcat #(apply f %)))))
 
 (defn lazily-partition-by
   "Equivalent to Clojure's `partition-by`, but returns a stream of streams.  This meanst that
@@ -691,36 +704,6 @@
                       (fn [_] (d/recur curr s'')))))))))))
 
     out))
-
-(defn partition-by
-  "Equivalent to Clojure's `partition-by`."
-  [f s]
-  (let [s' (stream)]
-    (d/loop [prev ::x, acc []]
-      (d/chain (take! s ::closed)
-        (fn [msg]
-          (if (identical? msg ::closed)
-            (do
-              (when-not (empty? acc)
-                (put! s' acc))
-              (close! s'))
-            (let [curr (try
-                         (f msg)
-                         (catch Throwable e
-                           (close! s)
-                           (close! s')
-                           (log/error e "error in partition-by")
-                           :error))]
-              (when-not (identical? :error curr)
-                (if (= prev curr)
-                  (d/recur curr (conj acc msg))
-                  (d/chain (if (empty? acc)
-                             true
-                             (put! s' acc))
-                    (fn [result]
-                      (when result
-                        (d/recur curr [msg])))))))))))
-    s'))
 
 (defn concat
   "Takes a stream of streams, and flattens it into a single stream."

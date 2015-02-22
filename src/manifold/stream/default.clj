@@ -18,7 +18,7 @@
 
 ;;;
 
-(deftype Production [deferred token])
+(deftype Production [deferred message token])
 (deftype Consumption [message deferred token])
 (deftype Producer [message deferred])
 (deftype Consumer [deferred default-val])
@@ -93,7 +93,7 @@
         (instance? Production result)
         (let [^Production result result]
           (try
-            (d/success! (.deferred result) msg (.token result))
+            (d/success! (.deferred result) (.message result) (.token result))
             (catch Throwable e
               (log/error e "error in callback")))
           (if blocking?
@@ -218,7 +218,7 @@
            (loop [^Consumer c (.poll consumers)]
              (when c
                (if-let [token (d/claim! (.deferred c))]
-                 (Production. (.deferred c) token)
+                 (Production. (.deferred c) msg token)
                  (recur (.poll consumers)))))
 
            ;; see if we can enqueue into the buffer

@@ -56,7 +56,17 @@
               (filter even?)
               (take 3)))]
     (s/put-all! s (range 10))
-    (is (= [2 4 6] (s/stream->seq s)))))
+    (is (= [2 4 6] (s/stream->seq s))))
+
+  (are [xform input]
+    (= (s/stream->seq (s/transform xform (s/->source input)))
+      (transduce xform conj [] input))
+
+    (map inc) (range 10)
+
+    (map inc) (vec (range 10))
+
+    (comp (map inc) (filter even?)) (range 10)))
 
 (deftest test-reduce
   (let [inputs (range 1e2)]
@@ -86,16 +96,6 @@
           (s/lazily-partition-by f)
           s/stream->seq
           (map (comp doall s/stream->seq)))))))
-
-(deftest test-partition-by
-  (let [inputs (range 1e2)
-        f #(long (/ % 10))]
-    (is
-      (= (partition-by f inputs)
-        (->> inputs
-          s/->source
-          (s/partition-by f)
-          s/stream->seq)))))
 
 (deftest test-concat
   (let [inputs (range 1e2)

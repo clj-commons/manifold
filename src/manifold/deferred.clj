@@ -930,7 +930,7 @@
    returned by `chain`, all actions not yet completed will be short-circuited upon timeout."
   ([d interval]
      (cond
-       (or (nil? interval) (realized? d))
+       (or (nil? interval) (not (deferred? d)) (realized? d))
        nil
 
        (not (pos? interval))
@@ -946,7 +946,7 @@
      d)
   ([d interval timeout-value]
      (cond
-       (or (nil? interval) (realized? d))
+       (or (nil? interval) (not (deferred? d)) (realized? d))
        nil
 
        (not (pos? interval))
