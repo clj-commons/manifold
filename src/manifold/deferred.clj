@@ -732,7 +732,7 @@
            (catch Throwable e
              (if (instance? error-class e)
                (try
-                 (success-deferred (error-handler e))
+                 (chain (error-handler e))
                  (catch Throwable e
                    (error-deferred e)))
                x)))
@@ -746,7 +746,7 @@
                   (error! d' %))
                 (catch Throwable e
                   (error! d' e))))
-           d'))
+           (chain d')))
        x)))
 
 (defn catch'
@@ -766,7 +766,7 @@
              (catch Throwable e
                (if (instance? error-class e)
                  (try
-                   (success-deferred (error-handler e))
+                   (chain' (error-handler e))
                    (catch Throwable e
                      (error-deferred e)))
                  x)))
@@ -780,7 +780,7 @@
                     (error! d' %))
                   (catch Throwable e
                     (error! d' e))))
-             d'))))))
+             (chain' d')))))))
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
