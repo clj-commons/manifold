@@ -74,46 +74,55 @@
           (nil? (.peek messages))))))
 
   (put [this msg blocking? timeout timeout-val]
-    (let [result (utils/with-lock lock
-                   (try
-                     (add! this msg)
-                     (catch Throwable e
-                       (.close this)
-                       (d/error-deferred e))))]
-      (cond
-        (instance? Producer result)
-        (do
-          (.add producers result)
-          (let [d (.deferred ^Producer result)]
-            (d/timeout! d timeout timeout-val)
-            (if blocking?
-              @d
-              d)))
+    (let [result
+          (utils/with-lock lock
+            (try
+              (add! this msg)
+              (catch Throwable e
+                (.close this)
+                (d/error-deferred e))))
 
-        (instance? Production result)
-        (let [^Production result result]
-          (try
-            (d/success! (.deferred result) (.message result) (.token result))
-            (catch Throwable e
-              (log/error e "error in callback")))
-          (if blocking?
-            true
-            (d/success-deferred true executor)))
+          close?
+          (reduced? result)
 
-        (identical? this result)
-        (d/success-deferred true executor)
-
-        (reduced? result)
-        (do
-          (.close this)
-          (d/success-deferred false executor))
-
-        :else
-        (do
-          (d/timeout! result timeout timeout-val)
-          (if blocking?
+          result
+          (if close?
             @result
-            result)))))
+            result)
+
+          val
+          (cond
+            (instance? Producer result)
+            (do
+              (.add producers result)
+              (let [d (.deferred ^Producer result)]
+                (d/timeout! d timeout timeout-val)
+                (if blocking?
+                  @d
+                  d)))
+
+            (instance? Production result)
+            (let [^Production p result]
+              (try
+                (d/success! (.deferred p) (.message p) (.token p))
+                (catch Throwable e
+                  (log/error e "error in callback")))
+              (if blocking?
+                true
+                (d/success-deferred true executor)))
+
+            (identical? this result)
+            (d/success-deferred true executor)
+
+            :else
+            (do
+              (d/timeout! result timeout timeout-val)
+              (if blocking?
+                @result
+                result)))]
+      (when close?
+        (.close this))
+      val))
 
   (put [this msg blocking?]
     (.put this msg blocking? nil nil))
@@ -212,7 +221,7 @@
 
            ;; closed, return << false >>
            (and (s/closed? @this)
-             (d/success-deferred false))
+             (d/success-deferred false executor))
 
            ;; see if there are any unclaimed consumers left
            (loop [^Consumer c (.poll consumers)]

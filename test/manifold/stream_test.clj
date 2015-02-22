@@ -66,7 +66,9 @@
 
     (map inc) (vec (range 10))
 
-    (comp (map inc) (filter even?)) (range 10)))
+    (comp (map inc) (filter even?)) (range 10)
+
+    (comp (map inc) (take 5)) (range 10)))
 
 (deftest test-reduce
   (let [inputs (range 1e2)]
