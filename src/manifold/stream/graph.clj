@@ -78,10 +78,11 @@
           nil
 
           (false? x')
-          (do
-            (.remove ^CopyOnWriteArrayList (.dsts x) (.dst x))
-            (when (.upstream? x)
-              (s/close! source)))
+          (let [^CopyOnWriteArrayList l (.dsts x)]
+            (.remove l (.dst x))
+            (when (or (.upstream? x) (== 0 (.size l)))
+              (s/close! source)
+              (.remove graph (s/weak-handle source))))
 
           (instance? IEventSink x')
           (s/close! x')))
@@ -187,8 +188,7 @@
               (if (not (.hasNext i))
 
                 (do
-                  (when (instance? IEventSink source)
-                    (s/close! source))
+                  (s/close! source)
                   (.remove graph (s/weak-handle source)))
 
                 (do
