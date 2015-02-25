@@ -12,6 +12,7 @@
     [manifold.stream
      [core :as core]
      [default :as default]
+     iterator
      queue
      seq
      deferred]
@@ -555,6 +556,18 @@
      (map #(apply f %)
        (apply zip s rest))))
 
+(defn realize-each
+  "Takes a stream of potentially deferred values, and returns a stream of realized values."
+  [s]
+  (let [s' (stream)]
+    (connect-via s
+      (fn [msg]
+        (d/chain msg
+          #(put! s' %)))
+      s'
+      {:description {:op "realize-each"}})
+    (source-only s')))
+
 (let [some-drained? (partial some #{::drained})]
   (defn zip
     "Takes n-many streams, and returns a single stream which will emit n-tuples representing
@@ -858,10 +871,13 @@
 
 (defn batch
   "Batches messages, either into groups of fixed size, or according to upper bounds on size and
-   latency, in milliseconds."
+   latency, in milliseconds.  By default, each message is of size `1`, but a custom `metric` function that
+   returns the size of each message may be defined."
   ([batch-size s]
-     (batch -1 batch-size s))
-  ([max-latency max-size s]
+     (batch (constantly 1) batch-size nil s))
+  ([max-size max-latency s]
+     (batch (constantly 1) max-size max-latency s))
+  ([metric max-size max-latency s]
      (assert (pos? max-size))
 
      (let [buf (stream)
@@ -869,15 +885,15 @@
 
        (connect-via-proxy s buf s' {:upstream? true, :description {:op "batch"}})
 
-       (d/loop [msgs [], earliest-message -1]
-         (if (= max-size (count msgs))
+       (d/loop [msgs [], size 0, earliest-message -1]
+         (if (<= max-size size)
 
            (d/chain' (put! s' msgs)
              (fn [_]
-               (d/recur [] -1)))
+               (d/recur [] 0 -1)))
 
            (d/chain' (if (or
-                           (neg? max-latency)
+                           (nil? max-latency)
                            (neg? earliest-message)
                            (empty? msgs))
                        (take! buf ::none)
@@ -892,9 +908,10 @@
                    (fn [_]
                      (if (drained? s)
                        (close! s')
-                       (d/recur [] -1))))
+                       (d/recur [] 0 -1))))
                  (d/recur
                    (conj msgs msg)
+                   (+ size (metric msg))
                    (if (neg? earliest-message)
                      (System/currentTimeMillis)
                      earliest-message)))))))
