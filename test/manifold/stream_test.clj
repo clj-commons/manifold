@@ -165,6 +165,29 @@
     #(reductions %1 1 %2) #(s/reductions %1 1 %2) + (range 10)
     ))
 
+(defn dechunk [s]
+  (lazy-seq
+    (when-let [[x] (seq s)]
+      (cons x (dechunk (rest s))))))
+
+(deftest test-cleanup
+  (let [cnt (atom 0)
+        f (fn [idx]
+            (swap! cnt inc)
+            (future
+              (range (* idx 10) (+ 10 (* idx 10)))))]
+    (is (= (range 10)
+          (->> (range)
+            dechunk
+            (map f)
+            s/->source
+            s/realize-each
+            (s/map s/->source)
+            s/concat
+            (s/transform (take 10))
+            s/stream->seq)))
+    #_(is (= 1 @cnt))))
+
 ;;;
 
 (defn blocking-queue-benchmark [^BlockingQueue q]

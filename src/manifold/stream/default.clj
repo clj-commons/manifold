@@ -77,7 +77,9 @@
     (let [result
           (utils/with-lock lock
             (try
-              (add! this msg)
+              (if (.isClosed this)
+                (d/success-deferred false executor)
+                (add! this msg))
               (catch Throwable e
                 (.close this)
                 (d/error-deferred e))))
@@ -92,6 +94,7 @@
 
           val
           (cond
+
             (instance? Producer result)
             (do
               (.add producers result)
@@ -120,9 +123,12 @@
               (if blocking?
                 @result
                 result)))]
-      (when close?
-        (.close this))
-      val))
+
+      (if close?
+        (do
+          (.close this)
+          (d/success-deferred false executor))
+        val)))
 
   (put [this msg blocking?]
     (.put this msg blocking? nil nil))
@@ -208,8 +214,7 @@
    ^LinkedList consumers
    ^ArrayDeque messages
    capacity
-   executor
-   this]
+   executor]
   (let [capacity (long capacity)]
     (fn
       ([]
@@ -218,10 +223,6 @@
          (d/success-deferred false))
       ([_ msg]
          (or
-
-           ;; closed, return << false >>
-           (and (s/closed? @this)
-             (d/success-deferred false executor))
 
            ;; see if there are any unclaimed consumers left
            (loop [^Consumer c (.poll consumers)]
@@ -256,19 +257,17 @@
            producers    (LinkedList.)
            buffer-size  (long (max 0 buffer-size))
            messages     (when (pos? buffer-size) (ArrayDeque.))
-           this         (promise)
-           add!         (add! producers consumers messages buffer-size executor this)
+           add!         (add! producers consumers messages buffer-size executor)
            add!         (if xform (xform add!) add!)]
-       @(deliver this
-          (->Stream
-            false
-            nil
-            producers
-            consumers
-            buffer-size
-            messages
-            executor
-            add!)))))
+       (->Stream
+         false
+         nil
+         producers
+         consumers
+         buffer-size
+         messages
+         executor
+         add!))))
 
 (defn stream*
   [{:keys [permanent?
@@ -281,16 +280,14 @@
         producers   (LinkedList.)
         messages    (when buffer-size (ArrayDeque.))
         buffer-size (if buffer-size (long (max 0 buffer-size)) 0)
-        this        (promise)
-        add!        (add! producers consumers messages buffer-size executor this)
+        add!        (add! producers consumers messages buffer-size executor)
         add!        (if xform (xform add!) add!)]
-    @(deliver this
-       (->Stream
-         permanent?
-         description
-         producers
-         consumers
-         buffer-size
-         messages
-         executor
-         add!))))
+    (->Stream
+      permanent?
+      description
+      producers
+      consumers
+      buffer-size
+      messages
+      executor
+      add!)))

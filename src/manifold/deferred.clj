@@ -126,7 +126,7 @@
            (onRealized [_ on-success on-error]
              (register-future-callbacks x on-success on-error))))
 
-       (instance? IPending x)
+       (and (instance? IPending x) (instance? clojure.lang.IDeref x))
        (reify
          IDeref
          (deref [_]
@@ -482,7 +482,13 @@
          nil nil-d
          (SuccessDeferred. val nil nil)))
     ([val executor]
-       (SuccessDeferred. val nil executor))))
+       (if (nil? executor)
+         (condp identical? val
+           true true-d
+           false false-d
+           nil nil-d
+           (SuccessDeferred. val nil nil))
+         (SuccessDeferred. val nil executor)))))
 
 (defn error-deferred
   "A deferred which already contains a realized error"

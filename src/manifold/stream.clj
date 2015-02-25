@@ -113,8 +113,6 @@
 (declare connect)
 
 (deftype SourceProxy [^IEventSource source]
-  clojure.lang.Seqable
-  (seq [_] (seq source))
   IEventStream
   (description [_]
     (.description ^IEventStream source))
