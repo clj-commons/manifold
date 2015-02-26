@@ -24,16 +24,14 @@
 (deftype Consumer [deferred default-val])
 
 (s/def-sink+source Stream
-  [
-   ^boolean permanent?
+  [^boolean permanent?
    description
    ^LinkedList producers
    ^LinkedList consumers
    ^long capacity
    ^ArrayDeque messages
    executor
-   add!
-   ]
+   add!]
 
   (isSynchronous [_] false)
 
@@ -217,57 +215,56 @@
    executor]
   (let [capacity (long capacity)]
     (fn
-      ([]
-         )
+      ([])
       ([_]
-         (d/success-deferred false))
+        (d/success-deferred false))
       ([_ msg]
-         (or
+        (or
 
            ;; see if there are any unclaimed consumers left
-           (loop [^Consumer c (.poll consumers)]
-             (when c
-               (if-let [token (d/claim! (.deferred c))]
-                 (Production. (.deferred c) msg token)
-                 (recur (.poll consumers)))))
+          (loop [^Consumer c (.poll consumers)]
+            (when c
+              (if-let [token (d/claim! (.deferred c))]
+                (Production. (.deferred c) msg token)
+                (recur (.poll consumers)))))
 
            ;; see if we can enqueue into the buffer
-           (and
-             messages
-             (when (< (.size messages) capacity)
-               (.offer messages msg))
-             (d/success-deferred true executor))
+          (and
+            messages
+            (when (< (.size messages) capacity)
+              (.offer messages msg))
+            (d/success-deferred true executor))
 
            ;; add to the producers queue
-           (let [d (d/deferred executor)]
-             (let [pr (Producer. msg d)]
-               (if (.offer producers pr)
-                 d
-                 pr))))))))
+          (let [d (d/deferred executor)]
+            (let [pr (Producer. msg d)]
+              (if (.offer producers pr)
+                d
+                pr))))))))
 
 (defn stream
   ([]
-     (stream 0 nil nil))
+    (stream 0 nil nil))
   ([buffer-size]
-     (stream buffer-size nil nil))
+    (stream buffer-size nil nil))
   ([buffer-size xform]
-     (stream buffer-size xform nil))
+    (stream buffer-size xform nil))
   ([buffer-size xform executor]
-     (let [consumers    (LinkedList.)
-           producers    (LinkedList.)
-           buffer-size  (long (max 0 buffer-size))
-           messages     (when (pos? buffer-size) (ArrayDeque.))
-           add!         (add! producers consumers messages buffer-size executor)
-           add!         (if xform (xform add!) add!)]
-       (->Stream
-         false
-         nil
-         producers
-         consumers
-         buffer-size
-         messages
-         executor
-         add!))))
+    (let [consumers    (LinkedList.)
+          producers    (LinkedList.)
+          buffer-size  (long (max 0 buffer-size))
+          messages     (when (pos? buffer-size) (ArrayDeque.))
+          add!         (add! producers consumers messages buffer-size executor)
+          add!         (if xform (xform add!) add!)]
+      (->Stream
+        false
+        nil
+        producers
+        consumers
+        buffer-size
+        messages
+        executor
+        add!))))
 
 (defn stream*
   [{:keys [permanent?

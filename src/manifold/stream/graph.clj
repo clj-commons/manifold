@@ -70,27 +70,25 @@
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x source]
-  (let [d (.deferred x)]
-    (try
-      (let [x' @d]
-        (cond
-          (true? x')
-          nil
+  (let [x' (try
+             @(.deferred x)
+             (catch Throwable e
+               (s/close! (.dst x))
+               (log/error e "error in message propagation")
+               false))]
+    (cond
+      (true? x')
+      nil
 
-          (false? x')
-          (let [^CopyOnWriteArrayList l (.dsts x)]
-            (.remove l (.dst x))
-            (when (or (.upstream? x) (== 0 (.size l)))
-              (s/close! source)
-              (.remove graph (s/weak-handle source))))
+      (false? x')
+      (let [^CopyOnWriteArrayList l (.dsts x)]
+        (.remove l (.dst x))
+        (when (or (.upstream? x) (== 0 (.size l)))
+          (s/close! source)
+          (.remove graph (s/weak-handle source))))
 
-          (instance? IEventSink x')
-          (s/close! x')))
-      (catch Throwable e
-        (log/error e "error in message propagation")
-        (.remove ^CopyOnWriteArrayList (.dsts x) (.dst x))
-        (when (.upstream? x)
-          (s/close! source))))))
+      (instance? IEventSink x')
+      (s/close! x'))))
 
 (defn- async-connect
   [^IEventSource source
@@ -147,19 +145,19 @@
     (trampoline
       (fn this
         ([]
-           (let [d (.take source ::drained false)]
-             (if (d/realized? d)
-               (this @d)
-               (d/on-realized d
-                 (fn [msg] (trampoline #(this msg)))
-                 err-callback))))
+          (let [d (.take source ::drained false)]
+            (if (d/realized? d)
+              (this @d)
+              (d/on-realized d
+                (fn [msg] (trampoline #(this msg)))
+                err-callback))))
         ([msg]
-           (cond
+          (cond
 
-             (identical? ::drained msg)
-             (do
-               (.remove graph (s/weak-handle source))
-               (let [i (.iterator dsts)]
+            (identical? ::drained msg)
+            (do
+              (.remove graph (s/weak-handle source))
+              (let [i (.iterator dsts)]
                 (loop []
                   (when (.hasNext i)
                     (let [^Downstream d (.next i)]
@@ -167,21 +165,21 @@
                         (s/close! (.sink d)))
                       (recur))))))
 
-             (== 1 (.size dsts))
-             (try
-               (let [dst (.get dsts 0)
-                     ^AsyncPut x (async-send dst msg dsts)
-                     d (.deferred x)]
-                 (if (d/realized? d)
-                   (do
-                     (handle-async-put x source)
-                     this)
-                   (let [f (fn [_]
-                             (handle-async-put x source)
-                             (trampoline this))]
-                     (d/on-realized d f f))))
-               (catch IndexOutOfBoundsException e
-                 (this msg)))
+            (== 1 (.size dsts))
+            (try
+              (let [dst (.get dsts 0)
+                    ^AsyncPut x (async-send dst msg dsts)
+                    d (.deferred x)]
+                (if (d/realized? d)
+                  (do
+                    (handle-async-put x source)
+                    this)
+                  (let [f (fn [_]
+                            (handle-async-put x source)
+                            (trampoline this))]
+                    (d/on-realized d f f))))
+              (catch IndexOutOfBoundsException e
+                (this msg)))
 
             :else
             (let [i (.iterator dsts)]
@@ -265,23 +263,22 @@
           upstream? false
           downstream? true}
      :as opts}]
-     (locking src
-       (let [d (Downstream.
-                 timeout
-                 (boolean (and upstream? (instance? IEventSink src)))
-                 downstream?
-                 dst
-                 dst'
-                 description)
-             k (.weakHandle ^IEventStream src ref-queue)]
-         (if-let [dsts (.get graph k)]
-           (.add ^CopyOnWriteArrayList dsts d)
-           (let [dsts (CopyOnWriteArrayList.)]
-             (if-let [dsts' (.putIfAbsent graph k dsts)]
-               (.add ^CopyOnWriteArrayList dsts' d)
-               (do
-                 (.add ^CopyOnWriteArrayList dsts d)
-                 (if (s/synchronous? src)
-                   (sync-connect src dsts)
-                   (async-connect src dsts))))))
-        ))))
+    (locking src
+      (let [d (Downstream.
+                timeout
+                (boolean (and upstream? (instance? IEventSink src)))
+                downstream?
+                dst
+                dst'
+                description)
+            k (.weakHandle ^IEventStream src ref-queue)]
+        (if-let [dsts (.get graph k)]
+          (.add ^CopyOnWriteArrayList dsts d)
+          (let [dsts (CopyOnWriteArrayList.)]
+            (if-let [dsts' (.putIfAbsent graph k dsts)]
+              (.add ^CopyOnWriteArrayList dsts' d)
+              (do
+                (.add ^CopyOnWriteArrayList dsts d)
+                (if (s/synchronous? src)
+                  (sync-connect src dsts)
+                  (async-connect src dsts))))))))))

@@ -28,13 +28,15 @@
      Lock]
     [java.util.concurrent.atomic
      AtomicBoolean
-     AtomicInteger]
+     AtomicInteger
+     AtomicLong]
     [clojure.lang
      IPending
      IBlockingDeref
      IDeref]))
 
 (set! *warn-on-reflection* true)
+(set! *unchecked-math* true)
 
 (defprotocol Deferrable
   (^:private to-deferred [_] "Provides a conversion mechanism to manifold deferreds."))
@@ -91,61 +93,61 @@
   "Transforms `x` into a deferred if possible, or returns `default-val`.  If no default value
    is given, an `IllegalArgumentException` is thrown."
   ([x]
-     (let [x' (->deferred x ::none)]
-       (if (identical? ::none x')
-         (throw
-           (IllegalArgumentException.
-             (str "cannot convert " (.getCanonicalName (class x)) " to deferred.")))
-         x')))
+    (let [x' (->deferred x ::none)]
+      (if (identical? ::none x')
+        (throw
+          (IllegalArgumentException.
+            (str "cannot convert " (.getCanonicalName (class x)) " to deferred.")))
+        x')))
   ([x default-val]
-     (cond
-       (deferred? x)
-       x
+    (cond
+      (deferred? x)
+      x
 
-       (satisfies-deferrable? x)
-       (to-deferred x)
+      (satisfies-deferrable? x)
+      (to-deferred x)
 
-       (instance? Future x)
-       (let [^Future x x]
-         (reify
-           IDeref
-           (deref [_]
-             (.get x))
-           IBlockingDeref
-           (deref [_ time timeout-value]
-             (try
-               (.get x time TimeUnit/MILLISECONDS)
-               (catch TimeoutException e
-                 timeout-value)))
-           IPending
-           (isRealized [this]
-             (realized? this))
-           IDeferred
-           (realized [_]
-             (or (.isDone x) (.isCancelled x)))
-           (onRealized [_ on-success on-error]
-             (register-future-callbacks x on-success on-error))))
+      (instance? Future x)
+      (let [^Future x x]
+        (reify
+          IDeref
+          (deref [_]
+            (.get x))
+          IBlockingDeref
+          (deref [_ time timeout-value]
+            (try
+              (.get x time TimeUnit/MILLISECONDS)
+              (catch TimeoutException e
+                timeout-value)))
+          IPending
+          (isRealized [this]
+            (realized? this))
+          IDeferred
+          (realized [_]
+            (or (.isDone x) (.isCancelled x)))
+          (onRealized [_ on-success on-error]
+            (register-future-callbacks x on-success on-error))))
 
-       (and (instance? IPending x) (instance? clojure.lang.IDeref x))
-       (reify
-         IDeref
-         (deref [_]
-           (.deref ^IDeref x))
-         IBlockingDeref
-         (deref [_ time timeout-value]
-           (.deref ^IBlockingDeref x time timeout-value))
-         IPending
-         (isRealized [_]
-           (.isRealized ^IPending x))
-         IDeferred
-         (realized [_]
-           (.isRealized ^IPending x))
-         (onRealized [_ on-success on-error]
-           (register-future-callbacks x on-success on-error)
-           nil))
+      (and (instance? IPending x) (instance? clojure.lang.IDeref x))
+      (reify
+        IDeref
+        (deref [_]
+          (.deref ^IDeref x))
+        IBlockingDeref
+        (deref [_ time timeout-value]
+          (.deref ^IBlockingDeref x time timeout-value))
+        IPending
+        (isRealized [_]
+          (.isRealized ^IPending x))
+        IDeferred
+        (realized [_]
+          (.isRealized ^IPending x))
+        (onRealized [_ on-success on-error]
+          (register-future-callbacks x on-success on-error)
+          nil))
 
-       :else
-       default-val)))
+      :else
+      default-val)))
 
 ;;;
 
@@ -163,9 +165,9 @@
 (defn listener
   "Creates a listener which can be registered or cancelled via `add-listener!` and `cancel-listener!`."
   ([on-success]
-     (listener on-success (fn [_])))
+    (listener on-success (fn [_])))
   ([on-success on-error]
-     (Listener. on-success on-error)))
+    (Listener. on-success on-error)))
 
 (definterface IMutableDeferred
   (success [x])
@@ -179,16 +181,16 @@
 (defn success!
   "Equivalent to `deliver`, but allows a `claim-token` to be passed in."
   ([^IMutableDeferred deferred x]
-     (.success deferred x))
+    (.success deferred x))
   ([^IMutableDeferred deferred x claim-token]
-     (.success deferred x claim-token)))
+    (.success deferred x claim-token)))
 
 (defn error!
   "Puts the deferred into an error state."
   ([^IMutableDeferred deferred x]
-     (.error deferred x))
+    (.error deferred x))
   ([^IMutableDeferred deferred x claim-token]
-     (.error deferred x claim-token)))
+    (.error deferred x claim-token)))
 
 (defn claim!
   "Attempts to claim the deferred for future updates.  If successful, a claim token is returned, otherwise returns `nil`."
@@ -261,99 +263,112 @@
                (throw ~'val))
              ~timeout-value))))))
 
-(deftype DeferredState
-  [val state claim-token consumed?])
+(defmacro ^:private both [body]
+  `(do
+     ~(->> body
+        (map #(if (and (seq? %) (= 'either (first %)))
+                (nth % 1)
+                [%]))
+        (apply concat))
+     ~(->> body
+        (map #(if (and (seq? %) (= 'either (first %)))
+                (nth % 2)
+                [%]))
+        (apply concat))))
 
-(deftype Deferred
-  [^:volatile-mutable val
-   ^:volatile-mutable state
-   ^:volatile-mutable claim-token
-   ^Lock lock
-   ^LinkedList listeners
-   ^:volatile-mutable mta
-   ^:volatile-mutable consumed?
-   ^Executor executor]
+(both
+  (deftype (either [LeakAwareDeferred] [Deferred])
+    [^:volatile-mutable val
+     ^:volatile-mutable state
+     ^:volatile-mutable claim-token
+     ^Lock lock
+     ^LinkedList listeners
+     ^:volatile-mutable mta
+     ^:volatile-mutable consumed?
+     ^Executor executor]
 
-  Object
-  #_(finalize [_]
-    (when (and
-            (identical? ::error state)
-            (not consumed?)
-            debug/*dropped-error-logging-enabled?*)
-      (log/warn val "unconsumed deferred in error state")))
+    ;; we only want one in a small number of deferreds to incur this cost at finalization,
+    ;; but it's an important sanity check since we might be getting errors bubbling up all
+    ;; over without them reaching somewhere we'd notice
+    (either
+      [Object
+       (finalize [_]
+         (when (and (identical? ::error state) (not consumed?))
+           (log/warn val "unconsumed deferred in error state, make sure you're using `catch`.")))]
+      nil)
 
-  clojure.lang.IObj
-  (meta [_] mta)
-  clojure.lang.IReference
-  (resetMeta [_ m]
-    (utils/with-lock* lock
-      (set! mta m)))
-  (alterMeta [_ f args]
-    (utils/with-lock* lock
-      (set! mta (apply f mta args))))
+    clojure.lang.IObj
+    (meta [_] mta)
+    clojure.lang.IReference
+    (resetMeta [_ m]
+      (utils/with-lock* lock
+        (set! mta m)))
+    (alterMeta [_ f args]
+      (utils/with-lock* lock
+        (set! mta (apply f mta args))))
 
-  IMutableDeferred
-  (claim [_]
-    (utils/with-lock* lock
-      (when (identical? state ::unset)
-        (set! state ::claimed)
-        (set! claim-token (Object.)))))
-  (addListener [_ listener]
-    (set! consumed? true)
-    (when-let [f (utils/with-lock* lock
-                   (condp identical? state
-                     ::success #(.onSuccess ^IDeferredListener listener val)
-                     ::error   #(.onError ^IDeferredListener listener val)
-                     (do
-                       (.add listeners listener)
-                       nil)))]
-      (if executor
-        (.execute executor f)
-        (f)))
-    true)
-  (cancelListener [_ listener]
-    (utils/with-lock* lock
+    IMutableDeferred
+    (claim [_]
+      (utils/with-lock* lock
+        (when (identical? state ::unset)
+          (set! state ::claimed)
+          (set! claim-token (Object.)))))
+    (addListener [_ listener]
+      (set! consumed? true)
+      (when-let [f (utils/with-lock* lock
+                     (condp identical? state
+                       ::success #(.onSuccess ^IDeferredListener listener val)
+                       ::error   #(.onError ^IDeferredListener listener val)
+                       (do
+                         (.add listeners listener)
+                         nil)))]
+        (if executor
+          (.execute executor f)
+          (f)))
+      true)
+    (cancelListener [_ listener]
+      (utils/with-lock* lock
+        (let [state state]
+          (if (or (identical? ::unset state)
+                (identical? ::set state))
+            (.remove listeners listener)
+            false))))
+    (success [_ x]
+      (set-deferred x nil true false executor))
+    (success [_ x token]
+      (set-deferred x token true true executor))
+    (error [_ x]
+      (set-deferred x nil false false executor))
+    (error [_ x token]
+      (set-deferred x token false true executor))
+
+    clojure.lang.IFn
+    (invoke [this x]
+      (if (success! this x)
+        this
+        nil))
+
+    IDeferred
+    (executor [_]
+      executor)
+    (realized [_]
       (let [state state]
-        (if (or (identical? ::unset state)
-              (identical? ::set state))
-          (.remove listeners listener)
-          false))))
-  (success [_ x]
-    (set-deferred x nil true false executor))
-  (success [_ x token]
-    (set-deferred x token true true executor))
-  (error [_ x]
-    (set-deferred x nil false false executor))
-  (error [_ x token]
-    (set-deferred x token false true executor))
+        (or (identical? ::success state)
+          (identical? ::error state))))
+    (onRealized [this on-success on-error]
+      (add-listener! this (listener on-success on-error)))
 
-  clojure.lang.IFn
-  (invoke [this x]
-    (if (success! this x)
-      this
-      nil))
+    clojure.lang.IPending
+    (isRealized [this] (realized? this))
 
-  IDeferred
-  (executor [_]
-    executor)
-  (realized [_]
-    (let [state state]
-      (or (identical? ::success state)
-        (identical? ::error state))))
-  (onRealized [this on-success on-error]
-    (add-listener! this (listener on-success on-error)))
-
-  clojure.lang.IPending
-  (isRealized [this] (realized? this))
-
-  clojure.lang.IDeref
-  clojure.lang.IBlockingDeref
-  (deref [this]
-    (set! consumed? true)
-    (deref-deferred nil))
-  (deref [this time timeout-value]
-    (set! consumed? true)
-    (deref-deferred timeout-value time TimeUnit/MILLISECONDS)))
+    clojure.lang.IDeref
+    clojure.lang.IBlockingDeref
+    (deref [this]
+      (set! consumed? true)
+      (deref-deferred nil))
+    (deref [this time timeout-value]
+      (set! consumed? true)
+      (deref-deferred timeout-value time TimeUnit/MILLISECONDS))))
 
 (deftype SuccessDeferred
   [val
@@ -412,7 +427,7 @@
     (when (and
             (not consumed?)
             debug/*dropped-error-logging-enabled?*)
-      (log/warn error "unconsumed deferred in error state")))
+      (log/warn error "unconsumed deferred in error state, make sure you're using `catch`.")))
 
   clojure.lang.IObj
   (meta [_] mta)
@@ -462,13 +477,20 @@
       (throw error)
       (throw (ex-info "" {:error error})))))
 
-(defn deferred
-  "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
-   and composed via `chain`."
-  ([]
-     (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil))
-  ([executor]
-     (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)))
+(let [created (AtomicLong. 0)]
+  (defn deferred
+    "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
+     and composed via `chain`."
+    ([]
+      (if (and (zero? (rem (.incrementAndGet created) 1024))
+            debug/*dropped-error-logging-enabled?*)
+        (LeakAwareDeferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil)
+        (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil)))
+    ([executor]
+      (if (and (zero? (rem (.incrementAndGet created) 1024))
+            debug/*dropped-error-logging-enabled?*)
+        (LeakAwareDeferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)
+        (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)))))
 
 (let [true-d   (SuccessDeferred. true nil nil)
       false-d  (SuccessDeferred. false nil nil)
@@ -476,26 +498,26 @@
   (defn success-deferred
     "A deferred which already contains a realized value"
     ([val]
-       (condp identical? val
-         true true-d
-         false false-d
-         nil nil-d
-         (SuccessDeferred. val nil nil)))
+      (condp identical? val
+        true true-d
+        false false-d
+        nil nil-d
+        (SuccessDeferred. val nil nil)))
     ([val executor]
-       (if (nil? executor)
-         (condp identical? val
-           true true-d
-           false false-d
-           nil nil-d
-           (SuccessDeferred. val nil nil))
-         (SuccessDeferred. val nil executor)))))
+      (if (nil? executor)
+        (condp identical? val
+          true true-d
+          false false-d
+          nil nil-d
+          (SuccessDeferred. val nil nil))
+        (SuccessDeferred. val nil executor)))))
 
 (defn error-deferred
   "A deferred which already contains a realized error"
   ([error]
-     (ErrorDeferred. error nil false nil))
+    (ErrorDeferred. error nil false nil))
   ([error executor]
-     (ErrorDeferred. error nil false executor)))
+    (ErrorDeferred. error nil false executor)))
 
 (declare chain)
 
@@ -547,7 +569,7 @@
 (defn onto
   "Returns a deferred whose callbacks will be run on `executor`."
   [^IDeferred d executor]
-  (if (identical? executor (.executor d) )
+  (if (identical? executor (.executor d))
     d
     (connect d (deferred executor))))
 
@@ -572,124 +594,124 @@
 
 (defn- chain'-
   ([d x]
-     (chain'- d x identity identity))
+    (chain'- d x identity identity))
   ([d x f]
-     (chain'- d x f identity))
+    (chain'- d x f identity))
   ([d x f g]
-     (try
-       (let [x' (unwrap' x)]
+    (try
+      (let [x' (unwrap' x)]
 
-         (if (deferred? x')
-           (let [d (or d (deferred))]
-             (on-realized x'
-               #(chain'- d % f g)
-               #(error! d %))
-             d)
+        (if (deferred? x')
+          (let [d (or d (deferred))]
+            (on-realized x'
+              #(chain'- d % f g)
+              #(error! d %))
+            d)
 
-           (let [x'' (f x')]
-             (if (deferred? x'')
-               (chain'- d x'' g identity)
-               (let [x''' (g x'')]
-                 (if (deferred? x''')
-                   (chain'- d x''' identity identity)
-                   (if (nil? d)
-                     (success-deferred x''')
-                     (success! d x'''))))))))
-       (catch Throwable e
-         (error! d e))))
+          (let [x'' (f x')]
+            (if (deferred? x'')
+              (chain'- d x'' g identity)
+              (let [x''' (g x'')]
+                (if (deferred? x''')
+                  (chain'- d x''' identity identity)
+                  (if (nil? d)
+                    (success-deferred x''')
+                    (success! d x'''))))))))
+      (catch Throwable e
+        (error! d e))))
   ([d x f g & fs]
-     (when (or (nil? d) (not (realized? d)))
-       (let [d (or d (deferred))]
-         (clojure.core/loop [x x, fs (list* f g fs)]
-           (if (empty? fs)
-             (success! d x)
-             (let [[f g & fs] fs
-                   d' (deferred)
-                   _ (if (nil? g)
-                       (chain'- d' x f)
-                       (chain'- d' x f g))]
-               (if (realized? d')
-                 (when (try
-                         @d'
-                         true
-                         (catch Throwable e
-                           (error! d e)
-                           false))
-                   (recur @d' fs))
-                 (on-realized d'
-                   #(apply chain'- d % fs)
-                   #(error! d %))))))
-         d))))
+    (when (or (nil? d) (not (realized? d)))
+      (let [d (or d (deferred))]
+        (clojure.core/loop [x x, fs (list* f g fs)]
+          (if (empty? fs)
+            (success! d x)
+            (let [[f g & fs] fs
+                  d' (deferred)
+                  _ (if (nil? g)
+                      (chain'- d' x f)
+                      (chain'- d' x f g))]
+              (if (realized? d')
+                (when (try
+                        @d'
+                        true
+                        (catch Throwable e
+                          (error! d e)
+                          false))
+                  (recur @d' fs))
+                (on-realized d'
+                  #(apply chain'- d % fs)
+                  #(error! d %))))))
+        d))))
 
 (defn- chain-
   ([d x]
-     (chain- d x identity identity))
+    (chain- d x identity identity))
   ([d x f]
-     (chain- d x f identity))
+    (chain- d x f identity))
   ([d x f g]
-     (if (or (nil? d) (not (realized? d)))
-       (try
-         (let [x' (unwrap x)]
+    (if (or (nil? d) (not (realized? d)))
+      (try
+        (let [x' (unwrap x)]
 
-           (if (deferred? x')
-             (let [d (or d (deferred))]
-               (on-realized x'
-                 #(chain- d % f g)
-                 #(error! d %))
-               d)
+          (if (deferred? x')
+            (let [d (or d (deferred))]
+              (on-realized x'
+                #(chain- d % f g)
+                #(error! d %))
+              d)
 
-             (let [x'' (f x')]
-               (if (and (not (identical? x x'')) (deferrable? x''))
-                 (chain- d x'' g identity)
-                 (let [x''' (g x'')]
-                   (if (and (not (identical? x'' x''')) (deferrable? x'''))
-                     (chain- d x''' identity identity)
-                     (if (nil? d)
-                       (success-deferred x''')
-                       (success! d x'''))))))))
-         (catch Throwable e
-           (if (nil? d)
-             (error-deferred e)
-             (do
-               (error! d e)
-               d))))
-       d))
+            (let [x'' (f x')]
+              (if (and (not (identical? x x'')) (deferrable? x''))
+                (chain- d x'' g identity)
+                (let [x''' (g x'')]
+                  (if (and (not (identical? x'' x''')) (deferrable? x'''))
+                    (chain- d x''' identity identity)
+                    (if (nil? d)
+                      (success-deferred x''')
+                      (success! d x'''))))))))
+        (catch Throwable e
+          (if (nil? d)
+            (error-deferred e)
+            (do
+              (error! d e)
+              d))))
+      d))
   ([d x f g & fs]
-     (when (or (nil? d) (not (realized? d)))
-       (let [d (or d (deferred))]
-         (clojure.core/loop [x x, fs (list* f g fs)]
-           (if (empty? fs)
-             (success! d x)
-             (let [[f g & fs] fs
-                   d' (deferred)
-                   _ (if (nil? g)
-                       (chain- d' x f)
-                       (chain- d' x f g))]
-               (if (realized? d')
-                 (when (try
-                         @d'
-                         true
-                         (catch Throwable e
-                           (error! d e)
-                           false))
-                   (recur @d' fs))
-                 (on-realized d'
-                   #(utils/without-overflow
-                      (apply chain- d % fs))
-                   #(error! d %))))))
-         d))))
+    (when (or (nil? d) (not (realized? d)))
+      (let [d (or d (deferred))]
+        (clojure.core/loop [x x, fs (list* f g fs)]
+          (if (empty? fs)
+            (success! d x)
+            (let [[f g & fs] fs
+                  d' (deferred)
+                  _ (if (nil? g)
+                      (chain- d' x f)
+                      (chain- d' x f g))]
+              (if (realized? d')
+                (when (try
+                        @d'
+                        true
+                        (catch Throwable e
+                          (error! d e)
+                          false))
+                  (recur @d' fs))
+                (on-realized d'
+                  #(utils/without-overflow
+                     (apply chain- d % fs))
+                  #(error! d %))))))
+        d))))
 
 (defn chain'
   "Like `chain`, but does not coerce deferrable values.  This is useful both when coercion
    is undesired, or for 2-4x better performance than `chain`."
   ([x]
-     (chain'- nil x identity identity))
+    (chain'- nil x identity identity))
   ([x f]
-     (chain'- nil x f identity))
+    (chain'- nil x f identity))
   ([x f g]
-     (chain'- nil x f g))
+    (chain'- nil x f g))
   ([x f g & fs]
-     (apply chain'- nil x f g fs)))
+    (apply chain'- nil x f g fs)))
 
 (defn chain
   "Composes functions, left to right, over the value `x`, returning a deferred containing
@@ -705,13 +727,13 @@
 
    "
   ([x]
-     (chain- nil x identity identity))
+    (chain- nil x identity identity))
   ([x f]
-     (chain- nil x f identity))
+    (chain- nil x f identity))
   ([x f g]
-     (chain- nil x f g))
+    (chain- nil x f g))
   ([x f g & fs]
-     (apply chain- nil x f g fs)))
+    (apply chain- nil x f g fs)))
 
 (defn catch
   "An equivalent of the catch clause, which takes an `error-handler` function that will be invoked
@@ -726,67 +748,67 @@
 
     "
   ([x error-handler]
-     (catch x Throwable error-handler))
+    (catch x Throwable error-handler))
   ([x error-class error-handler]
-     (if-let [d (chain (->deferred x nil))]
-       (if (realized? d)
+    (if-let [d (chain (->deferred x nil))]
+      (if (realized? d)
 
          ;; see what's inside
-         (try
-           @x
-           x
-           (catch Throwable e
-             (if (instance? error-class e)
-               (try
-                 (chain (error-handler e))
-                 (catch Throwable e
-                   (error-deferred e)))
-               x)))
-
-         (let [d' (deferred)]
-           (on-realized d
-             #(success! d' %)
-             #(try
-                (if (instance? error-class %)
-                  (success! d' (error-handler %))
-                  (error! d' %))
+        (try
+          @x
+          x
+          (catch Throwable e
+            (if (instance? error-class e)
+              (try
+                (chain (error-handler e))
                 (catch Throwable e
-                  (error! d' e))))
-           (chain d')))
-       x)))
+                  (error-deferred e)))
+              x)))
+
+        (let [d' (deferred)]
+          (on-realized d
+            #(success! d' %)
+            #(try
+               (if (instance? error-class %)
+                 (success! d' (error-handler %))
+                 (error! d' %))
+               (catch Throwable e
+                 (error! d' e))))
+          (chain d')))
+      x)))
 
 (defn catch'
   "Like `catch`, but does not coerce deferrable values."
   ([x error-handler]
-     (catch' x Throwable error-handler))
+    (catch' x Throwable error-handler))
   ([x error-class error-handler]
-     (let [x (chain' x)]
-       (if-not (instance? IDeferred x)
-         x
-         (if (realized? x)
+    (let [x (chain' x)]
+      (if-not (instance? IDeferred x)
+        x
+        (if (realized? x)
 
            ;; see what's inside
-           (try
-             @x
-             x
-             (catch Throwable e
-               (if (instance? error-class e)
-                 (try
-                   (chain' (error-handler e))
-                   (catch Throwable e
-                     (error-deferred e)))
-                 x)))
-
-           (let [d' (deferred)]
-             (on-realized x
-               #(success! d' %)
-               #(try
-                  (if (instance? error-class %)
-                    (success! d' (error-handler %))
-                    (error! d' %))
+          (try
+            @x
+            x
+            (catch Throwable e
+              (if (instance? error-class e)
+                (try
+                  (chain' (error-handler e))
                   (catch Throwable e
-                    (error! d' e))))
-             (chain' d')))))))
+                    (error-deferred e)))
+                x)))
+
+          (let [d' (deferred)]
+            (on-realized x
+              #(success! d' %)
+              #(try
+                 (if (instance? error-class %)
+                   (success! d' (error-handler %))
+                   (error! d' %))
+                 (catch Throwable e
+                   (error! d' e))))
+            (chain' d')))))))
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
@@ -838,94 +860,94 @@
 
   "
   ([x]
-     (chain x vector))
+    (chain x vector))
   ([a & rst]
-     (let [deferred-or-values (list* a rst)
-           cnt (count deferred-or-values)
-           ^objects ary (object-array cnt)
-           counter (AtomicInteger. cnt)]
-       (clojure.core/loop [d nil, idx 0, s deferred-or-values]
+    (let [deferred-or-values (list* a rst)
+          cnt (count deferred-or-values)
+          ^objects ary (object-array cnt)
+          counter (AtomicInteger. cnt)]
+      (clojure.core/loop [d nil, idx 0, s deferred-or-values]
 
-         (if (empty? s)
+        (if (empty? s)
 
            ;; no further results, decrement the counter one last time
            ;; and return the result if everything else has been realized
-           (if (zero? (.get counter))
-             (success-deferred (or (seq ary) (list)))
-             d)
+          (if (zero? (.get counter))
+            (success-deferred (or (seq ary) (list)))
+            d)
 
-           (let [x (first s)
-                 rst (rest s)
-                 idx' (unchecked-inc idx)]
-             (if-let [x' (->deferred x nil)]
+          (let [x (first s)
+                rst (rest s)
+                idx' (unchecked-inc idx)]
+            (if-let [x' (->deferred x nil)]
 
-               (if (realized? x')
-                 (do
-                   (aset ary idx @x')
-                   (.decrementAndGet counter)
-                   (recur d idx' rst))
+              (if (realized? x')
+                (do
+                  (aset ary idx @x')
+                  (.decrementAndGet counter)
+                  (recur d idx' rst))
 
-                 (let [d (or d (deferred))]
-                   (on-realized (chain' x')
-                     (fn [val]
-                       (aset ary idx val)
-                       (when (zero? (.decrementAndGet counter))
-                         (success! d (seq ary))))
-                     (fn [err]
-                       (error! d err)))
-                   (recur d idx' rst)))
+                (let [d (or d (deferred))]
+                  (on-realized (chain' x')
+                    (fn [val]
+                      (aset ary idx val)
+                      (when (zero? (.decrementAndGet counter))
+                        (success! d (seq ary))))
+                    (fn [err]
+                      (error! d err)))
+                  (recur d idx' rst)))
 
                ;; not deferrable - set, decrement, and recur
-               (do
-                 (aset ary idx x)
-                 (.decrementAndGet counter)
-                 (recur d idx' rst)))))))))
+              (do
+                (aset ary idx x)
+                (.decrementAndGet counter)
+                (recur d idx' rst)))))))))
 
 (defn zip'
   "Like `zip`, but only unwraps Manifold deferreds."
   ([x]
-     (chain' x vector))
+    (chain' x vector))
   ([a & rst]
-     (let [deferred-or-values (list* a rst)
-           cnt (count deferred-or-values)
-           ^objects ary (object-array cnt)
-           counter (AtomicInteger. cnt)]
-       (clojure.core/loop [d nil, idx 0, s deferred-or-values]
+    (let [deferred-or-values (list* a rst)
+          cnt (count deferred-or-values)
+          ^objects ary (object-array cnt)
+          counter (AtomicInteger. cnt)]
+      (clojure.core/loop [d nil, idx 0, s deferred-or-values]
 
-         (if (empty? s)
+        (if (empty? s)
 
            ;; no further results, decrement the counter one last time
            ;; and return the result if everything else has been realized
-           (if (zero? (.get counter))
-             (success-deferred (or (seq ary) (list)))
-             d)
+          (if (zero? (.get counter))
+            (success-deferred (or (seq ary) (list)))
+            d)
 
-           (let [x (first s)
-                 rst (rest s)
-                 idx' (unchecked-inc idx)]
-             (if (deferred? x)
+          (let [x (first s)
+                rst (rest s)
+                idx' (unchecked-inc idx)]
+            (if (deferred? x)
 
-               (if (realized? x)
-                 (do
-                   (aset ary idx @x)
-                   (.decrementAndGet counter)
-                   (recur d idx' rst))
+              (if (realized? x)
+                (do
+                  (aset ary idx @x)
+                  (.decrementAndGet counter)
+                  (recur d idx' rst))
 
-                 (let [d (or d (deferred))]
-                   (on-realized (chain' x)
-                     (fn [val]
-                       (aset ary idx val)
-                       (when (zero? (.decrementAndGet counter))
-                         (success! d (seq ary))))
-                     (fn [err]
-                       (error! d err)))
-                   (recur d idx' rst)))
+                (let [d (or d (deferred))]
+                  (on-realized (chain' x)
+                    (fn [val]
+                      (aset ary idx val)
+                      (when (zero? (.decrementAndGet counter))
+                        (success! d (seq ary))))
+                    (fn [err]
+                      (error! d err)))
+                  (recur d idx' rst)))
 
                ;; not deferrable - set, decrement, and recur
-               (do
-                 (aset ary idx x)
-                 (.decrementAndGet counter)
-                 (recur d idx' rst)))))))))
+              (do
+                (aset ary idx x)
+                (.decrementAndGet counter)
+                (recur d idx' rst)))))))))
 
 (defn timeout!
   "Takes a deferred, and sets a timeout on it, such that it will be realized as `timeout-value`
@@ -935,32 +957,32 @@
    This will act directly on the deferred value passed in.  If the deferred represents a value
    returned by `chain`, all actions not yet completed will be short-circuited upon timeout."
   ([d interval]
-     (cond
-       (or (nil? interval) (not (deferred? d)) (realized? d))
-       nil
+    (cond
+      (or (nil? interval) (not (deferred? d)) (realized? d))
+      nil
 
-       (not (pos? interval))
-       (error! d
-         (TimeoutException.
-           (str "timed out after " interval " milliseconds")))
+      (not (pos? interval))
+      (error! d
+        (TimeoutException.
+          (str "timed out after " interval " milliseconds")))
 
-       :else
-       (time/in interval
+      :else
+      (time/in interval
         #(error! d
            (TimeoutException.
              (str "timed out after " interval " milliseconds")))))
-     d)
+    d)
   ([d interval timeout-value]
-     (cond
-       (or (nil? interval) (not (deferred? d)) (realized? d))
-       nil
+    (cond
+      (or (nil? interval) (not (deferred? d)) (realized? d))
+      nil
 
-       (not (pos? interval))
-       (success! d timeout-value)
+      (not (pos? interval))
+      (success! d timeout-value)
 
-       :else
-       (time/in interval #(success! d timeout-value)))
-     d))
+      :else
+      (time/in interval #(success! d timeout-value)))
+    d))
 
 (deftype Recur [s]
   clojure.lang.IDeref
@@ -986,43 +1008,43 @@
         x-sym (gensym "x")]
     `(let [result# (deferred)]
        ((fn this# [result# ~@vars]
-         (clojure.core/loop
-           [~@(interleave vars vars)]
-           (let [~x-sym (try
-                          ~@body
+          (clojure.core/loop
+            [~@(interleave vars vars)]
+            (let [~x-sym (try
+                           ~@body
+                           (catch Throwable e#
+                             (error! result# e#)
+                             nil))]
+              (if (deferred? ~x-sym)
+                (if (realized? ~x-sym)
+                  (when (try
+                          @~x-sym
+                          true
                           (catch Throwable e#
                             (error! result# e#)
-                            nil))]
-             (if (deferred? ~x-sym)
-               (if (realized? ~x-sym)
-                 (when (try
-                         @~x-sym
-                         true
-                         (catch Throwable e#
-                           (error! result# e#)
-                           false))
-                   (let [~x-sym @~x-sym]
-                     (if (instance? Recur ~x-sym)
-                       (~'recur
-                         ~@(map
-                             (fn [n] `(nth @~x-sym ~n))
-                             (range (count vars))))
-                       (success! result# ~x-sym))))
-                 (on-realized (chain ~x-sym)
-                   (fn [x#]
-                     (if (instance? Recur x#)
-                       (apply this# result# @x#)
-                       (success! result# x#)))
-                   (fn [err#]
-                     (error! result# err#))))
-               (if (instance? Recur ~x-sym)
-                 (~'recur
-                   ~@(map
-                       (fn [n] `(nth @~x-sym ~n))
-                       (range (count vars))))
-                 (success! result# ~x-sym))))))
-        result#
-        ~@vals)
+                            false))
+                    (let [~x-sym @~x-sym]
+                      (if (instance? Recur ~x-sym)
+                        (~'recur
+                          ~@(map
+                              (fn [n] `(nth @~x-sym ~n))
+                              (range (count vars))))
+                        (success! result# ~x-sym))))
+                  (on-realized (chain ~x-sym)
+                    (fn [x#]
+                      (if (instance? Recur x#)
+                        (apply this# result# @x#)
+                        (success! result# x#)))
+                    (fn [err#]
+                      (error! result# err#))))
+                (if (instance? Recur ~x-sym)
+                  (~'recur
+                    ~@(map
+                        (fn [n] `(nth @~x-sym ~n))
+                        (range (count vars))))
+                  (success! result# ~x-sym))))))
+         result#
+         ~@vals)
        result#)))
 
 ;;;
@@ -1125,12 +1147,12 @@
     (str
       "<< "
       (if (realized? o)
-       (try
-         (let [x @o]
-           (pr-str x))
-         (catch Throwable e
-           (str "ERROR: " (pr-str e))))
-       "\u2026")
+        (try
+          (let [x @o]
+            (pr-str x))
+          (catch Throwable e
+            (str "ERROR: " (pr-str e))))
+        "\u2026")
       " >>")))
 
 (prefer-method print-method IDeferred IDeref)
@@ -1138,7 +1160,6 @@
 ;;;
 
 (alter-meta! #'->Deferred assoc :private true)
-(alter-meta! #'->DeferredState assoc :private true)
 (alter-meta! #'->ErrorDeferred assoc :private true)
 (alter-meta! #'->SuccessDeferred assoc :private true)
 (alter-meta! #'->Listener assoc :private true)

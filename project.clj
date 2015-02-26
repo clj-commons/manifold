@@ -15,7 +15,9 @@
                    :benchmark :benchmark
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
-  :plugins [[codox "0.8.10"]]
+  :plugins [[codox "0.8.10"]
+            [ztellman/lein-cljfmt "0.1.10"]]
+  :cljfmt {:indents {#".*" [[:inner 0]]}}
   :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"
           :src-linenum-anchor-prefix "L"
           :defaults {:doc/format :markdown}

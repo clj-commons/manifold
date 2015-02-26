@@ -75,11 +75,11 @@
 
 (def ^:private default-stream-impls
   `((~'downstream [this#] (manifold.stream.graph/downstream this#))
-    (~'weakHandle [this# ref-queue#]
-      (manifold.utils/with-lock ~'lock
-        (or ~'__weakHandle
-          (set! ~'__weakHandle (java.lang.ref.WeakReference. this# ref-queue#)))))
-    (~'close [this#])))
+     (~'weakHandle [this# ref-queue#]
+       (manifold.utils/with-lock ~'lock
+         (or ~'__weakHandle
+           (set! ~'__weakHandle (java.lang.ref.WeakReference. this# ref-queue#)))))
+     (~'close [this#])))
 
 (def ^:private sink-params
   '[lock
@@ -88,7 +88,7 @@
     ^:volatile-mutable __weakHandle])
 
 (def ^:private default-sink-impls
-  `((~'close [this#] (.markClosed this#))
+  `[(~'close [this#] (.markClosed this#))
     (~'isClosed [this#] ~'__isClosed)
     (~'onClosed [this# callback#]
       (manifold.utils/with-lock ~'lock
@@ -98,7 +98,7 @@
     (~'markClosed [this#]
       (manifold.utils/with-lock ~'lock
         (set! ~'__isClosed true)
-        (manifold.utils/invoke-callbacks ~'__closedCallbacks)))))
+        (manifold.utils/invoke-callbacks ~'__closedCallbacks)))])
 
 (def ^:private source-params
   '[lock
@@ -107,7 +107,7 @@
     ^:volatile-mutable __weakHandle])
 
 (def ^:private default-source-impls
-  `((~'isDrained [this#] ~'__isDrained)
+  `[(~'isDrained [this#] ~'__isDrained)
     (~'onDrained [this# callback#]
       (manifold.utils/with-lock ~'lock
         (if ~'__isDrained
@@ -117,7 +117,7 @@
       (manifold.utils/with-lock ~'lock
         (set! ~'__isDrained true)
         (manifold.utils/invoke-callbacks ~'__drainedCallbacks)))
-    (~'connector [this# _#] nil)))
+    (~'connector [this# _#] nil)])
 
 (defn- merged-body [& bodies]
   (let [bs (apply concat bodies)]

@@ -162,8 +162,7 @@
 
     reductions s/reductions + (range 10)
 
-    #(reductions %1 1 %2) #(s/reductions %1 1 %2) + (range 10)
-    ))
+    #(reductions %1 1 %2) #(s/reductions %1 1 %2) + (range 10)))
 
 (defn dechunk [s]
   (lazy-seq

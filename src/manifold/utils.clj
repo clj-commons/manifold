@@ -18,19 +18,19 @@
 
 (defn ^ThreadFactory thread-factory
   ([name-generator]
-     (reify ThreadFactory
-       (newThread [_ runnable]
-         (let [name (name-generator)]
-           (doto
-             (Thread. nil #(.run ^Runnable runnable) name)
-             (.setDaemon true))))))
+    (reify ThreadFactory
+      (newThread [_ runnable]
+        (let [name (name-generator)]
+          (doto
+            (Thread. nil #(.run ^Runnable runnable) name)
+            (.setDaemon true))))))
   ([name-generator stack-size]
-     (reify ThreadFactory
-       (newThread [_ runnable]
-         (let [name (name-generator)]
-           (doto
-             (Thread. nil #(.run ^Runnable runnable) name stack-size)
-             (.setDaemon true)))))))
+    (reify ThreadFactory
+      (newThread [_ runnable]
+        (let [name (name-generator)]
+          (doto
+            (Thread. nil #(.run ^Runnable runnable) name stack-size)
+            (.setDaemon true)))))))
 
 ;;;
 

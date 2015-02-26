@@ -22,23 +22,23 @@
 
 (defn capture-success
   ([result]
-     (capture-success result true))
+    (capture-success result true))
   ([result expected-return-value]
-     (let [p (promise)]
-       (on-realized result
-         #(do (deliver p %) expected-return-value)
-         (fn [_] (throw (Exception. "ERROR"))))
-       p)))
+    (let [p (promise)]
+      (on-realized result
+        #(do (deliver p %) expected-return-value)
+        (fn [_] (throw (Exception. "ERROR"))))
+      p)))
 
 (defn capture-error
   ([result]
-     (capture-error result true))
+    (capture-error result true))
   ([result expected-return-value]
-     (let [p (promise)]
-       (on-realized result
-         (fn [_] (throw (Exception. "SUCCESS")))
-         #(do (deliver p %) expected-return-value))
-       p)))
+    (let [p (promise)]
+      (on-realized result
+        (fn [_] (throw (Exception. "SUCCESS")))
+        #(do (deliver p %) expected-return-value))
+      p)))
 
 (deftest test-let-flow
   (is (= 5
@@ -159,8 +159,7 @@
     (is (= :foo (deref d 10 :foo)))
     (success! d 1)
     (is (= 1 @d))
-    (is (= 1 (deref d 10 :foo))))
-  )
+    (is (= 1 (deref d 10 :foo)))))
 
 (deftest test-loop
   ;; body produces a non-deferred value

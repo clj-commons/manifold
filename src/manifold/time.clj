@@ -164,25 +164,25 @@
      If the invocation of `f` ever throws an exception, repeated invocation is automatically
      cancelled."
     ([period f]
-       (every period 0 f))
+      (every period 0 f))
     ([period initial-delay f]
-       (let [future-ref (promise)
-             f (fn []
-                 (try
-                   (f)
-                   (catch Throwable e
-                     (let [^Future future @future-ref]
-                       (.cancel future false))
-                     (throw e))))]
-         (deliver future-ref
-           (.scheduleAtFixedRate ^ScheduledThreadPoolExecutor @scheduler
-             ^Runnable (fn [] (.execute ^Executor @executor ^Runnable f))
-             (long (* initial-delay 1e3))
-             (long (* period 1e3))
-             TimeUnit/MICROSECONDS))
-         (fn []
-           (let [^Future future @future-ref]
-             (.cancel future false)))))))
+      (let [future-ref (promise)
+            f (fn []
+                (try
+                  (f)
+                  (catch Throwable e
+                    (let [^Future future @future-ref]
+                      (.cancel future false))
+                    (throw e))))]
+        (deliver future-ref
+          (.scheduleAtFixedRate ^ScheduledThreadPoolExecutor @scheduler
+            ^Runnable (fn [] (.execute ^Executor @executor ^Runnable f))
+            (long (* initial-delay 1e3))
+            (long (* period 1e3))
+            TimeUnit/MICROSECONDS))
+        (fn []
+          (let [^Future future @future-ref]
+            (.cancel future false)))))))
 
 (defn at
   "Schedules no-arg function  `f` to be invoked at `timestamp`, which is the milliseconds
