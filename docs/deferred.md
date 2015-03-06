@@ -108,7 +108,7 @@ Finally, we can use `manifold.deferred/timeout!` to register a timeout on the de
 
 ```clj
 > @(d/timeout!
-     (future (Thread/sleep 1000) :foo)
+     (d/future (Thread/sleep 1000) :foo)
      100
      :bar)
 :bar
