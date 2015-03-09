@@ -31,7 +31,8 @@
 (definline close!
   "Closes an event sink, so that it can't accept any more messages."
   [sink]
-  `(.close ~(with-meta sink {:tag "manifold.stream.core.IEventStream"})))
+  `(let [^manifold.stream.core.IEventStream x# ~sink]
+     (.close x#)))
 
 (definline closed?
   "Returns true if the event sink is closed."

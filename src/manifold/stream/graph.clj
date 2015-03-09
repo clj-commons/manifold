@@ -69,26 +69,31 @@
     (when (and (identical? ::timeout x) (.downstream? d))
       (s/close! sink))))
 
-(defn- handle-async-put [^AsyncPut x source]
-  (let [x' (try
-             @(.deferred x)
-             (catch Throwable e
-               (s/close! (.dst x))
-               (log/error e "error in message propagation")
-               false))]
+(defn- handle-async-put [^AsyncPut x val source]
+  (let [d (.deferred x)]
     (cond
-      (true? x')
+      (true? val)
       nil
 
-      (false? x')
+      (false? val)
       (let [^CopyOnWriteArrayList l (.dsts x)]
         (.remove l (.dst x))
         (when (or (.upstream? x) (== 0 (.size l)))
           (s/close! source)
           (.remove graph (s/weak-handle source))))
 
-      (instance? IEventSink x')
-      (s/close! x'))))
+      (instance? IEventSink val)
+      (s/close! val))))
+
+(defn- handle-async-error [^AsyncPut x err source]
+  (some-> ^Downstream (.dst x) .sink s/close!)
+  (some-> ^Downstream (.dst x) .sink' s/close!)
+  (log/error err "error in message propagation")
+  (let [^CopyOnWriteArrayList l (.dsts x)]
+    (.remove l (.dst x))
+    (when (or (.upstream? x) (== 0 (.size l)))
+      (s/close! source)
+      (.remove graph (s/weak-handle source)))))
 
 (defn- async-connect
   [^IEventSource source
@@ -103,16 +108,19 @@
               (if (nil? d)
                 recur-point
                 (let [^AsyncPut x (async-send d msg dsts)
-                      d (.deferred x)]
-                  (if (d/realized? d)
-                    (do
-                      (handle-async-put x source)
-                      (recur))
+                      d (.deferred x)
+                      val (d/success-value d ::none)]
+                  (if (identical? val ::none)
                     (d/on-realized d
-                      (fn [_]
-                        (handle-async-put x source)
+                      (fn [v]
+                        (handle-async-put x v source)
                         (trampoline #(this recur-point msg)))
-                      nil)))))))
+                      (fn [e]
+                        (handle-async-error x e source)
+                        (trampoline #(this recur-point msg))))
+                    (do
+                      (handle-async-put x val source)
+                      (recur))))))))
 
         async-propagate
         (fn this [recur-point msg]
@@ -126,16 +134,19 @@
                   #(sync-propagate recur-point msg))
 
                 ;; iterate over async-sinks
-                (let [d (.deferred x)]
-                  (if (d/realized? d)
-                    (do
-                      (handle-async-put x source)
-                      (recur))
+                (let [d (.deferred x)
+                      val (d/success-value d ::none)]
+                  (if (identical? val ::none)
                     (d/on-realized d
-                      (fn [_]
-                        (handle-async-put x source)
+                      (fn [val]
+                        (handle-async-put x val source)
                         (trampoline #(this recur-point msg)))
-                      nil)))))))
+                      (fn [e]
+                        (handle-async-error x e source)
+                        (trampoline #(this recur-point msg))))
+                    (do
+                      (handle-async-put x val source)
+                      (recur))))))))
 
         err-callback
         (fn [err]
@@ -169,15 +180,19 @@
             (try
               (let [dst (.get dsts 0)
                     ^AsyncPut x (async-send dst msg dsts)
-                    d (.deferred x)]
-                (if (d/realized? d)
+                    d (.deferred x)
+                    val (d/success-value d ::none)]
+                (if (identical? ::none val)
+                  (d/on-realized d
+                    (fn [val]
+                      (handle-async-put x val source)
+                      (trampoline this))
+                    (fn [e]
+                      (handle-async-error x e source)
+                      (trampoline this)))
                   (do
-                    (handle-async-put x source)
-                    this)
-                  (let [f (fn [_]
-                            (handle-async-put x source)
-                            (trampoline this))]
-                    (d/on-realized d f f))))
+                    (handle-async-put x val source)
+                    this)))
               (catch IndexOutOfBoundsException e
                 (this msg)))
 
@@ -234,7 +249,10 @@
                       (if (nil? x)
                         nil
                         (do
-                          (handle-async-put x source)
+                          (try
+                            (handle-async-put x @(.deferred x) source)
+                            (catch Throwable e
+                              (handle-async-error x e source)))
                           (recur)))))
 
                   (loop []

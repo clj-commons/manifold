@@ -45,17 +45,26 @@
 (definterface IDeferred
   (executor [])
   (^boolean realized [])
-  (onRealized [on-success on-error]))
+  (onRealized [on-success on-error])
+  (successValue [default])
+  (errorValue [default]))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
   [x]
   `(.realized ~(with-meta x {:tag "manifold.deferred.IDeferred"})))
 
+(definline ^:no-doc success-value [x default-value]
+  `(.successValue ~(with-meta x {:tag "manifold.deferred.IDeferred"}) ~default-value))
+
+(definline ^:no-doc error-value [x default-value]
+  `(.errorValue ~(with-meta x {:tag "manifold.deferred.IDeferred"}) ~default-value))
+
 (definline on-realized
   "Registers callbacks with the manifold deferred for both success and error outcomes."
   [x on-success on-error]
-  `(.onRealized ~(with-meta x {:tag "manifold.deferred.IDeferred"}) ~on-success ~on-error))
+  `(let [^manifold.deferred.IDeferred x# ~x]
+     (.onRealized x# ~on-success ~on-error)))
 
 (definline deferred?
   "Returns true if the object is an instance of a Manifold deferred."
@@ -69,7 +78,7 @@
   (or
     (instance? IDeferred x)
     (instance? Future x)
-    (instance? IPending x)
+    (and (instance? IPending x) (instance? clojure.lang.IDeref x))
     (satisfies-deferrable? x)))
 
 ;; TODO: do some sort of periodic sampling so multiple futures can share a thread
@@ -126,7 +135,22 @@
           (realized [_]
             (or (.isDone x) (.isCancelled x)))
           (onRealized [_ on-success on-error]
-            (register-future-callbacks x on-success on-error))))
+            (register-future-callbacks x on-success on-error))
+          (successValue [_ default]
+            (if (.isDone x)
+              (try
+                (.get x)
+                (catch Throwable e
+                  default))
+              default))
+          (errorValue [this default]
+            (if (.realized this)
+              (try
+                (.get x)
+                default
+                (catch Throwable e
+                  e))
+              default))))
 
       (and (instance? IPending x) (instance? clojure.lang.IDeref x))
       (reify
@@ -144,7 +168,22 @@
           (.isRealized ^IPending x))
         (onRealized [_ on-success on-error]
           (register-future-callbacks x on-success on-error)
-          nil))
+          nil)
+        (successValue [_ default]
+          (if (.isRealized ^IPending x)
+            (try
+              (.deref ^IDeref x)
+              (catch Throwable e
+                default))
+            default))
+        (errorValue [this default]
+          (if (.isRealized ^IPending x)
+            (try
+              (.deref ^IDeref x)
+              default
+              (catch Throwable e
+                e))
+            default)))
 
       :else
       default-val)))
@@ -293,8 +332,9 @@
     (either
       [Object
        (finalize [_]
-         (when (and (identical? ::error state) (not consumed?))
-           (log/warn val "unconsumed deferred in error state, make sure you're using `catch`.")))]
+         (utils/with-lock lock
+           (when (and (identical? ::error state) (not consumed?))
+             (log/warn val "unconsumed deferred in error state, make sure you're using `catch`."))))]
       nil)
 
     clojure.lang.IObj
@@ -357,6 +397,18 @@
           (identical? ::error state))))
     (onRealized [this on-success on-error]
       (add-listener! this (listener on-success on-error)))
+    (successValue [this default-value]
+      (if (identical? ::success state)
+        (do
+          (set! consumed? true)
+          val)
+        default-value))
+    (errorValue [this default-value]
+      (if (identical? ::error state)
+        (do
+          (set! consumed? true)
+          val)
+        default-value))
 
     clojure.lang.IPending
     (isRealized [this] (realized? this))
@@ -407,6 +459,10 @@
     (if executor
       (.execute executor #(on-success val))
       (on-success val)))
+  (successValue [_ default-value]
+    val)
+  (errorValue [_ default-value]
+    default-value)
 
   clojure.lang.IPending
   (isRealized [this] (realized? this))
@@ -457,9 +513,15 @@
   (executor [_] executor)
   (realized [_] true)
   (onRealized [this on-success on-error]
+    (set! consumed? true)
     (if (nil? executor)
       (on-error error)
       (.execute executor #(on-error executor))))
+  (successValue [_ default-value]
+    default-value)
+  (errorValue [_ default-value]
+    (set! consumed? true)
+    error)
 
   clojure.lang.IPending
   (isRealized [this] (realized? this))
@@ -521,32 +583,22 @@
 
 (declare chain)
 
-(defn- unwrap' [x]
+(defn unwrap' [x]
   (if (deferred? x)
-    (if (realized? x)
-      (let [x' (try
-                 @x
-                 (catch Throwable _
-                   ::error))]
-        (if (identical? ::error x')
-          x
-          (recur x')))
-      x)
+    (let [val (success-value x ::none)]
+      (if (identical? val ::none)
+        x
+        (recur val)))
     x))
 
-(defn- unwrap [x]
+(defn unwrap [x]
   (let [d (->deferred x nil)]
     (if (nil? d)
       x
-      (if (realized? d)
-        (let [x' (try
-                   @x
-                   (catch Throwable _
-                     ::error))]
-          (if (identical? ::error x')
-            d
-            (recur x')))
-        d))))
+      (let [val (success-value d ::none)]
+        (if (identical? ::none val)
+          d
+          (recur val))))))
 
 (defn connect
   "Conveys the realized value of `a` into `b`."
@@ -591,6 +643,43 @@
   `(future-with @utils/execute-pool ~@body))
 
 ;;;
+
+(defn- unroll-chain
+  [unwrap-fn v & fs]
+  (let [fs' (repeatedly (count fs) #(gensym "f"))
+        v-sym (gensym "v")
+        idx-sym (gensym "idx")
+        idx-sym' (gensym "idx")]
+    `(let [~@(interleave fs' fs)]
+       ((fn this# [d# v# ^long idx#]
+          (try
+            (clojure.core/loop [~v-sym v# ~idx-sym idx#]
+              (let [~v-sym (~unwrap-fn ~v-sym)]
+                (if (deferred? ~v-sym)
+                  (let [d# (or d# (deferred))]
+                    (on-realized ~v-sym
+                      (fn [v#] (this# d# v# ~idx-sym))
+                      (fn [e#] (error! d# e#)))
+                    d#)
+                  (let [~idx-sym' (unchecked-inc ~idx-sym)]
+                    (case (unchecked-int ~idx-sym)
+                      ~@(apply concat
+                          (map
+                            (fn [idx f]
+                              `(~idx (recur (~f ~v-sym) ~idx-sym')))
+                            (range)
+                            fs'))
+                      ~(count fs) (if (nil? d#)
+                                    (success-deferred ~v-sym)
+                                    (success! d# ~v-sym))
+                      nil)))))
+            (catch Throwable e#
+              (if (nil? d#)
+                (error-deferred e#)
+                (error! d# e#)))))
+        nil
+        ~v
+        0))))
 
 (defn- chain'-
   ([d x]
@@ -661,10 +750,10 @@
               d)
 
             (let [x'' (f x')]
-              (if (and (not (identical? x x'')) (deferrable? x''))
+              (if (deferrable? x'')
                 (chain- d x'' g identity)
                 (let [x''' (g x'')]
-                  (if (and (not (identical? x'' x''')) (deferrable? x'''))
+                  (if (deferrable? x''')
                     (chain- d x''' identity identity)
                     (if (nil? d)
                       (success-deferred x''')
@@ -704,6 +793,7 @@
 (defn chain'
   "Like `chain`, but does not coerce deferrable values.  This is useful both when coercion
    is undesired, or for 2-4x better performance than `chain`."
+  {:inline (fn [& args] (apply unroll-chain 'manifold.deferred/unwrap' args))}
   ([x]
     (chain'- nil x identity identity))
   ([x f]
@@ -726,6 +816,7 @@
        @(chain (future 1) inc inc) => 3
 
    "
+  {:inline (fn [& args] (apply unroll-chain 'manifold.deferred/unwrap args))}
   ([x]
     (chain- nil x identity identity))
   ([x f]

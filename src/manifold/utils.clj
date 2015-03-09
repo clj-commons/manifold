@@ -119,7 +119,7 @@
 ;;;
 
 (defn mutex []
-  (ReentrantLock. true))
+  (ReentrantLock.))
 
 (defmacro with-lock [lock & body]
   `(let [^java.util.concurrent.locks.Lock lock# ~lock]

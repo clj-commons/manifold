@@ -10,11 +10,14 @@
   (:import
     [java.util
      LinkedList
-     ArrayDeque]
+     ArrayDeque
+     Queue]
     [java.util.concurrent
      BlockingQueue
      ArrayBlockingQueue
      LinkedBlockingQueue]))
+
+(set! *unchecked-math* true)
 
 ;;;
 
@@ -29,7 +32,7 @@
    ^LinkedList producers
    ^LinkedList consumers
    ^long capacity
-   ^ArrayDeque messages
+   ^Queue messages
    executor
    add!]
 
@@ -210,12 +213,14 @@
 (defn add!
   [^LinkedList producers
    ^LinkedList consumers
-   ^ArrayDeque messages
+   ^Queue messages
    capacity
    executor]
-  (let [capacity (long capacity)]
+  (let [capacity (long capacity)
+        t-d (d/success-deferred true executor)]
     (fn
-      ([])
+      ([]
+         )
       ([_]
         (d/success-deferred false))
       ([_ msg]
@@ -233,7 +238,7 @@
             messages
             (when (< (.size messages) capacity)
               (.offer messages msg))
-            (d/success-deferred true executor))
+            t-d)
 
            ;; add to the producers queue
           (let [d (d/deferred executor)]
@@ -252,7 +257,7 @@
   ([buffer-size xform executor]
     (let [consumers    (LinkedList.)
           producers    (LinkedList.)
-          buffer-size  (long (max 0 buffer-size))
+          buffer-size  (long (Math/max 0 (long buffer-size)))
           messages     (when (pos? buffer-size) (ArrayDeque.))
           add!         (add! producers consumers messages buffer-size executor)
           add!         (if xform (xform add!) add!)]
@@ -275,8 +280,9 @@
     :or {permanent? false}}]
   (let [consumers   (LinkedList.)
         producers   (LinkedList.)
+        buffer-size (long buffer-size)
         messages    (when buffer-size (ArrayDeque.))
-        buffer-size (if buffer-size (long (max 0 buffer-size)) 0)
+        buffer-size (if buffer-size (long (Math/max 0 buffer-size)) 0)
         add!        (add! producers consumers messages buffer-size executor)
         add!        (if xform (xform add!) add!)]
     (->Stream
