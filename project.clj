@@ -23,9 +23,9 @@
           :defaults {:doc/format :markdown}
           :include [manifold.deferred manifold.stream manifold.time manifold.bus]}
   :global-vars {*warn-on-reflection* true}
-  :jvm-opts ["-server"
-             "-XX:-OmitStackTraceInFastThrow"
-             "-XX:+UseConcMarkSweepGC"
-             "-Xmx2g"
-             "-XX:NewSize=1g"
-             "-XX:MaxPermSize=256m"])
+  :jvm-opts ^:replace ["-server"
+                       "-XX:-OmitStackTraceInFastThrow"
+                       "-XX:+UseConcMarkSweepGC"
+                       "-Xmx2g"
+                       "-XX:NewSize=1g"
+                       "-XX:MaxPermSize=256m"])

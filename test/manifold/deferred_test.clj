@@ -192,6 +192,12 @@
 ;;;
 
 (deftest ^:benchmark benchmark-chain
+  (bench "invoke comp x1"
+    ((comp inc) 0))
+  (bench "chain x1"
+    @(chain 0 inc))
+  (bench "chain' x1"
+    @(chain' 0 inc))
   (bench "invoke comp x2"
     ((comp inc inc) 0))
   (bench "chain x2"
