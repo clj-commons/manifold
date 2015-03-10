@@ -49,6 +49,20 @@
 
 ;;;
 
+(deftest test-closed-and-drained
+  (let [s (s/stream)]
+    (s/put! s 1)
+    (is (= false (s/closed? s)))
+
+    (s/close! s)
+
+    (is (= false  @(s/put! s 2)))
+    (is (= true   (s/closed? s)))
+    (is (= false  (s/drained? s)))
+    (is (= 1      @(s/take! s)))
+    (is (= nil    @(s/take! s)))
+    (is (= true   (s/drained? s)))))
+
 (deftest test-transducers
   (let [s (s/stream 0
             (comp

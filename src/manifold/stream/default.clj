@@ -71,6 +71,7 @@
   (isDrained [this]
     (utils/with-lock lock
       (and (s/closed? this)
+        (nil? (.peek producers))
         (or (nil? messages)
           (nil? (.peek messages))))))
 
