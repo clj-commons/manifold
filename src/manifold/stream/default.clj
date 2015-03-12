@@ -63,7 +63,8 @@
               (try
                 (d/success! (.deferred c) (.default-val c))
                 (catch Throwable e
-                  (log/error e "error in callback")))))
+                  (log/error e "error in callback")))
+              (recur)))
           (.markClosed this)
           (when (s/drained? this)
             (.markDrained this))))))

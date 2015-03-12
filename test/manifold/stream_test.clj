@@ -49,6 +49,41 @@
 
 ;;;
 
+(deftest test-deliver-pending-takes-on-close
+  (let [input-s  (s/stream)
+        result-s (s/stream)
+        end-s    (s/stream)]
+    (dotimes [n 5]
+      (doto (Thread.
+             (fn []
+               (loop []
+                 (when-let [x @(s/take! input-s)]
+                   (s/put! result-s "result")
+                   (recur)))
+               (s/put! end-s "end")))
+        (.start)))
+
+    (is (= false (s/closed? input-s)))
+    (is (= false (s/closed? result-s)))
+    (is (= false (s/closed? end-s)))
+
+    (dotimes [n 10] (s/put! input-s "input"))
+
+    (is (= (repeat 10 "result") (take 10 (s/stream->seq result-s 1000))))
+
+    (s/close! input-s)
+
+    (is (= true (s/closed? input-s)))
+
+    (is (= (repeat 5 "end") (take 5 (s/stream->seq end-s 1000))))
+
+    (s/close! result-s)
+    (s/close! end-s)
+
+    (is (= true (s/drained? input-s)))
+    (is (= true (s/drained? result-s)))
+    (is (= true (s/drained? end-s)))))
+
 (deftest test-closed-and-drained
   (let [s (s/stream)]
     (s/put! s 1)
