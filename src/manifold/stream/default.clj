@@ -57,7 +57,12 @@
     (when-not permanent?
       (utils/with-lock lock
         (when-not (s/closed? this)
-          (add!)
+
+          (try
+            (add!)
+            (catch Throwable e
+              (log/error e "error in stream transformer")))
+
           (loop []
             (when-let [^Consumer c (.poll consumers)]
               (try
@@ -65,7 +70,9 @@
                 (catch Throwable e
                   (log/error e "error in callback")))
               (recur)))
+
           (.markClosed this)
+
           (when (s/drained? this)
             (.markDrained this))))))
 
@@ -85,7 +92,8 @@
                 (add! this msg))
               (catch Throwable e
                 (.close this)
-                (d/error-deferred e))))
+                (log/error e "error in stream transformer")
+                (d/success-deferred false))))
 
           close?
           (reduced? result)
@@ -109,10 +117,7 @@
 
             (instance? Production result)
             (let [^Production p result]
-              (try
-                (d/success! (.deferred p) (.message p) (.token p))
-                (catch Throwable e
-                  (log/error e "error in callback")))
+              (d/success! (.deferred p) (.message p) (.token p))
               (if blocking?
                 true
                 (d/success-deferred true executor)))

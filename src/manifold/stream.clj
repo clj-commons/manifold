@@ -425,24 +425,18 @@
   (downstream [_]
     (when downstream [downstream]))
   IEventSink
-  (put [_ x _]
+  (put [this x _]
     (try
       (let [rsp (f x)]
         (if (nil? constant-response)
           rsp
           constant-response))
       (catch Throwable e
-        (log/error e "error in consume")
-        (d/error-deferred e))))
-  (put [_ x _ _ _]
-    (try
-      (let [rsp (f x)]
-        (if (nil? constant-response)
-          rsp
-          constant-response))
-      (catch Throwable e
-        (log/error e "error in consume")
-        (d/error-deferred e))))
+        (log/error e "error in stream handler")
+        (.close this)
+        (d/success-deferred false))))
+  (put [this x default-val _ _]
+    (.put this x default-val))
   (isClosed [_]
     (if downstream
       (.isClosed downstream)
@@ -459,7 +453,8 @@
 
 (defn connect-via
   "Feeds all messages from `src` into `callback`, with the understanding that they will
-   eventually be propagated into `dst` in some form."
+   eventually be propagated into `dst` in some form.  The return value of `f` should be
+   a deferred yielding either `true` or `false`."
   ([src callback dst]
     (connect-via src callback dst nil))
   ([src callback dst options]
@@ -467,7 +462,7 @@
       (connect
         src
         (Callback. callback dst nil)
-        (merge options {:dst' dst})))))
+        options))))
 
 (defn- connect-via-proxy
   ([src proxy dst]
@@ -560,8 +555,12 @@
   (let [s' (stream)]
     (connect-via s
       (fn [msg]
-        (d/chain msg
-          #(put! s' %)))
+        (-> msg
+          (d/chain #(put! s' %))
+          (d/catch (fn [e]
+                     (log/error e "deferred realized as error, closing stream")
+                     (close! s')
+                     false))))
       s'
       {:description {:op "realize-each"}})
     (source-only s')))
@@ -595,19 +594,18 @@
 
         (source-only dst)))))
 
-(let [response (d/success-deferred true)]
-  (defn filter
-    "Equivalent to Clojure's `filter`, but for streams instead of sequences."
-    [pred s]
-    (let [s' (stream)]
-      (connect-via s
-        (fn [msg]
-          (if (pred msg)
-            (put! s' msg)
-            response))
-        s'
-        {:description {:op "filter"}})
-      (source-only s'))))
+(defn filter
+  "Equivalent to Clojure's `filter`, but for streams instead of sequences."
+  [pred s]
+  (let [s' (stream)]
+    (connect-via s
+      (fn [msg]
+        (if (pred msg)
+          (put! s' msg)
+          (d/success-deferred true)))
+      s'
+      {:description {:op "filter"}})
+    (source-only s')))
 
 (defn reductions
   "Equivalent to Clojure's `reductions`, but for streams instead of sequences."
@@ -803,7 +801,7 @@
               @val
               val)))
         (put [_ x blocking? timeout timeout-val]
-           ;; TODO: this doesn't really time out, because that would
+           ;; TODO: this doesn't realy time out, because that would
            ;; require consume-side filtering of messages
           (buf+ (metric x))
           (.put ^IEventSink buf x blocking? timeout timeout-val)

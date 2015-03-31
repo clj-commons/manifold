@@ -1,5 +1,6 @@
 (ns manifold.stream-test
   (:require
+    [clojure.tools.logging :as log]
     [clojure.core.async :as async]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
@@ -235,6 +236,36 @@
             (s/transform (take 10))
             s/stream->seq)))
     #_(is (= 1 @cnt))))
+
+(deftest test-error-handling
+
+  (binding [log/*logger-factory* clojure.tools.logging.impl/disabled-logger-factory]
+
+    (let [s (s/stream)
+          s' (s/map #(/ 1 %) s)]
+      (is (not (s/closed? s)))
+      (is (not (s/drained? s')))
+      (is (= false @(s/put-all! s [0 1])))
+      (is (s/closed? s))
+      (is (s/drained? s')))
+
+    (let [s (s/stream)
+          s' (s/map #(d/future (/ 1 %)) s)]
+      (is (not (s/closed? s)))
+      (is (not (s/drained? s')))
+      (is (= true @(s/put! s 0)))
+      (is (not (s/closed? s)))
+      (is (not (s/drained? s'))))
+
+    (let [s (s/stream)
+          s' (->> s
+               (s/map #(d/future (/ 1 %)))
+               s/realize-each)]
+      (is (not (s/closed? s)))
+      (is (not (s/drained? s')))
+      (s/put-all! s (range 10))
+      (is (nil? @(s/take! s')))
+      (is (s/drained? s')))))
 
 ;;;
 

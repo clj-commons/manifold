@@ -25,7 +25,6 @@
    ^boolean upstream?
    ^boolean downstream?
    ^IEventSink sink
-   ^IEventSink sink'
    ^String description])
 
 (deftype AsyncPut
@@ -41,7 +40,7 @@
         .iterator
         iterator-seq
         (map (fn [^Downstream d]
-               [(.description d) (or (.sink' d) (.sink d))]))))))
+               [(.description d) (.sink d)]))))))
 
 (defn- async-send
   [^Downstream d msg dsts]
@@ -87,7 +86,6 @@
 
 (defn- handle-async-error [^AsyncPut x err source]
   (some-> ^Downstream (.dst x) .sink s/close!)
-  (some-> ^Downstream (.dst x) .sink' s/close!)
   (log/error err "error in message propagation")
   (let [^CopyOnWriteArrayList l (.dsts x)]
     (.remove l (.dst x))
@@ -274,7 +272,6 @@
     ^IEventSink dst
     {:keys [upstream?
             downstream?
-            dst'
             timeout
             description]
      :or {timeout -1
@@ -287,7 +284,6 @@
                 (boolean (and upstream? (instance? IEventSink src)))
                 downstream?
                 dst
-                dst'
                 description)
             k (.weakHandle ^IEventStream src ref-queue)]
         (if-let [dsts (.get graph k)]
