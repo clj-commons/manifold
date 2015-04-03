@@ -3,7 +3,7 @@
     :doc "Methods for creating, transforming, and interacting with asynchronous streams of values."}
   manifold.stream
   (:refer-clojure
-    :exclude [transduce map filter mapcat reductions reduce partition partition-all concat partition-by])
+    :exclude [transduce map filter mapcat reductions reduce partition partition-all concat])
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]
@@ -677,10 +677,11 @@
       (mapcat #(apply f %)))))
 
 (defn lazily-partition-by
-  "Equivalent to Clojure's `partition-by`, but returns a stream of streams.  This meanst that
+  "Equivalent to Clojure's `partition-by`, but returns a stream of streams.  This means that
    if a sub-stream is not completely consumed, the next sub-stream will never be emitted.
 
-   Use with caution."
+   Use with caution.  If you're not totally sure you want a stream of streams, use
+   `(transform (partition-by f))` instead."
   [f s]
   (let [in (stream)
         out (stream)]
