@@ -80,7 +80,8 @@
   "Registers callbacks with the manifold deferred for both success and error outcomes."
   [x on-success on-error]
   `(let [^manifold.deferred.IDeferred x# ~x]
-     (.onRealized x# ~on-success ~on-error)))
+     (.onRealized x# ~on-success ~on-error)
+     ~x))
 
 (definline deferred?
   "Returns true if the object is an instance of a Manifold deferred."
