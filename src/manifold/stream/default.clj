@@ -287,7 +287,7 @@
     :or {permanent? false}}]
   (let [consumers   (LinkedList.)
         producers   (LinkedList.)
-        buffer-size (long buffer-size)
+        buffer-size (long (or buffer-size 0))
         messages    (when buffer-size (ArrayDeque.))
         buffer-size (if buffer-size (long (Math/max 0 buffer-size)) 0)
         add!        (add! producers consumers messages buffer-size executor)

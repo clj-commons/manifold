@@ -127,16 +127,12 @@
 
 ;;;
 
-(let [scheduler     (delay
-                      (ScheduledThreadPoolExecutor.
-                        1
-                        (utils/thread-factory (constantly "manifold-scheduler-queue"))))
-      num-cores     (.availableProcessors (Runtime/getRuntime))
+(let [num-cores     (.availableProcessors (Runtime/getRuntime))
       cnt           (atom 0)
-      executor      (delay
-                      (Executors/newFixedThreadPool
+      scheduler     (delay
+                      (ScheduledThreadPoolExecutor.
                         num-cores
-                        (utils/thread-factory #(str "manifold-scheduler-" (swap! cnt inc)))))]
+                        (utils/thread-factory (constantly "manifold-scheduler-queue"))))]
 
   (defn in
     "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred
@@ -144,12 +140,10 @@
     [^double interval f]
     (let [d (manifold.deferred/deferred)
           f (fn []
-              (let [f (fn []
-                        (try
-                          (manifold.deferred/success! d (f))
-                          (catch Throwable e
-                            (manifold.deferred/error! d e))))]
-                (.execute ^Executor @executor ^Runnable f)))]
+              (try
+                (manifold.deferred/success! d (f))
+                (catch Throwable e
+                  (manifold.deferred/error! d e))))]
       (.schedule ^ScheduledThreadPoolExecutor @scheduler
         ^Runnable f
         (long (* interval 1e3))
@@ -176,7 +170,7 @@
                     (throw e))))]
         (deliver future-ref
           (.scheduleAtFixedRate ^ScheduledThreadPoolExecutor @scheduler
-            ^Runnable (fn [] (.execute ^Executor @executor ^Runnable f))
+            ^Runnable f
             (long (* initial-delay 1e3))
             (long (* period 1e3))
             TimeUnit/MICROSECONDS))

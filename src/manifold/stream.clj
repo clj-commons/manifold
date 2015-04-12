@@ -39,6 +39,8 @@
      LinkedList
      Iterator]))
 
+(set! *unchecked-math* true)
+
 (utils/when-core-async
   (require 'manifold.stream.async))
 
@@ -347,7 +349,7 @@
    |:---|:---
    | `permanent?` | if `true`, the channel cannot be closed
    | `buffer-size` | the number of messages that can accumulate in the channel before backpressure is applied
-   | `description` | the description of the channel, typically a map of properties
+   | `description` | the description of the channel, which is a single arg function that takes the base properties and returns an enriched map.
    | `executor` | the `java.util.concurrent.Executor` that will execute all callbacks registered on the deferreds returns by `put!` and `take!`
    | `xform` | a transducer which will transform all messages that are enqueued via `put!` before they are dequeued via `take!`."
   {:arglists '[[{:keys [permanent? buffer-size description executor xform]}]]}
@@ -754,7 +756,7 @@
   ([buffer-size]
     (buffered-stream (constantly 1) buffer-size))
   ([metric limit]
-    (buffered-stream metric limit nil))
+    (buffered-stream metric limit identity))
   ([metric limit description]
     (let [buf (stream Integer/MAX_VALUE)
           buffer-size (AtomicLong. 0)
@@ -782,11 +784,11 @@
         (close [_]
           (.close ^IEventStream buf))
         (description [_]
-          (merge
-            (manifold.stream/description buf)
-            description
-            {:buffer-size (.get buffer-size)
-             :buffer-capacity limit}))
+          (description
+            (merge
+              (manifold.stream/description buf)
+              {:buffer-size (.get buffer-size)
+               :buffer-capacity limit})))
         (weakHandle [this ref-queue]
           (or @handle
             (do
@@ -914,6 +916,45 @@
                     earliest-message)))))))
 
       (source-only s'))))
+
+(defn throttle
+  "Limits the `max-rate` that messages are emitted, per second.
+
+   The `max-backlog` dictates how much \"memory\" the throttling mechanism has, or how many
+   messages it will emit immediately after a long interval without any messages.  By default,
+   this is set to one second's worth."
+  ([max-rate s]
+     (throttle max-rate max-rate s))
+  ([max-rate max-backlog s]
+     (let [buf (stream)
+           s' (stream)
+           period (double (/ 1000 max-rate))]
+
+       (connect-via-proxy s buf s' {:upstream? true, :description {:op "throttle"}})
+
+       (d/loop [backlog 0.0, read-start (System/currentTimeMillis)]
+         (d/chain (take! buf ::none)
+
+           (fn [msg]
+             (if (identical? ::none msg)
+               (do
+                 (close! s')
+                 false)
+               (put! s' msg)))
+
+           (fn [result]
+             (when result
+               (let [elapsed (double (- (System/currentTimeMillis) read-start))
+                     backlog' (+ backlog (- (/ elapsed period) 1))]
+                 (if (<= 1 backlog')
+                   (- backlog' 1.0)
+                   (d/timeout! (d/deferred) (- period elapsed) 0.0)))))
+
+           (fn [backlog]
+             (when backlog
+               (d/recur backlog (System/currentTimeMillis))))))
+
+       s')))
 
 ;;;
 
