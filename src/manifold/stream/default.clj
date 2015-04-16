@@ -108,7 +108,7 @@
 
             (instance? Producer result)
             (do
-              (log/warn "excessive pending puts (> 16384), closing stream")
+              (log/warn (IllegalStateException.) "excessive pending puts (> 16384), closing stream")
               (s/close! this)
               (d/success-deferred false executor))
 
@@ -189,7 +189,7 @@
 
         (instance? Consumer result)
         (do
-          (log/warn "excessive pending takes (> 16384), closing stream")
+          (log/warn (IllegalStateException.) "excessive pending takes (> 16384), closing stream")
           (s/close! this)
           (d/success-deferred false executor))
 
