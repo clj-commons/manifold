@@ -573,9 +573,9 @@
         (LeakAwareDeferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)
         (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)))))
 
-(def true-deferred-  (SuccessDeferred. true nil nil))
-(def false-deferred- (SuccessDeferred. false nil nil))
-(def nil-deferred-   (SuccessDeferred. nil nil nil))
+(def ^:no-doc true-deferred-  (SuccessDeferred. true nil nil))
+(def ^:no-doc false-deferred- (SuccessDeferred. false nil nil))
+(def ^:no-doc nil-deferred-   (SuccessDeferred. nil nil nil))
 
 (defn success-deferred
   "A deferred which already contains a realized value"
@@ -1288,6 +1288,7 @@
 ;;;
 
 (alter-meta! #'->Deferred assoc :private true)
+(alter-meta! #'->LeakAwareDeferred assoc :private true)
 (alter-meta! #'->ErrorDeferred assoc :private true)
 (alter-meta! #'->SuccessDeferred assoc :private true)
 (alter-meta! #'->Listener assoc :private true)

@@ -16,6 +16,7 @@
 
 (definterface IEventBus
   (subscribe [topic])
+  (downstream [topic])
   (publish [topic message])
   (isActive [topic]))
 
@@ -31,6 +32,11 @@
   "Returns a stream which consumes all messages from `topic`."
   [bus topic]
   `(.subscribe ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic))
+
+(definline downstream
+  "Returns a list of all streams subscribed to `topic`."
+  [bus topic]
+  `(.downstream ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic))
 
 (definline active?
   "Returns `true` if there are any subscribers to `topic`."
@@ -103,6 +109,9 @@
               (d/success-deferred false)
               (-> (apply d/zip' (map #(s/put! % message) subscribers))
                 (d/chain' (fn [_] true))))))
+
+        (downstream [_ topic]
+          (seq (.get topic->subscribers topic)))
 
         (isActive [_ topic]
           (boolean (.get topic->subscribers topic)))))))

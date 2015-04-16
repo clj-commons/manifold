@@ -107,7 +107,7 @@ nil
 1
 ```
 
-Manifold also provides stream operators, similar to Clojure's sequence operators, including `map`, `filter`, `mapcat`, `zip`, `reductions`, `reduce`, `buffer`, and `batch`.  [To learn more about streams, go here](/docs/stream.md).
+Manifold can use any transducer, which are applied via `transform`.  It also provides stream-specific transforms, including `zip`, `reduce`, `buffer`, `batch`, and `throttle`.  [To learn more about streams, go here](/docs/stream.md).
 
 ### license
 

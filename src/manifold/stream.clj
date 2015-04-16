@@ -3,7 +3,7 @@
     :doc "Methods for creating, transforming, and interacting with asynchronous streams of values."}
   manifold.stream
   (:refer-clojure
-    :exclude [transduce map filter mapcat reductions reduce partition partition-all concat])
+    :exclude [map filter mapcat reductions reduce concat])
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]

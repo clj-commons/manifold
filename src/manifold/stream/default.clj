@@ -108,12 +108,9 @@
 
             (instance? Producer result)
             (do
-              (.add producers result)
-              (let [d (.deferred ^Producer result)]
-                (d/timeout! d timeout timeout-val)
-                (if blocking?
-                  @d
-                  d)))
+              (log/warn "excessive pending puts (> 16384), closing stream")
+              (s/close! this)
+              (d/success-deferred false executor))
 
             (instance? Production result)
             (let [^Production p result]
@@ -184,7 +181,7 @@
                 (let [d (d/deferred executor)]
                   (d/timeout! d timeout timeout-val)
                   (let [c (Consumer. d default-val)]
-                    (if (.offer consumers c)
+                    (if (and (< (.size consumers) 16384) (.offer consumers c))
                       d
                       c))))))]
 
@@ -192,11 +189,9 @@
 
         (instance? Consumer result)
         (do
-          (.add consumers result)
-          (let [d (.deferred ^Consumer result)]
-            (if blocking?
-              @d
-              d)))
+          (log/warn "excessive pending takes (> 16384), closing stream")
+          (s/close! this)
+          (d/success-deferred false executor))
 
         (instance? Consumption result)
         (let [^Consumption result result]
@@ -250,7 +245,7 @@
            ;; add to the producers queue
           (let [d (d/deferred executor)]
             (let [pr (Producer. msg d)]
-              (if (.offer producers pr)
+              (if (and (< (.size producers) 16384) (.offer producers pr))
                 d
                 pr))))))))
 

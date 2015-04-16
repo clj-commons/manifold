@@ -70,7 +70,7 @@ true
 true
 ```
 
-However, we can also create derivative streams using operators analogous to Clojure's sequence operators:
+However, we can also create derivative streams using operators analogous to Clojure's sequence operators, a full list of which [can be found here](http://ideolalia.com/manifold/):
 
 ```clj
 > (->> [1 2 3]
@@ -120,7 +120,14 @@ Here, we create a source stream `s`, and map `inc` and `dec` over it.  When we p
 
 If `s` is closed, both `a` and `b` will be closed, as will any other downstream sources we've created.  Likewise, if everything downstream of `s` is closed, `s` will also be closed.  This is almost always desirable, as failing to do this will simply cause `s` to exert backpressure on everything upstream of it.  However, If we wish to avoid this behavior, we can create a `(permanent-stream)`, which cannot be closed.
 
-Manifold provides a number of stream operators that are equivalent to Clojure's seq operators, including `map`, `filter`, `mapcat`, `reductions`, `partition-by`, `concat`, and `reduce`.
+For any Clojure operation that doesn't have an equivalent in `manifold.stream`, we can use `manifold.stream/transform` with a transducer:
+
+```clj
+> (->> [1 2 3]
+    (s/transform (map inc))
+    s/stream->seq)
+(2 3 4)
+```
 
 There's also `(periodically period f)`, which behaves like `(repeatedly f)`, but will emit the result of `(f)` every `period` milliseconds.
 
@@ -151,7 +158,7 @@ Again, we see that our message is immediately accepted into `a`, and can be read
 | `timeout` | the maximum time that will be spent waiting to convey a message into the sink before the connection is severed, defaults to `nil` |
 | `description` | a description of the connection between the source and sink, useful for introspection purposes |
 
-Upon connecting two streams, we can introspect on the flow of data using `downstream`:
+Upon connecting two streams, we can inspect any of the streams using `description`, and follow the flow of data using `downstream`:
 
 ```clj
 > (def a (s/stream))
@@ -160,6 +167,8 @@ Upon connecting two streams, we can introspect on the flow of data using `downst
 #'b
 > (s/connect a b {:description "a connection"})
 true
+> (s/description a)
+{:pending-puts 0, :drained? false, :buffer-size 0, :permanent? false, ...}
 > (s/downstream a)
 (["a connection" << stream: ... >>])
 ```
@@ -185,6 +194,8 @@ Note that `connect-via` takes an argument between the source and sink, which is 
 ([{:op "map"} << stream: ... >>])
 ```
 
+Each element returned by `downstream` is a 2-tuple, the first element describing the connection, and the second element describing the stream it's feeding into.
+
 The value returned by the callback for `connect-via` provides backpressure - if a deferred value is returned, further messages will not be passed in until the deferred value is realized.
 
 ### buffers and backpressure
@@ -192,3 +203,7 @@ The value returned by the callback for `connect-via` provides backpressure - if 
 We saw above that if we attempt to put a message into a stream, it won't succeed until the value is taken out.  This is because the default stream has no buffer; it simply conveys messages from producers to consumers.  If we want to create a stream with a buffer, we can simply call `(stream buffer-size)`.  We can also call `(buffer size stream)` to create a buffer downstream of an existing stream.
 
 We may also call `(buffer metric limit stream)`, if we don't want to measure our buffer's size in messages.  If, for instance, each message is a collection, we could use `count` as our metric, and set `limit` to whatever we want the maximum aggregate count to be.
+
+To limit the rate of messages from a stream, we can use `(throttle max-rate stream)`.
+
+### event buses and publish/subscribe models
