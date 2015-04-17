@@ -257,3 +257,12 @@
     (let [d (deferred)]
       (deliver d 1)
       @d)))
+
+(deftest ^:stress test-error-leak-detection
+
+  (error-deferred (Throwable.))
+  (System/gc)
+
+  (dotimes [_ 2e3]
+    (error! (deferred) (Throwable.)))
+  (System/gc))

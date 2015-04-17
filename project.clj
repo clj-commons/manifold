@@ -4,9 +4,9 @@
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/ztellman/manifold"
   :dependencies [[org.clojure/tools.logging "0.3.1"]
-                 [riddley "0.1.7"]]
+                 [riddley "0.1.9"]]
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
-                                  [org.clojure/clojure "1.7.0-alpha5"]
+                                  [org.clojure/clojure "1.7.0-alpha6"]
                                   [criterium "0.4.3"]
                                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]]}}
   :test-selectors {:default #(not
