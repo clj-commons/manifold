@@ -5,6 +5,7 @@
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
     [manifold.stream :as s]
+    [manifold.utils :as utils]
     [manifold.deferred :as d])
   (:import
     [java.util.concurrent
@@ -39,14 +40,26 @@
 (def executor (Executors/newFixedThreadPool 1))
 
 (deftest test-streams
+
   (run-sink-source-test s/stream)
   (run-sink-source-test #(s/stream 1 nil executor))
   (run-sink-source-test #(async/chan 100))
   (run-sink-source-test #(ArrayBlockingQueue. 100))
+
   (run-sink-source-test (splice-into-stream s/stream))
   (run-sink-source-test (splice-into-stream #(s/stream 1 nil executor)))
   (run-sink-source-test (splice-into-stream #(ArrayBlockingQueue. 100)))
   (run-sink-source-test (splice-into-stream #(async/chan 100))))
+
+(deftest test-sources
+  (doseq [f [#(java.util.ArrayList. ^java.util.List %)
+             #(.iterator ^java.util.List %)
+             (utils/when-class java.util.stream.BasicStream
+               (run-source-test #(-> % java.util.ArrayList. .stream)))]]
+    (when f
+      (= (range 100) (-> (range 100) f s/->source s/stream->seq))))
+
+  )
 
 ;;;
 

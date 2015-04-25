@@ -2,6 +2,7 @@
   (:refer-clojure
     :exclude (realized? future loop))
   (:require
+    [manifold.utils :as utils]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
     [manifold.deferred :refer :all]))
@@ -188,6 +189,18 @@
   (let [ex (Exception.)]
     (is (= ex @(capture-error
                  (loop [] (future-error ex)))))))
+
+(deftest test-coercion
+  (is (= 1 (-> 1 clojure.core/future ->deferred deref)))
+
+  (utils/when-class java.util.concurrent.CompletableFuture
+    (let [f (java.util.concurrent.CompletableFuture.)]
+      (.obtrudeValue f 1)
+      (is (= 1 (-> f ->deferred deref))))
+
+    (let [f (java.util.concurrent.CompletableFuture.)]
+      (.obtrudeException f (Exception.))
+      (is (thrown? Exception (-> f ->deferred deref))))))
 
 ;;;
 

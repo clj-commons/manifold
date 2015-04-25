@@ -12,6 +12,7 @@
     [manifold.stream
      [core :as core]
      [default :as default]
+     random-access
      iterator
      queue
      seq

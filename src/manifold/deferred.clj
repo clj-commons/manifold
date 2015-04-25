@@ -1161,17 +1161,33 @@
 
 ;;;
 
-(utils/when-core-async
-  (extend-protocol Deferrable
+#_(utils/when-core-async
 
-    clojure.core.async.impl.channels.ManyToManyChannel
-    (to-deferred [ch]
-      (let [d (deferred)]
-        (a/take! ch
-          (fn [msg]
-            (if (instance? Throwable msg)
+    (extend-protocol Deferrable
+
+      clojure.core.async.impl.channels.ManyToManyChannel
+      (to-deferred [ch]
+        (let [d (deferred)]
+          (a/take! ch
+            (fn [msg]
+              (if (instance? Throwable msg)
               (error! d msg)
               (success! d msg))))
+          d))))
+
+(utils/when-class java.util.concurrent.CompletableFuture
+
+  (extend-protocol Deferrable
+
+    java.util.concurrent.CompletableFuture
+    (to-deferred [f]
+      (let [d (deferred)]
+        (.handle ^java.util.concurrent.CompletableFuture f
+          (reify java.util.function.BiFunction
+            (apply [_ val err]
+              (if (nil? err)
+                (success! d val)
+                (error! d err)))))
         d))))
 
 ;;;

@@ -27,5 +27,4 @@
                        "-XX:-OmitStackTraceInFastThrow"
                        "-XX:+UseConcMarkSweepGC"
                        "-Xmx2g"
-                       "-XX:NewSize=1g"
-                       "-XX:MaxPermSize=256m"])
+                       "-XX:NewSize=1g"])

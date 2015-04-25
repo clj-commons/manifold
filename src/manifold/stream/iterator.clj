@@ -46,7 +46,7 @@
                        (d/success! d (.next iterator) token)
                        (do
                          (.markDrained this)
-                         default-val)))))]
+                         (d/success! d default-val token))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
@@ -68,3 +68,13 @@
     (->IteratorSource
       iterator
       (AtomicReference. (d/success-deferred true)))))
+
+(utils/when-class java.util.stream.BaseStream
+
+  (extend-protocol s/Sourceable
+
+    java.util.stream.BaseStream
+    (to-source [stream]
+      (->IteratorSource
+        (.iterator ^java.util.stream.BaseStream stream)
+        (AtomicReference. (d/success-deferred true))))))

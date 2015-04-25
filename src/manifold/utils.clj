@@ -16,6 +16,15 @@
 
 ;;;
 
+(defmacro when-class [class & body]
+  (when (try
+          (Class/forName (name class))
+          (catch Throwable e
+            ))
+    `(do ~@body)))
+
+;;;
+
 (defn ^ThreadFactory thread-factory
   ([name-generator]
     (reify ThreadFactory
