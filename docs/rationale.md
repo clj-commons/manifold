@@ -1,4 +1,4 @@
-Manifold provides representations for data we don't yet have, and tools for acting upon it.  Sometimes this data is something we can compute ourselves, but more often it's sent to us by something outside our process.  And since went don't control when the data arrives, it's likely that sometimes it will arrive faster than we can process it.
+Manifold provides representations for data we don't yet have, and tools for acting upon it.  Sometimes this data is something we can compute ourselves, but more often it's sent to us by something outside our process.  And since we don't control when the data arrives, it's likely that sometimes it will arrive faster than we can process it.
 
 This means that we not only need to correctly process the data, we need to have a strategy for when we get too much of it.  [This is discussed in depth in this talk](https://www.youtube.com/watch?v=1bNOO3xxMc0), but the typical strategy is to use **backpressure**, which is a signal sent to the producer that we can't handle more messages, and a subsequent message that we now can.
 
