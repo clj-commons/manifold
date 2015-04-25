@@ -149,6 +149,12 @@
   [s]
   (SinkProxy. s))
 
+(definline onto
+  "Returns an identical stream whose deferred callbacks will be executed
+   on `executor`."
+  [executor s]
+  `(manifold.stream.default/onto ~executor ~s))
+
 ;;;
 
 (definline stream?
@@ -498,7 +504,9 @@
       (time/every period initial-delay
         (fn []
           (try
-            (let [d (put! stream (f))]
+            (let [d (if (closed? stream)
+                      (d/success-deferred false)
+                      (put! stream (f)))]
               (if (realized? d)
                 (when-not @d
                   (do

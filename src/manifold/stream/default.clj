@@ -273,6 +273,13 @@
         executor
         add!))))
 
+(defn onto [ex s]
+  (if (and (instance? Stream s) (identical? ex (.executor ^Stream s)))
+    s
+    (let [s' (stream 0 nil ex)]
+      (g/connect s s' nil)
+      s')))
+
 (defn stream*
   [{:keys [permanent?
            buffer-size
