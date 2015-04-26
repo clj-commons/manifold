@@ -3,6 +3,7 @@
     [manifold.deferred :as d]
     [manifold.utils :as utils]
     [manifold.stream.core :as s]
+    [manifold.executor :as ex]
     [clojure.tools.logging :as log])
   (:import
     [java.util
@@ -203,21 +204,20 @@
                   (.remove graph (s/weak-handle source)))
 
                 (do
-                  (utils/without-overflow
-                    (loop []
-                      (when (.hasNext i)
-                        (let [^Downstream d (.next i)]
-                          (if (s/synchronous? (.sink d))
-                            (.add sync-sinks d)
-                            (.add deferreds (async-send d msg dsts)))
-                          (recur)))))
+                  (loop []
+                    (when (.hasNext i)
+                      (let [^Downstream d (.next i)]
+                        (if (s/synchronous? (.sink d))
+                          (.add sync-sinks d)
+                          (.add deferreds (async-send d msg dsts)))
+                        (recur))))
 
                   (async-propagate this msg))))))))))
 
 (defn- sync-connect
   [^IEventSource source
    ^CopyOnWriteArrayList dsts]
-  (utils/future-with @utils/execute-pool
+  (utils/future-with (ex/wait-pool)
     (let [sync-sinks (LinkedList.)
           deferreds  (LinkedList.)]
       (loop []

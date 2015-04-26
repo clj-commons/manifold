@@ -8,6 +8,7 @@
     [riddley.walk :as walk]
     [riddley.compiler :as compiler]
     [manifold
+     [executor :as ex]
      [utils :as utils]
      [time :as time]
      [debug :as debug]]
@@ -215,8 +216,8 @@
 
 (deftype Listener [on-success on-error]
   IDeferredListener
-  (onSuccess [_ x] (utils/without-overflow (on-success x)))
-  (onError [_ err] (utils/without-overflow (on-error err)))
+  (onSuccess [_ x] (on-success x))
+  (onError [_ err] (on-error err))
   (equals [this x] (identical? this x))
   (hashCode [_] (System/identityHashCode on-success)))
 
@@ -563,10 +564,7 @@
     "Equivalent to Clojure's `promise`, but also allows asynchronous callbacks to be registered
      and composed via `chain`."
     ([]
-      (if (and (zero? (rem (.incrementAndGet created) 1024))
-            debug/*dropped-error-logging-enabled?*)
-        (LeakAwareDeferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil)
-        (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false nil)))
+       (deferred (ex/executor)))
     ([executor]
       (if (and (zero? (rem (.incrementAndGet created) 1024))
             debug/*dropped-error-logging-enabled?*)
@@ -579,7 +577,7 @@
 
 (defn success-deferred
   "A deferred which already contains a realized value"
-  {:inline (fn [val]
+  #_{:inline (fn [val]
              (cond
                (true? val)   'manifold.deferred/true-deferred-
                (false? val)  'manifold.deferred/false-deferred-
@@ -587,7 +585,7 @@
                :else         `(SuccessDeferred. ~val nil nil)))
    :inline-arities #{1}}
   ([val]
-     (SuccessDeferred. val nil nil))
+     (SuccessDeferred. val nil (ex/executor)))
   ([val executor]
      (if (nil? executor)
        (condp identical? val
@@ -600,7 +598,7 @@
 (defn error-deferred
   "A deferred which already contains a realized error"
   ([error]
-    (ErrorDeferred. error nil false nil))
+    (ErrorDeferred. error nil false (ex/executor)))
   ([error executor]
     (ErrorDeferred. error nil false executor)))
 
@@ -663,7 +661,7 @@
 (defmacro future
   "Equivalent to Clojure's `future`, but returns a Manifold deferred."
   [& body]
-  `(future-with @utils/execute-pool ~@body))
+  `(future-with (ex/execute-pool) ~@body))
 
 ;;;
 

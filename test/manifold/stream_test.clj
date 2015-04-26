@@ -4,9 +4,11 @@
     [clojure.core.async :as async]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold.stream :as s]
-    [manifold.utils :as utils]
-    [manifold.deferred :as d])
+    [manifold
+     [stream :as s]
+     [utils :as utils]
+     [deferred :as d]
+     [executor :as ex]])
   (:import
     [java.util.concurrent
      Executors
@@ -37,7 +39,7 @@
      (s/connect x s nil)
      (s/splice x s)))
 
-(def executor (Executors/newFixedThreadPool 1))
+(def executor (ex/fixed-thread-executor 8))
 
 (deftest test-streams
 

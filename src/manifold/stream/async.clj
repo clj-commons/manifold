@@ -64,8 +64,7 @@
                                           x))
                                 (a/timeout timeout) timeout-val
                                 :priority true)]
-                   (utils/without-overflow
-                     (d/success! d result)))))]
+                   (d/success! d result))))]
       (if (d/realized? d')
         (f nil)
         (d/on-realized d' f f))

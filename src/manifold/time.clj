@@ -3,7 +3,7 @@
     :doc "This namespace contains methods for converting units of time, with milliseconds as the base representation, and for deferring execution of functions to some time in the future.  In practice, the methods here are not necessary to use Manifold effectively - `manifold.deferred/timeout` and `manifold.stream/periodically` are more directly useful - but they are available for anyone who should need them."}
   manifold.time
   (:require
-    [manifold.utils :as utils]
+    [manifold.executor :as ex]
     [clojure.string :as str])
   (:import
     [java.util
@@ -131,8 +131,11 @@
       cnt           (atom 0)
       scheduler     (delay
                       (ScheduledThreadPoolExecutor.
-                        num-cores
-                        (utils/thread-factory (constantly "manifold-scheduler-queue"))))]
+                        1
+                        (ex/thread-factory
+                          (fn []
+                            (str "manifold-scheduler-pool-" (swap! cnt inc)))
+                          (deliver (promise) nil))))]
 
   (defn in
     "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred

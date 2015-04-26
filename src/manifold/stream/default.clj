@@ -1,8 +1,10 @@
 (ns manifold.stream.default
   (:require
     [clojure.tools.logging :as log]
-    [manifold.deferred :as d]
-    [manifold.utils :as utils]
+    [manifold
+     [deferred :as d]
+     [utils :as utils]
+     [executor :as ex]]
     [manifold.stream
      [graph :as g]
      [core :as s]]
@@ -251,11 +253,11 @@
 
 (defn stream
   ([]
-    (stream 0 nil nil))
+    (stream 0 nil (ex/executor)))
   ([buffer-size]
-    (stream buffer-size nil nil))
+    (stream buffer-size nil (ex/executor)))
   ([buffer-size xform]
-    (stream buffer-size xform nil))
+    (stream buffer-size xform (ex/executor)))
   ([buffer-size xform executor]
     (let [consumers    (LinkedList.)
           producers    (LinkedList.)
@@ -286,7 +288,8 @@
            description
            executor
            xform]
-    :or {permanent? false}}]
+    :or {permanent? false
+         executor (ex/executor)}}]
   (let [consumers   (LinkedList.)
         producers   (LinkedList.)
         buffer-size (long (or buffer-size 0))

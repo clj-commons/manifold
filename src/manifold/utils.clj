@@ -2,7 +2,8 @@
   (:refer-clojure
     :exclude [future])
   (:require
-    [clojure.tools.logging :as log])
+    [clojure.tools.logging :as log]
+    [manifold.executor :as ex])
   (:import
     [java.util.concurrent
      Executors
@@ -16,59 +17,14 @@
 
 ;;;
 
-(defmacro when-class [class & body]
-  (when (try
-          (Class/forName (name class))
-          (catch Throwable e
-            ))
-    `(do ~@body)))
-
-;;;
-
-(defn ^ThreadFactory thread-factory
-  ([name-generator]
-    (reify ThreadFactory
-      (newThread [_ runnable]
-        (let [name (name-generator)]
-          (doto
-            (Thread. nil #(.run ^Runnable runnable) name)
-            (.setDaemon true))))))
-  ([name-generator stack-size]
-    (reify ThreadFactory
-      (newThread [_ runnable]
-        (let [name (name-generator)]
-          (doto
-            (Thread. nil #(.run ^Runnable runnable) name stack-size)
-            (.setDaemon true)))))))
-
-;;;
-
-(def wait-pool
-  (delay
-    (let [cnt (atom 0)]
-      (Executors/newCachedThreadPool
-        (thread-factory #(str "manifold-wait-" (swap! cnt inc)) 1e2)))))
-
 (defmacro wait-for [& body]
   `(let [f# (fn []
               (try
                 ~@body
                 (catch Throwable e#
                   (log/error e# "error in manifold.utils/wait-for"))))]
-     (.execute ^Executor @wait-pool ^Runnable f#)
+     (.execute ^Executor (ex/wait-pool) ^Runnable f#)
      nil))
-
-;;;
-
-(def ^ThreadLocal stack-depth (ThreadLocal.))
-
-(def execute-pool
-  (delay
-    (let [cnt (atom 0)]
-      (Executors/newCachedThreadPool
-        (thread-factory #(str "manifold-execute-" (swap! cnt inc)))))))
-
-(def ^:const max-depth 50)
 
 (defmacro future-with [executor & body]
   `(let [frame# (clojure.lang.Var/cloneThreadBindingFrame)
@@ -85,12 +41,18 @@
      (.execute executor# ^Runnable f#)
      nil))
 
-(defmacro without-overflow [& body]
+;;;
+
+(def ^ThreadLocal stack-depth (ThreadLocal.))
+
+(def ^:const max-depth 50)
+
+(defmacro without-overflow [executor & body]
   `(let [depth# (.get stack-depth)
          depth'# (if (nil? depth#) 0 depth#)
          f# (fn [] ~@body)]
      (if (> depth'# max-depth)
-       (future-with @execute-pool (f#))
+       (future-with ~executor (f#))
        (try
          (.set stack-depth (unchecked-inc (unchecked-long depth'#)))
          (f#)
@@ -153,4 +115,11 @@
           true
           (catch Exception _
             false))
+    `(do ~@body)))
+
+(defmacro when-class [class & body]
+  (when (try
+          (Class/forName (name class))
+          (catch Throwable e
+            ))
     `(do ~@body)))
