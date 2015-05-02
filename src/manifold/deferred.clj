@@ -277,22 +277,21 @@
            true))
      (do
        (clojure.core/loop []
-         (if (.isEmpty ~'listeners)
-           nil
-           (do
-             (try
-               (let [^IDeferredListener l# (.pop ~'listeners)]
-                 (if (nil? ~executor)
-                   (~(if success? `.onSuccess `.onError) ^IDeferredListener l# ~val)
-                   (.execute ~(with-meta executor {:tag "java.util.concurrent.Executor"})
-                     (fn []
-                       (try
-                         (~(if success? `.onSuccess `.onError) l# ~val)
-                         (catch Throwable e#
-                           (log/error e# "error in deferred handler")))))))
-               (catch Throwable e#
-                 (log/error e# "error in deferred handler")))
-             (recur))))
+         (when-let [^IDeferredListener l# (.poll ~'listeners)]
+           (try
+             (if (nil? ~executor)
+               (~(if success? `.onSuccess `.onError) ^IDeferredListener l# ~val)
+               (.execute ~(with-meta executor {:tag "java.util.concurrent.Executor"})
+                 (fn []
+                   (try
+                     (~(if success? `.onSuccess `.onError) l# ~val)
+                     (catch Throwable e#
+                       #_(.printStackTrace e#)
+                       (log/error e# "error in deferred handler"))))))
+             (catch Throwable e#
+               #_(.printStackTrace e#)
+               (log/error e# "error in deferred handler")))
+           (recur)))
        true)
      ~(if claimed?
         `(throw (IllegalStateException.

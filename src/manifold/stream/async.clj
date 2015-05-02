@@ -5,7 +5,9 @@
     [manifold.stream
      [graph :as g]
      [core :as s]]
-    [manifold.utils :as utils])
+    [manifold
+     [executor :as executor]
+     [utils :as utils]])
   (:import
     [java.util.concurrent.atomic
      AtomicReference]))
@@ -116,9 +118,10 @@
         (let [d  (d/deferred)
               d' (.getAndSet last-put d)
               f  (fn [_]
-                   (a/put! ch x
-                     (fn [result]
-                       (d/success! d result))))]
+                   (a/go
+                     (d/success! d
+                       (boolean
+                         (a/>! ch x)))))]
           (if (d/realized? d')
             (f nil)
             (d/on-realized d' f f))

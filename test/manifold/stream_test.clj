@@ -71,12 +71,12 @@
         end-s    (s/stream)]
     (dotimes [n 5]
       (doto (Thread.
-             (fn []
-               (loop []
-                 (when-let [x @(s/take! input-s)]
-                   (s/put! result-s "result")
-                   (recur)))
-               (s/put! end-s "end")))
+              (fn []
+                (loop []
+                  (when-let [x @(s/take! input-s)]
+                    (s/put! result-s "result")
+                    (recur)))
+                (s/put! end-s "end")))
         (.start)))
 
     (is (= false (s/closed? input-s)))

@@ -3,9 +3,9 @@
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/ztellman/manifold"
-  :dependencies [[org.clojure/tools.logging "0.3.1"]
+  :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "0.1.0"]
-                 [riddley "0.1.9"]]
+                 [riddley "0.1.10"]]
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [org.clojure/clojure "1.7.0-alpha6"]
                                   [criterium "0.4.3"]
@@ -17,6 +17,7 @@
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
   :plugins [[codox "0.8.10"]
+            [lein-jammin "0.1.0"]
             [ztellman/lein-cljfmt "0.1.10"]]
   :cljfmt {:indents {#".*" [[:inner 0]]}}
   :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"
