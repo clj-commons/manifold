@@ -17,7 +17,7 @@
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
   :plugins [[codox "0.8.10"]
-            [lein-jammin "0.1.0"]
+            [lein-jammin "0.1.1-SNAPSHOT"]
             [ztellman/lein-cljfmt "0.1.10"]]
   :cljfmt {:indents {#".*" [[:inner 0]]}}
   :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"
