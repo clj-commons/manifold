@@ -25,6 +25,11 @@
 
     (future
       (doseq [x vs]
+        @(s/put! sink x)))
+    (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
+
+    (future
+      (doseq [x vs]
         (s/put! sink x)))
     (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
@@ -47,6 +52,7 @@
   (run-sink-source-test #(s/stream 1 nil executor))
   (run-sink-source-test #(async/chan 100))
   (run-sink-source-test #(ArrayBlockingQueue. 100))
+  (run-sink-source-test #(SynchronousQueue.))
 
   (run-sink-source-test (splice-into-stream s/stream))
   (run-sink-source-test (splice-into-stream #(s/stream 1 nil executor)))
