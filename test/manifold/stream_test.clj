@@ -25,17 +25,34 @@
 
     (future
       (doseq [x vs]
-        @(s/put! sink x)))
+        (try
+          @(s/put! sink x)
+          (catch Throwable e
+            (log/error e "")))))
     (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
     (future
       (doseq [x vs]
-        (s/put! sink x)))
+        (try
+          (s/put! sink x)
+          (catch Throwable e
+            (log/error e "")))))
     (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
     (future
       (doseq [x vs]
-        (s/put! sink x)))
+        (try
+          @(s/try-put! sink x 100 ::timeout)
+          (catch Throwable e
+            (log/error e "")))))
+    (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
+
+    (future
+      (doseq [x vs]
+        (try
+          (s/put! sink x)
+          (catch Throwable e
+            (log/error e "")))))
     (is (= vs (s/stream->seq source 100)))))
 
 (defn splice-into-stream [gen]
@@ -51,7 +68,7 @@
   (run-sink-source-test s/stream)
   (run-sink-source-test #(s/stream 1 nil executor))
   (run-sink-source-test #(async/chan 100))
-  (run-sink-source-test #(ArrayBlockingQueue. 100))
+  (run-sink-source-test #(ArrayBlockingQueue. 10))
   (run-sink-source-test #(SynchronousQueue.))
 
   (run-sink-source-test (splice-into-stream s/stream))

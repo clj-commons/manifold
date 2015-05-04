@@ -146,7 +146,7 @@
               f  (fn [_]
                    (a/go
                      (let [result (a/alt!
-                                    [ch x] true
+                                    [[ch x]] true
                                     (a/timeout timeout) timeout-val
                                     :priority true)]
                        (d/success! d result))))]
