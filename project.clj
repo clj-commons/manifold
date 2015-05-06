@@ -23,7 +23,7 @@
   :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"
           :src-linenum-anchor-prefix "L"
           :defaults {:doc/format :markdown}
-          :include [manifold.deferred manifold.stream manifold.time manifold.bus]}
+          :include [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"
