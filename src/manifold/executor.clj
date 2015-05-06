@@ -12,6 +12,7 @@
      EnumSet]
     [java.util.concurrent
      SynchronousQueue
+     LinkedBlockingQueue
      ArrayBlockingQueue
      ThreadFactory
      TimeUnit]))
@@ -77,7 +78,8 @@
    | `control-period` | the interval, in milliseconds, between use of the controller to adjust the size of the executor, defaults to `10000`.
    | `controller` | the Dirigiste controller that is used to guide the pool's size.
    | `metrics` | an `EnumSet` of the metrics that should be gathered for the controller, defaults to all.
-   | `initial-thread-count` | the number of threads that the pool should begin with."
+   | `initial-thread-count` | the number of threads that the pool should begin with.
+   | `onto?` | if true, all streams and deferred generated in the scope of this executor will also be 'on' this executor."
   [{:keys
     [thread-factory
      queue-length
@@ -86,17 +88,21 @@
      control-period
      controller
      metrics
-     initial-thread-count]
+     initial-thread-count
+     onto?]
     :or {initial-thread-count 1
          sample-period 25
          control-period 10000
-         metrics (EnumSet/allOf Stats$Metric)}}]
+         metrics (EnumSet/allOf Stats$Metric)
+         onto? true}}]
   (let [executor-promise (promise)
         thread-count (atom 0)
         factory (swap! factory-count inc)
         thread-factory (manifold.executor/thread-factory
                          #(str "manifold-pool-" factory "-" (swap! thread-count inc))
-                         executor-promise)
+                         (if onto?
+                           executor-promise
+                           (deliver (promise) nil)))
         ^Executor$Controller c controller
         metrics (if (identical? :none metrics)
                   (EnumSet/noneOf Stats$Metric)
@@ -106,7 +112,9 @@
        (Executor.
          thread-factory
          (if (and queue-length (pos? queue-length))
-           (ArrayBlockingQueue. queue-length false)
+           (if (<= queue-length 1024)
+             (ArrayBlockingQueue. queue-length false)
+             (LinkedBlockingQueue. (int queue-length)))
            (SynchronousQueue. false))
          (if stats-callback
            (reify Executor$Controller
@@ -128,30 +136,30 @@
     (fixed-thread-executor num-threads nil))
   ([num-threads options]
     (instrumented-executor
-      (assoc options
-        :max-threads num-threads
-        :controller (reify Executor$Controller
-                      (shouldIncrement [_ n]
-                        (< n num-threads))
-                      (adjustment [_ s]
-                        (- num-threads (.getNumWorkers s))))))))
+      (-> options
+        (update :queue-length #(or % Integer/MAX_VALUE))
+        (assoc
+          :max-threads num-threads
+          :controller (reify Executor$Controller
+                        (shouldIncrement [_ n]
+                          (< n num-threads))
+                        (adjustment [_ s]
+                          (- num-threads (.getNumWorkers s)))))))))
 
 (defn utilization-executor
   "Returns an executor which sizes the thread pool according to target utilization, within
-   `[0,1]`, up to `max-threads`."
-  ([utilization max-threads]
-    (utilization-executor utilization max-threads nil))
+   `[0,1]`, up to `max-threads`.  The `queue-length` for this executor is always `0`, and by
+   default has an unbounded number of threads."
+  ([utilization]
+    (utilization-executor utilization Integer/MAX_VALUE nil))
   ([utilization max-threads options]
     (instrumented-executor
       (assoc options
+        :queue-length 0
         :max-threads max-threads
         :controller (Executors/utilizationController utilization max-threads)))))
 
 ;;;
-
-;; unfortunately, both of these need to be an unbounded pool since pathological cases
-;; where different blocking tasks rely on each other are possible, and anything short
-;; of unbounded may cause deadlocks.
 
 (def ^:private wait-pool-stats-callbacks (atom #{}))
 

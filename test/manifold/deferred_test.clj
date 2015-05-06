@@ -279,3 +279,18 @@
   (dotimes [_ 2e3]
     (error! (deferred) (Throwable.)))
   (System/gc))
+
+(deftest ^:stress test-deferred-chain
+  (dotimes [_ 1e4]
+    (let [d (deferred)
+          result (future
+                   (last
+                     (take 1e4
+                       (iterate
+                         #(let [d' (deferred)]
+                            (connect % d')
+                            d')
+                         d))))]
+      (Thread/sleep (rand-int 10))
+      (success! d 1)
+      (is (= 1 @@result)))))

@@ -207,3 +207,7 @@ We may also call `(buffer metric limit stream)`, if we don't want to measure our
 To limit the rate of messages from a stream, we can use `(throttle max-rate stream)`.
 
 ### event buses and publish/subscribe models
+
+Manifold provides a simple publish/subscribe mechanism in the `manifold.bus` namespace.  To create an event bus, we can use `(event-bus)`.  To publish to a particular topic on that bus, we use `(publish! bus topic msg)`.  To get a stream representing all messages on a topic, we can call `(subscribe bus topic)`.
+
+Calls to `publish!` will return a deferred that won't be realized until all streams have accepted the message.  By default, all streams returned by `subscribe` are unbuffered, but we can change this by providing a `stream-generator` to `event-bus`, such as `(event-bus #(stream 1e3))`.  A short example of how `event-bus` can be used in concert with the buffering and flow control mechanisms [can be found here](https://youtu.be/1bNOO3xxMc0?t=1887).

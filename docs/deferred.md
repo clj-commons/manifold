@@ -165,3 +165,37 @@ but not this:
 In this example, `c` is declared within a normal `let` binding, and as such we can't treat it as if it were realized.
 
 It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's goroutines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a goroutine are inherently sequential.
+
+### `manifold.deferred/loop`
+
+Manifold also provides a `loop` macro, which allows for asynchronous loops to be defined.  Consider `manifold.stream/consume`, which allows a function to be invoked with each new message from a stream.  We can implement similar behavior like so:
+
+```clj
+(require
+  '[manifold.deferred :as d]
+  '[manifold.stream :as s])
+
+(defn my-consume [f stream]
+  (d/loop []
+    (d/chain (s/take! stream ::drained)
+
+      ;; if we got a message, run it through `f`
+      (fn [msg]
+        (if (identical? ::drained msg)
+          ::drained
+          (f msg)))
+
+      ;; wait for the result from `f` to be realized, and
+      ;; recur, unless the stream is already drained
+      (fn [result]
+        (when-not (identical? ::drained result)
+          (d/recur))))))
+ ```
+
+Here we define a loop which takes messages one at a time from `stream`, and passes them into `f`.  If `f` returns an unrealized value, the loop will pause until it's realized.  To recur, we make sure the value returned from the final stage is `(manifold.deferred/recur & args)`, which will cause the loop to begin again from the top.
+
+While Manifold doesn't provide anything as general purpsoe as core.async's `go` macro, the combination of `loop` and `let-flow` can allow for the specification of highly intricate asynchronous workflows.
+
+### custom execution models
+
+Both deferreds and sreams allow for custom execution models to be specified.  To learn more, [go here](/docs/execution.md).
