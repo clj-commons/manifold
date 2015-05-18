@@ -5,10 +5,10 @@
     [manifold.utils :as utils]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold.deferred :refer :all]))
+    [manifold.deferred :as d]))
 
 (defmacro future' [& body]
-  `(future
+  `(d/future
      (Thread/sleep 10)
      (try
        ~@body
@@ -17,7 +17,7 @@
 
 (defn future-error
   [ex]
-  (future
+  (d/future
     (Thread/sleep 10)
     (throw ex)))
 
@@ -26,7 +26,7 @@
     (capture-success result true))
   ([result expected-return-value]
     (let [p (promise)]
-      (on-realized result
+      (d/on-realized result
         #(do (deliver p %) expected-return-value)
         (fn [_] (throw (Exception. "ERROR"))))
       p)))
@@ -36,7 +36,7 @@
     (capture-error result true))
   ([result expected-return-value]
     (let [p (promise)]
-      (on-realized result
+      (d/on-realized result
         (fn [_] (throw (Exception. "SUCCESS")))
         #(do (deliver p %) expected-return-value))
       p)))
@@ -44,27 +44,29 @@
 (deftest test-let-flow
   (is (= 5
         @(let [z (clojure.core/future 1)]
-           (let-flow [x (future (clojure.core/future z))
-                      y (future (+ z x))]
-             (future (+ x x y z))))))
+           (d/let-flow [x (d/future (clojure.core/future z))
+                        y (d/future (+ z x))]
+             (d/future (+ x x y z))))))
 
   (is (= 2
-        @(let [d (deferred)]
-           (let-flow [[x] (future' [1])]
-             (let-flow [[x'] (future' [(inc x)])
-                        y (future' true)]
+        @(let [d (d/deferred)]
+           (d/let-flow [[x] (future' [1])]
+             (d/let-flow [[x'] (future' [(inc x)])
+                          y (future' true)]
                (when y x')))))))
 
 (deftest test-chain-errors
   (let [boom (fn [n] (throw (ex-info "" {:n n})))]
-    (doseq [b [boom (fn [n] (future (boom n)))]]
+    (doseq [b [boom (fn [n] (d/future (boom n)))]]
       (dorun
         (for [i (range 10)
               j (range 10)]
           (let [fs (concat (repeat i inc) [boom] (repeat j inc))]
             (is (= i
-                  @(-> (apply chain 0 fs)
-                     (catch (fn [e] (:n (ex-data e)))))))))))))
+                  @(-> (apply d/chain 0 fs)
+                     (d/catch (fn [e] (:n (ex-data e)))))
+                  @(-> (apply d/chain' 0 fs)
+                     (d/catch' (fn [e] (:n (ex-data e)))))))))))))
 
 (deftest test-chain
   (dorun
@@ -73,134 +75,134 @@
       (let [fs (take i (cycle [inc #(* % 2)]))
             fs' (-> fs
                   vec
-                  (update-in [j] (fn [f] #(future %))))]
+                  (update-in [j] (fn [f] #(d/future %))))]
         (is
           (= (reduce #(%2 %1) 0 fs)
-            @(apply chain 0 fs)
-            @(apply chain' 0 fs)))))))
+            @(apply d/chain 0 fs)
+            @(apply d/chain' 0 fs)))))))
 
 (deftest test-deferred
   ;; success!
-  (let [d (deferred)]
-    (is (= true (success! d 1)))
+  (let [d (d/deferred)]
+    (is (= true (d/success! d 1)))
     (is (= 1 @(capture-success d)))
     (is (= 1 @d)))
 
   ;; claim and success!
-  (let [d (deferred)
-        token (claim! d)]
+  (let [d (d/deferred)
+        token (d/claim! d)]
     (is token)
-    (is (= false (success! d 1)))
-    (is (= true (success! d 1 token)))
+    (is (= false (d/success! d 1)))
+    (is (= true (d/success! d 1 token)))
     (is (= 1 @(capture-success d)))
     (is (= 1 @d)))
 
   ;; error!
-  (let [d (deferred)
+  (let [d (d/deferred)
         ex (IllegalStateException. "boom")]
-    (is (= true (error! d ex)))
+    (is (= true (d/error! d ex)))
     (is (= ex @(capture-error d ::return)))
     (is (thrown? IllegalStateException @d)))
 
   ;; claim and error!
-  (let [d (deferred)
+  (let [d (d/deferred)
         ex (IllegalStateException. "boom")
-        token (claim! d)]
+        token (d/claim! d)]
     (is token)
-    (is (= false (error! d ex)))
-    (is (= true (error! d ex token)))
+    (is (= false (d/error! d ex)))
+    (is (= true (d/error! d ex token)))
     (is (= ex @(capture-error d ::return)))
     (is (thrown? IllegalStateException (deref d 1000 ::timeout))))
 
   ;; test deref with delayed result
-  (let [d (deferred)]
-    (future' (success! d 1))
+  (let [d (d/deferred)]
+    (future' (d/success! d 1))
     (is (= 1 (deref d 1000 ::timeout))))
 
   ;; test deref with delayed error result
-  (let [d (deferred)]
-    (future' (error! d (IllegalStateException. "boom")))
+  (let [d (d/deferred)]
+    (future' (d/error! d (IllegalStateException. "boom")))
     (is (thrown? IllegalStateException (deref d 1000 ::timeout))))
 
   ;; multiple callbacks w/ success
   (let [n 50
-        d (deferred)
+        d (d/deferred)
         callback-values (->> (range n)
-                          (map (fn [_] (future (capture-success d))))
+                          (map (fn [_] (d/future (capture-success d))))
                           (map deref)
                           doall)]
-    (is (= true (success! d 1)))
+    (is (= true (d/success! d 1)))
     (is (= 1 (deref d 1000 ::timeout)))
     (is (= (repeat n 1) (map deref callback-values))))
 
   ;; multiple callbacks w/ error
   (let [n 50
-        d (deferred)
+        d (d/deferred)
         callback-values (->> (range n)
-                          (map (fn [_] (future (capture-error d))))
+                          (map (fn [_] (d/future (capture-error d))))
                           (map deref)
                           doall)
         ex (Exception.)]
-    (is (= true (error! d ex)))
+    (is (= true (d/error! d ex)))
     (is (thrown? Exception (deref d 1000 ::timeout)))
     (is (= (repeat n ex) (map deref callback-values))))
 
   ;; cancel listeners
-  (let [l (listener (constantly :foo) nil)
-        d (deferred)]
-    (is (= false (cancel-listener! d l)))
-    (is (= true (add-listener! d l)))
-    (is (= true (cancel-listener! d l)))
-    (is (= true (success! d :foo)))
+  (let [l (d/listener (constantly :foo) nil)
+        d (d/deferred)]
+    (is (= false (d/cancel-listener! d l)))
+    (is (= true (d/add-listener! d l)))
+    (is (= true (d/cancel-listener! d l)))
+    (is (= true (d/success! d :foo)))
     (is (= :foo @(capture-success d)))
-    (is (= false (cancel-listener! d l))))
+    (is (= false (d/cancel-listener! d l))))
 
   ;; deref
-  (let [d (deferred)]
+  (let [d (d/deferred)]
     (is (= :foo (deref d 10 :foo)))
-    (success! d 1)
+    (d/success! d 1)
     (is (= 1 @d))
     (is (= 1 (deref d 10 :foo)))))
 
 (deftest test-loop
   ;; body produces a non-deferred value
   (is @(capture-success
-         (loop [] true)))
+         (d/loop [] true)))
 
   ;; body raises exception
   (let [ex (Exception.)]
     (is (= ex @(capture-error
-                 (loop [] (throw ex))))))
+                 (d/loop [] (throw ex))))))
 
   ;; body produces a realized result
   (is @(capture-success
-         (loop [] (success-deferred true))))
+         (d/loop [] (d/success-deferred true))))
 
   ;; body produces a realized error result
   (let [ex (Exception.)]
     (is (= ex @(capture-error
-                 (loop [] (error-deferred ex))))))
+                 (d/loop [] (d/error-deferred ex))))))
 
   ;; body produces a delayed result
   (is @(capture-success
-         (loop [] (future' true))))
+         (d/loop [] (future' true))))
 
   ;; body produces a delayed error result
   (let [ex (Exception.)]
     (is (= ex @(capture-error
-                 (loop [] (future-error ex)))))))
+                 (d/loop [] (future-error ex)))))))
 
 (deftest test-coercion
-  (is (= 1 (-> 1 clojure.core/future ->deferred deref)))
+  (is (= 1 (-> 1 clojure.core/future d/->deferred deref)))
 
   (utils/when-class java.util.concurrent.CompletableFuture
     (let [f (java.util.concurrent.CompletableFuture.)]
       (.obtrudeValue f 1)
-      (is (= 1 (-> f ->deferred deref))))
+      (is (= 1 (-> f d/->deferred deref))))
 
     (let [f (java.util.concurrent.CompletableFuture.)]
       (.obtrudeException f (Exception.))
-      (is (thrown? Exception (-> f ->deferred deref))))))
+      (is (thrown? Exception (-> f d/->deferred deref))))))
 
 ;;;
 
@@ -208,89 +210,89 @@
   (bench "invoke comp x1"
     ((comp inc) 0))
   (bench "chain x1"
-    @(chain 0 inc))
+    @(d/chain 0 inc))
   (bench "chain' x1"
-    @(chain' 0 inc))
+    @(d/chain' 0 inc))
   (bench "invoke comp x2"
     ((comp inc inc) 0))
   (bench "chain x2"
-    @(chain 0 inc inc))
+    @(d/chain 0 inc inc))
   (bench "chain' x2"
-    @(chain' 0 inc inc))
+    @(d/chain' 0 inc inc))
   (bench "invoke comp x5"
     ((comp inc inc inc inc inc) 0))
   (bench "chain x5"
-    @(chain 0 inc inc inc inc inc))
+    @(d/chain 0 inc inc inc inc inc))
   (bench "chain' x5"
-    @(chain' 0 inc inc inc inc inc)))
+    @(d/chain' 0 inc inc inc inc inc)))
 
 (deftest ^:benchmark benchmark-deferred
   (bench "create deferred"
-    (deferred))
+    (d/deferred))
   (bench "add-listener and success"
-    (let [d (deferred)]
-      (add-listener! d (listener (fn [_]) nil))
-      (success! d 1)))
+    (let [d (d/deferred)]
+      (d/add-listener! d (d/listener (fn [_]) nil))
+      (d/success! d 1)))
   (bench "add-listener, claim, and success!"
-    (let [d (deferred)]
-      (add-listener! d (listener (fn [_]) nil))
-      (success! d 1 (claim! d))))
+    (let [d (d/deferred)]
+      (d/add-listener! d (d/listener (fn [_]) nil))
+      (d/success! d 1 (d/claim! d))))
   (bench "add-listener!, cancel, add-listener! and success"
-    (let [d (deferred)]
-      (let [callback (listener (fn [_]) nil)]
-        (add-listener! d callback)
-        (cancel-listener! d callback))
-      (add-listener! d (listener (fn [_]) nil))
-      (success! d 1)))
+    (let [d (d/deferred)]
+      (let [callback (d/listener (fn [_]) nil)]
+        (d/add-listener! d callback)
+        (d/cancel-listener! d callback))
+      (d/add-listener! d (d/listener (fn [_]) nil))
+      (d/success! d 1)))
   (bench "multi-add-listener! and success"
-    (let [d (deferred)]
-      (add-listener! d (listener (fn [_]) nil))
-      (add-listener! d (listener (fn [_]) nil))
-      (success! d 1)))
+    (let [d (d/deferred)]
+      (d/add-listener! d (d/listener (fn [_]) nil))
+      (d/add-listener! d (d/listener (fn [_]) nil))
+      (d/success! d 1)))
   (bench "multi-add-listener!, cancel, and success"
-    (let [d (deferred)]
-      (add-listener! d (listener (fn [_]) nil))
-      (let [callback (listener (fn [_]) nil)]
-        (add-listener! d callback)
-        (cancel-listener! d callback))
-      (success! d 1)))
+    (let [d (d/deferred)]
+      (d/add-listener! d (d/listener (fn [_]) nil))
+      (let [callback (d/listener (fn [_]) nil)]
+        (d/add-listener! d callback)
+        (d/cancel-listener! d callback))
+      (d/success! d 1)))
   (bench "success! and add-listener!"
-    (let [d (deferred)]
-      (success! d 1)
-      (add-listener! d (listener (fn [_]) nil))))
+    (let [d (d/deferred)]
+      (d/success! d 1)
+      (d/add-listener! d (d/listener (fn [_]) nil))))
   (bench "claim, success!, and add-listener!"
-    (let [d (deferred)]
-      (success! d 1 (claim! d))
-      (add-listener! d (listener (fn [_]) nil))))
+    (let [d (d/deferred)]
+      (d/success! d 1 (d/claim! d))
+      (d/add-listener! d (d/listener (fn [_]) nil))))
   (bench "success! and deref"
-    (let [d (deferred)]
-      (success! d 1)
+    (let [d (d/deferred)]
+      (d/success! d 1)
       @d))
   (bench "deliver and deref"
-    (let [d (deferred)]
+    (let [d (d/deferred)]
       (deliver d 1)
       @d)))
 
 (deftest ^:stress test-error-leak-detection
 
-  (error-deferred (Throwable.))
+  (d/error-deferred (Throwable.))
   (System/gc)
 
   (dotimes [_ 2e3]
-    (error! (deferred) (Throwable.)))
+    (d/error! (d/deferred) (Throwable.)))
   (System/gc))
 
 (deftest ^:stress test-deferred-chain
   (dotimes [_ 1e4]
-    (let [d (deferred)
-          result (future
+    (let [d (d/deferred)
+          result (d/future
                    (last
                      (take 1e4
                        (iterate
-                         #(let [d' (deferred)]
-                            (connect % d')
+                         #(let [d' (d/deferred)]
+                            (d/connect % d')
                             d')
                          d))))]
       (Thread/sleep (rand-int 10))
-      (success! d 1)
+      (d/success! d 1)
       (is (= 1 @@result)))))
