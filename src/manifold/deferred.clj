@@ -82,7 +82,7 @@
   [x on-success on-error]
   `(let [^manifold.deferred.IDeferred x# ~x]
      (.onRealized x# ~on-success ~on-error)
-     ~x))
+     x#))
 
 (definline deferred?
   "Returns true if the object is an instance of a Manifold deferred."
