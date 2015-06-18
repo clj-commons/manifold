@@ -23,6 +23,18 @@
         source (s/->source x)
         vs (range 1e4)]
 
+    (reset-meta! sink nil)
+    (is (= nil (meta sink)))
+    (reset-meta! sink {1 2})
+    (alter-meta! sink assoc 3 4)
+    (is (= {1 2 3 4} (meta sink)))
+
+    (reset-meta! source nil)
+    (is (= nil (meta source)))
+    (reset-meta! source {1 2})
+    (alter-meta! source assoc 3 4)
+    (is (= {1 2 3 4} (meta source)))
+
     (future
       (doseq [x vs]
         (try

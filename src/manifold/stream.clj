@@ -367,7 +367,20 @@
 
 (deftype SplicedStream
   [^IEventSink sink
-   ^IEventSource source]
+   ^IEventSource source
+   ^:volatile-mutable mta
+   lock]
+
+  clojure.lang.IReference
+  (resetMeta [_ m]
+    (utils/with-lock* lock
+      (set! mta m)))
+  (alterMeta [_ f args]
+    (utils/with-lock* lock
+      (set! mta (apply f mta args))))
+  clojure.lang.IObj
+  (meta [_] mta)
+
 
   IEventStream
   (isSynchronous [_]
@@ -411,7 +424,7 @@
   "Splices together two halves of a stream, such that all messages enqueued via `put!` go
    into `sink`, and all messages dequeued via `take!` come from `source`."
   [sink source]
-  (SplicedStream. (->sink sink) (->source source)))
+  (SplicedStream. (->sink sink) (->source source) nil (utils/mutex)))
 
 ;;;
 

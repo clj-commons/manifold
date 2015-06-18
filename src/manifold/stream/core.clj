@@ -75,7 +75,14 @@
 ;;;
 
 (def ^:private default-stream-impls
-  `((~'downstream [this#] (manifold.stream.graph/downstream this#))
+  `((meta [_#] ~'__mta)
+    (resetMeta [_ m#]
+      (manifold.utils/with-lock* ~'lock
+        (set! ~'__mta m#)))
+    (alterMeta [_ f# args#]
+      (manifold.utils/with-lock* ~'lock
+        (set! ~'__mta (apply f# ~'__mta args#))))
+    (~'downstream [this#] (manifold.stream.graph/downstream this#))
      (~'weakHandle [this# ref-queue#]
        (manifold.utils/with-lock ~'lock
          (or ~'__weakHandle
@@ -84,9 +91,11 @@
 
 (def ^:private sink-params
   '[lock
+    ^:volatile-mutable __mta
     ^:volatile-mutable __isClosed
     ^java.util.LinkedList __closedCallbacks
-    ^:volatile-mutable __weakHandle])
+    ^:volatile-mutable __weakHandle
+    ^:volatile-mutable __mta])
 
 (def ^:private default-sink-impls
   `[(~'close [this#] (.markClosed this#))
@@ -103,6 +112,7 @@
 
 (def ^:private source-params
   '[lock
+    ^:volatile-mutable __mta
     ^:volatile-mutable __isDrained
     ^java.util.LinkedList __drainedCallbacks
     ^:volatile-mutable __weakHandle])
@@ -133,11 +143,13 @@
        ~(vec (distinct (concat params source-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSource
+       clojure.lang.IObj
+       clojure.lang.IReference
        ~@(merged-body default-stream-impls default-source-impls body))
 
      (defn ~(with-meta (symbol (str "->" name)) {:private true})
        [~@(map #(with-meta % nil) params)]
-       (new ~name ~@params (manifold.utils/mutex) false (java.util.LinkedList.) nil))))
+       (new ~name ~@params (manifold.utils/mutex) nil false (java.util.LinkedList.) nil))))
 
 (defmacro def-sink [name params & body]
   `(do
@@ -145,11 +157,13 @@
        ~(vec (distinct (concat params sink-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSink
+       clojure.lang.IObj
+       clojure.lang.IReference
        ~@(merged-body default-stream-impls default-sink-impls body))
 
      (defn ~(with-meta (symbol (str "->" name)) {:private true})
        [~@(map #(with-meta % nil) params)]
-       (new ~name ~@params (manifold.utils/mutex) false (java.util.LinkedList.) nil))))
+       (new ~name ~@params (manifold.utils/mutex) nil false (java.util.LinkedList.) nil))))
 
 (defmacro def-sink+source [name params & body]
   `(do
@@ -158,8 +172,10 @@
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSink
        manifold.stream.core.IEventSource
+       clojure.lang.IObj
+       clojure.lang.IReference
        ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
 
      (defn ~(with-meta (symbol (str "->" name)) {:private true})
        [~@(map #(with-meta % nil) params)]
-       (new ~name ~@params (manifold.utils/mutex) false (java.util.LinkedList.) nil false (java.util.LinkedList.)))))
+       (new ~name ~@params (manifold.utils/mutex) nil false (java.util.LinkedList.) nil false (java.util.LinkedList.)))))
