@@ -772,6 +772,103 @@
 
 ;;;
 
+(deftype BufferedStream
+  [buf
+   limit
+   metric
+   description
+   ^AtomicLong buffer-size
+   ^AtomicReference last-put
+   buf+
+   handle
+   mta]
+
+  clojure.lang.IObj
+  (meta [_] @mta)
+  clojure.lang.IReference
+  (resetMeta [_ m]
+    (reset! mta m))
+  (alterMeta [_ f args]
+    (apply swap! mta f args))
+
+  IEventStream
+  (isSynchronous [_]
+    false)
+  (downstream [this]
+    (manifold.stream.graph/downstream this))
+  (close [_]
+    (.close ^IEventStream buf))
+  (description [_]
+    (description
+      (merge
+        (manifold.stream/description buf)
+        {:buffer-size (.get buffer-size)
+         :buffer-capacity limit})))
+  (weakHandle [this ref-queue]
+    (or @handle
+      (do
+        (compare-and-set! handle nil (WeakReference. this ref-queue))
+        @handle)))
+
+  IEventSink
+  (put [_ x blocking?]
+    (buf+ (metric x))
+    (.put ^IEventSink buf x blocking?)
+    (let [val (.get last-put)]
+      (if blocking?
+        @val
+        val)))
+  (put [_ x blocking? timeout timeout-val]
+    ;; TODO: this doesn't realy time out, because that would
+    ;; require consume-side filtering of messages
+    (buf+ (metric x))
+    (.put ^IEventSink buf x blocking? timeout timeout-val)
+    (let [val (.get last-put)]
+      (if blocking?
+        @val
+        val)))
+  (isClosed [_]
+    (.isClosed ^IEventSink buf))
+  (onClosed [_ callback]
+    (.onClosed ^IEventSink buf callback))
+
+  IEventSource
+  (take [_ default-val blocking?]
+    (let [val (d/chain' (.take ^IEventSource buf default-val blocking?)
+                (fn [x]
+                  (if (identical? default-val x)
+                    x
+                    (do
+                      (buf+ (- (metric x)))
+                      x))))]
+      (if blocking?
+        @val
+        val)))
+  (take [_ default-val blocking? timeout timeout-val]
+    (let [val (d/chain' (.take ^IEventSource buf default-val blocking? timeout ::timeout)
+                (fn [x]
+                  (cond
+
+                    (identical? ::timeout x)
+                    timeout-val
+
+                    (identical? default-val x)
+                    x
+
+                    :else
+                    (do
+                      (buf+ (- (metric x)))
+                      x))))]
+      (if blocking?
+        @val
+        val)))
+  (isDrained [_]
+    (.isDrained ^IEventSource buf))
+  (onDrained [_ callback]
+    (.onDrained ^IEventSource buf callback))
+  (connector [_ sink]
+    (.connector ^IEventSource buf sink)))
+
 (defn buffered-stream
   "A stream which will buffer at most `limit` data, where the size of each message
    is defined by `(metric message)`."
@@ -794,87 +891,18 @@
 
                          (and (< limit buf) (<= buf' limit))
                          (d/success! (.get last-put) true))
-                       (recur)))))
-          handle (atom nil)]
+                       (recur)))))]
 
-      (reify
-        IEventStream
-        (isSynchronous [_]
-          false)
-        (downstream [this]
-          (manifold.stream.graph/downstream this))
-        (close [_]
-          (.close ^IEventStream buf))
-        (description [_]
-          (description
-            (merge
-              (manifold.stream/description buf)
-              {:buffer-size (.get buffer-size)
-               :buffer-capacity limit})))
-        (weakHandle [this ref-queue]
-          (or @handle
-            (do
-              (compare-and-set! handle nil (WeakReference. this ref-queue))
-              @handle)))
-
-        IEventSink
-        (put [_ x blocking?]
-          (buf+ (metric x))
-          (.put ^IEventSink buf x blocking?)
-          (let [val (.get last-put)]
-            (if blocking?
-              @val
-              val)))
-        (put [_ x blocking? timeout timeout-val]
-           ;; TODO: this doesn't realy time out, because that would
-           ;; require consume-side filtering of messages
-          (buf+ (metric x))
-          (.put ^IEventSink buf x blocking? timeout timeout-val)
-          (let [val (.get last-put)]
-            (if blocking?
-              @val
-              val)))
-        (isClosed [_]
-          (.isClosed ^IEventSink buf))
-        (onClosed [_ callback]
-          (.onClosed ^IEventSink buf callback))
-
-        IEventSource
-        (take [_ default-val blocking?]
-          (let [val (d/chain' (.take ^IEventSource buf default-val blocking?)
-                      (fn [x]
-                        (if (identical? default-val x)
-                          x
-                          (do
-                            (buf+ (- (metric x)))
-                            x))))]
-            (if blocking?
-              @val
-              val)))
-        (take [_ default-val blocking? timeout timeout-val]
-          (let [val (d/chain' (.take ^IEventSource buf default-val blocking? timeout ::timeout)
-                      (fn [x]
-                        (cond
-
-                          (identical? ::timeout x)
-                          timeout-val
-
-                          (identical? default-val x)
-                          x
-
-                          :else
-                          (do
-                            (buf+ (- (metric x)))
-                            x))))]
-            (if blocking?
-              @val
-              val)))
-        (isDrained [_]
-          (.isDrained ^IEventSource buf))
-        (onDrained [_ callback]
-          (.onDrained ^IEventSource buf callback))
-        (connector [_ sink]
-          (.connector ^IEventSource buf sink))))))
+      (BufferedStream.
+        buf
+        limit
+        metric
+        description
+        buffer-size
+        last-put
+        buf+
+        (atom nil)
+        (atom nil)))))
 
 
 (defn buffer
