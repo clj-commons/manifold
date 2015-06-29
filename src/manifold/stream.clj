@@ -995,7 +995,7 @@
            (fn [result]
              (when result
                (let [elapsed (double (- (System/currentTimeMillis) read-start))
-                     backlog' (+ backlog (- (/ elapsed period) 1))]
+                     backlog' (min (+ backlog (- (/ elapsed period) 1)) max-backlog)]
                  (if (<= 1 backlog')
                    (- backlog' 1.0)
                    (d/timeout! (d/deferred) (- period elapsed) 0.0)))))
