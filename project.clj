@@ -1,4 +1,4 @@
-(defproject manifold "0.1.1-alpha2"
+(defproject manifold "0.1.1-alpha3"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -17,7 +17,7 @@
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
   :plugins [[codox "0.8.10"]
-            [lein-jammin "0.1.1-SNAPSHOT"]
+            [lein-jammin "0.1.1"]
             [ztellman/lein-cljfmt "0.1.10"]]
   :cljfmt {:indents {#".*" [[:inner 0]]}}
   :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"

@@ -273,7 +273,7 @@
   (let [cnt (atom 0)
         f (fn [idx]
             (swap! cnt inc)
-            (future
+            (d/future
               (range (* idx 10) (+ 10 (* idx 10)))))]
     (is (= (range 10)
           (->> (range)

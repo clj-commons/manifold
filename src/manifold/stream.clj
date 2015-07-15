@@ -580,11 +580,11 @@
     (connect-via s
       (fn [msg]
         (-> msg
-          (d/chain #(put! s' %))
-          (d/catch (fn [e]
-                     (log/error e "deferred realized as error, closing stream")
-                     (close! s')
-                     false))))
+          (d/chain' #(put! s' %))
+          (d/catch' (fn [e]
+                      (log/error e "deferred realized as error, closing stream")
+                      (close! s')
+                      false))))
       s'
       {:description {:op "realize-each"}})
     (source-only s')))
@@ -654,12 +654,13 @@
                     (fn [x]
                       (reset! val x)
                       (put! s' x)))
-                  (d/catch (fn [e]
-                             (log/error e "error in reductions")
-                             (close! s)
+                  (d/catch' (fn [e]
+                              (log/error e "error in reductions")
+                              (close! s)
                              false)))))
             s')))
-      s')))
+
+      (source-only s'))))
 
 (defn reduce
   "Equivalent to Clojure's `reduce`, but returns a deferred representing the return value."
@@ -679,7 +680,7 @@
                             (if (identical? ::none x)
                               (d/success! d val)
                               (d/recur (f val x)))))
-                (d/catch Throwable (fn [e] (d/error! d val))))))))
+                (d/catch' Throwable (fn [e] (d/error! d val))))))))
       d)))
 
 (defn mapcat
@@ -737,7 +738,7 @@
                       (fn [_] (put! s'' msg))
                       (fn [_] (d/recur curr s'')))))))))))
 
-    out))
+    (source-only out)))
 
 (defn concat
   "Takes a stream of streams, and flattens it into a single stream."
@@ -768,7 +769,8 @@
         (fn [result]
           (when-not (identical? ::none result)
             (d/recur)))))
-    out))
+
+    (source-only out)))
 
 ;;;
 
@@ -1004,7 +1006,7 @@
              (when backlog
                (d/recur backlog (System/currentTimeMillis))))))
 
-       s')))
+       (source-only s'))))
 
 ;;;
 

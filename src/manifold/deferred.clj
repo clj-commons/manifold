@@ -576,12 +576,13 @@
 
 (defn success-deferred
   "A deferred which already contains a realized value"
-  #_{:inline (fn [val]
-             (cond
-               (true? val)   'manifold.deferred/true-deferred-
-               (false? val)  'manifold.deferred/false-deferred-
-               (nil? val)    'manifold.deferred/nil-deferred-
-               :else         `(SuccessDeferred. ~val nil nil)))
+  #_{:inline
+     (fn [val]
+       (cond
+         (true? val)   'manifold.deferred/true-deferred-
+         (false? val)  'manifold.deferred/false-deferred-
+         (nil? val)    'manifold.deferred/nil-deferred-
+         :else         `(SuccessDeferred. ~val nil nil)))
    :inline-arities #{1}}
   ([val]
      (SuccessDeferred. val nil (ex/executor)))
@@ -650,7 +651,7 @@
    and returns a Manifold deferred."
   [executor & body]
   `(let [d# (deferred)]
-     (utils/future-with ~executor
+     (manifold.utils/future-with ~executor
        (try
          (success! d# (do ~@body))
          (catch Throwable e#
@@ -701,170 +702,194 @@
         ~v
         0))))
 
-(defn ^:no-doc chain'-
-  ([d x]
-     (try
-       (let [x' (unwrap' x)]
+(let [;; factored out for greater inlining joy
+      subscribe (fn
+                  ([this d x]
+                     (let [d (or d (deferred))]
+                       (on-realized x
+                         #(this d %)
+                         #(error! d %))
+                       d))
+                  ([this d x f]
+                     (let [d (or d (deferred))]
+                       (on-realized x
+                         #(this d % f)
+                         #(error! d %))
+                       d))
+                  ([this d x f g]
+                     (let [d (or d (deferred))]
+                       (on-realized x
+                         #(this d % f g)
+                         #(error! d %))
+                       d)))]
 
-         (if (deferred? x')
-           (let [d (or d (deferred))]
-             (on-realized x'
-               #(chain'- d %)
-               #(error! d %))
-             d)
-
-           (if (nil? d)
-             (success-deferred x')
-             (success! d x'))))
-       (catch Throwable e
-         (if (nil? d)
-           (error-deferred e)
-           (error! d e)))))
-  ([d x f]
-     (try
-       (let [x' (unwrap' x)]
-
-         (if (deferred? x')
-           (let [d (or d (deferred))]
-             (on-realized x'
-               #(chain'- d % f)
-               #(error! d %))
-             d)
-
-           (let [x'' (f x')]
-             (if (deferred? x'')
-               (chain'- d x'')
-               (if (nil? d)
-                 (success-deferred x'')
-                 (success! d x''))))))
-       (catch Throwable e
-         (if (nil? d)
-           (error-deferred e)
-           (error! d e)))))
-  ([d x f g]
-    (try
-      (let [x' (unwrap' x)]
-
-        (if (deferred? x')
-          (let [d (or d (deferred))]
-            (on-realized x'
-              #(chain'- d % f g)
-              #(error! d %))
-            d)
-
-          (let [x'' (f x')]
-            (if (deferred? x'')
-              (chain'- d x'' g)
-              (let [x''' (g x'')]
-                (if (deferred? x''')
-                  (chain'- d x''')
-                  (if (nil? d)
-                    (success-deferred x''')
-                    (success! d x'''))))))))
-      (catch Throwable e
-        (if (nil? d)
-          (error-deferred e)
-          (error! d e)))))
-  ([d x f g & fs]
-    (when (or (nil? d) (not (realized? d)))
-      (let [d (or d (deferred))]
-        (clojure.core/loop [x x, fs (list* f g fs)]
-          (if (empty? fs)
-            (success! d x)
-            (let [[f g & fs] fs
-                  d' (if (nil? g)
-                       (chain'- nil x f)
-                       (chain'- nil x f g))]
-              (success-error-unrealized d'
-                val (recur val fs)
-                err (error! d err)
-                (on-realized d'
-                  #(apply chain'- d % fs)
-                  #(error! d %))))))
-        d))))
-
-(defn ^:no-doc chain-
-  ([d x]
-     (let [x' (unwrap x)]
-
-       (if (deferred? x')
-         (let [d (or d (deferred))]
-           (on-realized x'
-             #(chain- d %)
-             #(error! d %))
-           d)
-
-         (if (nil? d)
-           (success-deferred x')
-           (success! d x')))))
-  ([d x f]
-     (if (or (nil? d) (not (realized? d)))
-       (try
-         (let [x' (unwrap x)]
-
-           (if (deferred? x')
-             (let [d (or d (deferred))]
-               (on-realized x'
-                 #(chain- d % f)
-                 #(error! d %))
-               d)
-
-             (let [x'' (f x')]
-               (if (deferrable? x'')
-                 (chain- d x'')
-                 (if (nil? d)
-                   (success-deferred x'')
-                   (success! d x''))))))
-         (catch Throwable e
-           (if (nil? d)
-             (error-deferred e)
-             (error! d e))))
-       d))
-  ([d x f g]
-    (if (or (nil? d) (not (realized? d)))
+  (defn ^:no-doc chain'-
+   ([d x]
       (try
-        (let [x' (unwrap x)]
+        (let [x' (unwrap' x)]
 
           (if (deferred? x')
-            (let [d (or d (deferred))]
-              (on-realized x'
-                #(chain- d % f g)
-                #(error! d %))
-              d)
+
+            (subscribe chain'- d x')
+
+            (if (nil? d)
+              (success-deferred x')
+              (success! d x'))))
+        (catch Throwable e
+          (if (nil? d)
+            (error-deferred e)
+            (error! d e)))))
+   ([d x f]
+      (try
+        (let [x' (unwrap' x)]
+
+          (if (deferred? x')
+
+            (subscribe chain'- d x' f)
 
             (let [x'' (f x')]
-              (if (deferrable? x'')
-                (chain- d x'' g)
+              (if (deferred? x'')
+                (chain'- d x'')
+                (if (nil? d)
+                  (success-deferred x'')
+                  (success! d x''))))))
+        (catch Throwable e
+          (if (nil? d)
+            (error-deferred e)
+            (error! d e)))))
+   ([d x f g]
+      (try
+        (let [x' (unwrap' x)]
+
+          (if (deferred? x')
+
+            (subscribe chain'- d x' f g)
+
+            (let [x'' (f x')]
+              (if (deferred? x'')
+                (chain'- d x'' g)
                 (let [x''' (g x'')]
-                  (if (deferrable? x''')
-                    (chain- d x''')
+                  (if (deferred? x''')
+                    (chain'- d x''')
                     (if (nil? d)
                       (success-deferred x''')
                       (success! d x'''))))))))
         (catch Throwable e
           (if (nil? d)
             (error-deferred e)
-            (error! d e))))
-      d))
-  ([d x f g & fs]
-    (when (or (nil? d) (not (realized? d)))
-      (let [d (or d (deferred))]
-        (clojure.core/loop [x x, fs (list* f g fs)]
-          (if (empty? fs)
-            (success! d x)
-            (let [[f g & fs] fs
-                  d' (deferred)
-                  _ (if (nil? g)
-                      (chain- d' x f)
-                      (chain- d' x f g))]
-              (if (realized? d')
-                (success-error-unrealized d
+            (error! d e)))))
+   ([d x f g & fs]
+      (when (or (nil? d) (not (realized? d)))
+        (let [d (or d (deferred))]
+          (clojure.core/loop [x x, fs (list* f g fs)]
+            (if (empty? fs)
+              (success! d x)
+              (let [[f g & fs] fs
+                    d' (if (nil? g)
+                         (chain'- nil x f)
+                         (chain'- nil x f g))]
+                (success-error-unrealized d'
                   val (recur val fs)
                   err (error! d err)
                   (on-realized d'
-                    #(apply chain- d % fs)
-                    #(error! d %)))))))
-        d))))
+                    #(apply chain'- d % fs)
+                    #(error! d %))))))
+          d)))))
+
+(let [;; factored out for greater inlining joy
+      subscribe (fn
+                  ([this d x]
+                     (let [d (or d (deferred))]
+                       (on-realized x
+                         #(this d %)
+                         #(error! d %))
+                       d))
+                  ([this d x f]
+                     (let [d (or d (deferred))]
+                       (on-realized x
+                         #(this d % f)
+                         #(error! d %))
+                       d))
+                  ([this d x f g]
+                     (let [d (or d (deferred))]
+                       (on-realized x
+                         #(this d % f g)
+                         #(error! d %))
+                       d)))]
+
+  (defn ^:no-doc chain-
+    ([d x]
+       (let [x' (unwrap x)]
+
+         (if (deferred? x')
+
+           (subscribe chain- d x')
+
+           (if (nil? d)
+             (success-deferred x')
+             (success! d x')))))
+    ([d x f]
+       (if (or (nil? d) (not (realized? d)))
+         (try
+           (let [x' (unwrap x)]
+
+             (if (deferred? x')
+
+               (subscribe chain- d x' f)
+
+               (let [x'' (f x')]
+                 (if (deferrable? x'')
+                   (chain- d x'')
+                   (if (nil? d)
+                     (success-deferred x'')
+                     (success! d x''))))))
+           (catch Throwable e
+             (if (nil? d)
+               (error-deferred e)
+               (error! d e))))
+         d))
+    ([d x f g]
+       (if (or (nil? d) (not (realized? d)))
+         (try
+           (let [x' (unwrap x)]
+
+             (if (deferred? x')
+
+               (subscribe chain- d x' f g)
+
+               (let [x'' (f x')]
+                 (if (deferrable? x'')
+                   (chain- d x'' g)
+                   (let [x''' (g x'')]
+                     (if (deferrable? x''')
+                       (chain- d x''')
+                       (if (nil? d)
+                         (success-deferred x''')
+                         (success! d x'''))))))))
+           (catch Throwable e
+             (if (nil? d)
+               (error-deferred e)
+               (error! d e))))
+         d))
+    ([d x f g & fs]
+       (when (or (nil? d) (not (realized? d)))
+         (let [d (or d (deferred))]
+           (clojure.core/loop [x x, fs (list* f g fs)]
+             (if (empty? fs)
+               (success! d x)
+               (let [[f g & fs] fs
+                     d' (deferred)
+                     _ (if (nil? g)
+                         (chain- d' x f)
+                         (chain- d' x f g))]
+                 (if (realized? d')
+                   (success-error-unrealized d
+                     val (recur val fs)
+                     err (error! d err)
+                     (on-realized d'
+                       #(apply chain- d % fs)
+                       #(error! d %)))))))
+           d)))))
 
 (defn chain'
   "Like `chain`, but does not coerce deferrable values.  This is useful both when coercion
