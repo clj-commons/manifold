@@ -118,7 +118,7 @@ Note that if a timeout is placed on a deferred returned by `chain`, the timeout 
 
 ### `future` vs `manifold.deferred/future`
 
-Clojure's futures can be treated as deferreds, as can Clojure's promises.  However, since both of these abstractions using a blocking dereference, in order for Manifold to treat it as an asynchronous deferred value it must allocate a thread.
+Clojure's futures can be treated as deferreds, as can Clojure's promises.  However, since both of these abstractions use a blocking dereference, in order for Manifold to treat it as an asynchronous deferred value it must allocate a thread.
 
 Wherever possible, use `manifold.deferred/deferred` instead of `promise`, and `manifold.deferred/future` instead of `future`.  They will behave identically to their Clojure counterparts (`deliver` can be used on a Manifold deferred, for instance), but allow for callbacks to be registered, so no additional threads are required.
 
@@ -194,7 +194,7 @@ Manifold also provides a `loop` macro, which allows for asynchronous loops to be
 
 Here we define a loop which takes messages one at a time from `stream`, and passes them into `f`.  If `f` returns an unrealized value, the loop will pause until it's realized.  To recur, we make sure the value returned from the final stage is `(manifold.deferred/recur & args)`, which will cause the loop to begin again from the top.
 
-While Manifold doesn't provide anything as general purpsoe as core.async's `go` macro, the combination of `loop` and `let-flow` can allow for the specification of highly intricate asynchronous workflows.
+While Manifold doesn't provide anything as general purpose as core.async's `go` macro, the combination of `loop` and `let-flow` can allow for the specification of highly intricate asynchronous workflows.
 
 ### custom execution models
 
