@@ -12,7 +12,9 @@
     (is (= false @(b/publish! b :bar 2)))
     (let [s (b/subscribe b :foo)
           d (b/publish! b :foo 2)]
+      (is (b/has-active? b))
       (is (= 2 @(s/take! s)))
       (is (= true @d))
       (s/close! s)
-      (is (= false @(b/publish! b :foo 2))))))
+      (is (= false @(b/publish! b :foo 2)))
+      (is (not (b/has-active? b))))))
