@@ -18,7 +18,8 @@
   (subscribe [topic])
   (downstream [topic])
   (publish [topic message])
-  (isActive [topic]))
+  (isActive [topic])
+  (hasActive []))
 
 (definline publish!
   "Publishes a message on the bus, returning a deferred result representing the message
@@ -42,6 +43,11 @@
   "Returns `true` if there are any subscribers to `topic`."
   [bus topic]
   `(.isActive ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic))
+
+(definline has-active?
+  "Returns `true` if there are any subscribers."
+  [bus]
+  `(.hasActive ~(with-meta bus {:tag "manifold.bus.IEventBus"})))
 
 (defn- conj' [ary x]
   (if (nil? ary)
@@ -114,4 +120,7 @@
           (seq (.get topic->subscribers topic)))
 
         (isActive [_ topic]
-          (boolean (.get topic->subscribers topic)))))))
+          (boolean (.get topic->subscribers topic)))
+
+        (hasActive [_]
+          (not (.isEmpty topic->subscribers)))))))
