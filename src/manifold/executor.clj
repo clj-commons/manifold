@@ -42,7 +42,8 @@
 
 ;;;
 
-(defn- stats->map
+(defn stats->map
+  "Converts a Dirigiste `Stats` object into a map of values onto quantiles."
   ([s]
     (stats->map s [0.5 0.9 0.95 0.99 0.999]))
   ([^Stats s quantiles]
@@ -137,7 +138,7 @@
   ([num-threads options]
     (instrumented-executor
       (-> options
-        (update :queue-length #(or % Integer/MAX_VALUE))
+        (update-in [:queue-length] #(or % Integer/MAX_VALUE))
         (assoc
           :max-threads num-threads
           :controller (reify Executor$Controller
@@ -152,6 +153,8 @@
    default has an unbounded number of threads."
   ([utilization]
     (utilization-executor utilization Integer/MAX_VALUE nil))
+  ([utilization max-threads]
+    (utilization-executor utilization max-threads nil))
   ([utilization max-threads options]
     (instrumented-executor
       (assoc options

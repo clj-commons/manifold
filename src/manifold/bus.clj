@@ -15,6 +15,7 @@
 (set! *unchecked-math* true)
 
 (definterface IEventBus
+  (snapshot [])
   (subscribe [topic])
   (downstream [topic])
   (publish [topic message])
@@ -42,6 +43,10 @@
   "Returns `true` if there are any subscribers to `topic`."
   [bus topic]
   `(.isActive ~(with-meta bus {:tag "manifold.bus.IEventBus"}) ~topic))
+
+(definline topic->subscribers
+  [bus]
+  `(.snapshot ~(with-meta bus {:tag "manifold.bus.IEventBus"})))
 
 (defn- conj' [ary x]
   (if (nil? ary)
@@ -76,6 +81,14 @@
   ([stream-generator]
     (let [topic->subscribers (ConcurrentHashMap.)]
       (reify IEventBus
+
+        (snapshot [_]
+          (->> topic->subscribers
+            (map
+              (fn [[topic subscribers]]
+                (clojure.lang.MapEntry. topic (into [] subscribers))))
+            (into {})))
+
         (subscribe [_ topic]
           (let [s (stream-generator)]
 

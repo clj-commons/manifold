@@ -1,4 +1,4 @@
-(defproject manifold "0.1.1-alpha3"
+(defproject manifold "0.1.1-SNAPSHOT"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -7,7 +7,7 @@
                  [io.aleph/dirigiste "0.1.1"]
                  [riddley "0.1.10"]]
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
-                                  [org.clojure/clojure "1.7.0-RC1"]
+                                  [org.clojure/clojure "1.7.0"]
                                   [criterium "0.4.3"]
                                   [org.clojure/core.async "0.1.346.0-17112a-alpha"]]}}
   :test-selectors {:default #(not

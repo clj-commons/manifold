@@ -197,7 +197,7 @@
   `(.isSynchronous ~(with-meta x {:tag "manifold.stream.core.IEventStream"})))
 
 (definline close!
-  "Closes an event sink, so that it can't accept any more messages."
+  "Closes a source or sink, so that it can't emit or accept any more messages."
   [sink]
   `(.close ~(with-meta sink {:tag "manifold.stream.core.IEventStream"})))
 

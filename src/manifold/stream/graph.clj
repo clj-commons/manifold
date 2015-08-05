@@ -229,9 +229,11 @@
 
                 (do
                   (.remove graph (s/weak-handle source))
-                  (doseq [^Downstream d (iterator-seq i)]
-                    (when (.downstream? d)
-                      (s/close! (.sink d)))))
+                  (loop []
+                    (when (.hasNext i)
+                      (let [^Downstream d (.next i)]
+                        (when (.downstream? d)
+                          (s/close! (.sink d)))))))
 
                 (do
                   (loop []

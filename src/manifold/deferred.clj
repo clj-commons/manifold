@@ -535,7 +535,7 @@
     (set! consumed? true)
     (if (nil? executor)
       (on-error error)
-      (.execute executor #(on-error executor))))
+      (.execute executor #(on-error error))))
   (successValue [_ default-value]
     default-value)
   (errorValue [_ default-value]
