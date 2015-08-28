@@ -75,11 +75,11 @@
       (let [fs (take i (cycle [inc #(* % 2)]))
             fs' (-> fs
                   vec
-                  (update-in [j] (fn [f] #(d/future %))))]
+                  (update-in [j] (fn [f] #(d/future (f %)))))]
         (is
           (= (reduce #(%2 %1) 0 fs)
-            @(apply d/chain 0 fs)
-            @(apply d/chain' 0 fs)))))))
+            @(apply d/chain 0 fs')
+            @(apply d/chain' 0 fs')))))))
 
 (deftest test-deferred
   ;; success!
