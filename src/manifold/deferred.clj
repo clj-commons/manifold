@@ -882,13 +882,12 @@
                      _ (if (nil? g)
                          (chain- d' x f)
                          (chain- d' x f g))]
-                 (if (realized? d')
-                   (success-error-unrealized d
-                     val (recur val fs)
-                     err (error! d err)
-                     (on-realized d'
-                       #(apply chain- d % fs)
-                       #(error! d %)))))))
+                 (success-error-unrealized d
+                   val (recur val fs)
+                   err (error! d err)
+                   (on-realized d'
+                     #(apply chain- d % fs)
+                     #(error! d %))))))
            d)))))
 
 (defn chain'
