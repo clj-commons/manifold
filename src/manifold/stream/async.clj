@@ -43,7 +43,9 @@
                    (fn [msg]
                      (d/success! d
                        (if (nil? msg)
-                         default-val
+                         (do
+                           (.markDrained this)
+                           default-val)
                          msg)))))]
         (if (d/realized? d')
           (f nil)
