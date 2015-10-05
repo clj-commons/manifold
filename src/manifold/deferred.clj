@@ -949,7 +949,7 @@
            err (try
                  (if (instance? error-class err)
                    (chain' (error-handler err))
-                   err)
+                   (error-deferred err))
                  (catch Throwable e
                    (error-deferred e)))
 
@@ -960,7 +960,7 @@
                #(try
                   (if (instance? error-class %)
                     (chain'- d' (error-handler %))
-                    (chain'- d' %))
+                    (chain'- d' (error-deferred %)))
                   (catch Throwable e
                     (error! d' e))))
 

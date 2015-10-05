@@ -41,6 +41,29 @@
         #(do (deliver p %) expected-return-value))
       p)))
 
+(deftest test-catch
+  (is (thrown? ArithmeticException
+        @(-> 0
+           (d/chain #(/ 1 %))
+           (d/catch IllegalStateException (constantly :foo)))))
+
+  (is (thrown? ArithmeticException
+        @(-> 0
+           d/future
+           (d/chain #(/ 1 %))
+           (d/catch IllegalStateException (constantly :foo)))))
+
+  (is (= :foo
+        @(-> 0
+           (d/chain #(/ 1 %))
+           (d/catch ArithmeticException (constantly :foo)))))
+
+  (is (= :foo
+        @(-> 0
+           d/future
+           (d/chain #(/ 1 %))
+           (d/catch ArithmeticException (constantly :foo))))))
+
 (deftest test-let-flow
   (is (= 5
         @(let [z (clojure.core/future 1)]
