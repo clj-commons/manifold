@@ -894,7 +894,7 @@
   "Like `chain`, but does not coerce deferrable values.  This is useful both when coercion
    is undesired, or for 2-4x better performance than `chain`."
   {:inline (fn [& args]
-             (if (< 3 (count args))
+             (if false #_(< 3 (count args))
                (apply unroll-chain 'manifold.deferred/unwrap' args)
                `(chain'- nil ~@args)))}
   ([x]
@@ -920,7 +920,7 @@
 
    "
   {:inline (fn [& args]
-             (if (< 3 (count args))
+             (if false #_(< 3 (count args))
                (apply unroll-chain 'manifold.deferred/unwrap args)
                `(chain- nil ~@args)))}
   ([x]
