@@ -118,8 +118,11 @@
     `(do ~@body)))
 
 (defmacro when-class [class & body]
-  (when (try
-          (Class/forName (name class))
-          (catch Throwable e
-            ))
-    `(do ~@body)))
+  (let [disable-property (System/getProperty "manifold.disable-jvm8-primitives")
+        disabled? (and disable-property (not= disable-property "false"))]
+    (when (and (not disabled?)
+            (try
+              (Class/forName (name class))
+              (catch Throwable e
+                )))
+      `(do ~@body))))

@@ -109,6 +109,24 @@ nil
 
 Manifold can use any transducer, which are applied via `transform`.  It also provides stream-specific transforms, including `zip`, `reduce`, `buffer`, `batch`, and `throttle`.  [To learn more about streams, go here](/docs/stream.md).
 
+### Java 8 extensions
+
+Manifold includes support for a few classes introduced in Java 8:
+`java.util.concurrent.CompletableFuture` and `java.util.stream.BaseStream`.
+Support for Java 8 is detected automatically at compile time; if you are
+AOT compiling Manifold on Java 8 or newer, and will be running the compiled
+jar with a Java 7 or older JRE, you will need to disable this feature, by
+setting the JVM option `"manifold.disable-jvm8-primitives"`, either at the
+command line with
+
+    -Dmanifold.disable-jvm8-primitives=true
+
+or by adding
+
+    :jvm-opts ["-Dmanifold.disable-jvm8-primitives=true"]
+
+to your application's project.clj.
+
 ### license
 
 Copyright © 2014 Zach Tellman
