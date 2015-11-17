@@ -1,15 +1,15 @@
-(defproject manifold "0.1.1"
+(defproject manifold "0.1.2-SNAPSHOT"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/ztellman/manifold"
   :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
-                 [io.aleph/dirigiste "0.1.1"]
-                 [riddley "0.1.10"]]
+                 [io.aleph/dirigiste "0.1.2-alpha1"]
+                 [riddley "0.1.11"]]
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
-                                  [org.clojure/clojure "1.7.0"]
+                                  [org.clojure/clojure "1.8.0-RC1"]
                                   [criterium "0.4.3"]
-                                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]]}}
+                                  [org.clojure/core.async "0.2.374"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
                                  (cons (:tag %) (keys %))))

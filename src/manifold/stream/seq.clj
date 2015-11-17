@@ -61,14 +61,19 @@
                            (swap! s-ref rest)
                            (d/success! d x token))))
                      (utils/wait-for
-                       (if (empty? s)
-                         (do
+                       (try
+                         (if (empty? s)
+                           (do
+                             (.markDrained this)
+                             (d/success! d default-val))
+                           (let [x (first s)]
+                             (when-let [token (d/claim! d)]
+                               (swap! s-ref rest)
+                               (d/success! d x token))))
+                         (catch Throwable e
+                           (log/error e "error in seq stream")
                            (.markDrained this)
-                           (d/success! d default-val))
-                         (let [x (first s)]
-                           (when-let [token (d/claim! d)]
-                             (swap! s-ref rest)
-                             (d/success! d x token))))))))]
+                           (d/success! d default-val)))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
