@@ -667,21 +667,19 @@
   ([f s]
     (reduce f ::none s))
   ([f initial-value s]
-    (let [d (d/deferred)]
-      (d/chain' (if (identical? ::none initial-value)
-                  (take! s ::none)
-                  initial-value)
-        (fn [initial-value]
-          (if (identical? ::none initial-value)
-            (f)
-            (d/loop [val initial-value]
-              (-> (take! s ::none)
-                (d/chain' (fn [x]
-                            (if (identical? ::none x)
-                              (d/success! d val)
-                              (d/recur (f val x)))))
-                (d/catch' Throwable (fn [e] (d/error! d val))))))))
-      d)))
+   (-> (if (identical? ::none initial-value)
+         (take! s ::none)
+         initial-value)
+     (d/chain'
+       (fn [initial-value]
+         (if (identical? ::none initial-value)
+           (f)
+           (d/loop [val initial-value]
+             (-> (take! s ::none)
+               (d/chain' (fn [x]
+                           (if (identical? ::none x)
+                             val
+                             (d/recur (f val x)))))))))))))
 
 (defn mapcat
   "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
