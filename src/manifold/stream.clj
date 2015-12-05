@@ -932,7 +932,8 @@
     (let [buf (stream)
           s' (stream)]
 
-      (connect-via-proxy s buf s' {:upstream? true, :description {:op "batch"}})
+      (connect-via-proxy s buf s' {:description {:op "batch"}})
+      (on-closed s' #(close! buf))
 
       (d/loop [msgs [], size 0, earliest-message -1]
         (if (<= max-size size)
@@ -980,7 +981,8 @@
            s' (stream)
            period (double (/ 1000 max-rate))]
 
-       (connect-via-proxy s buf s' {:upstream? true, :description {:op "throttle"}})
+       (connect-via-proxy s buf s' {:description {:op "throttle"}})
+       (on-closed s' #(close! buf))
 
        (d/loop [backlog 0.0, read-start (System/currentTimeMillis)]
          (d/chain (take! buf ::none)
