@@ -164,12 +164,12 @@
   `(instance? IEventStream ~x))
 
 (definline source?
-  "Returns true if the object is a Manifold source"
+  "Returns true if the object is a Manifold source."
   [x]
   `(instance? IEventSource ~x))
 
 (definline sink?
-  "Returns true if the object is a Manifold source"
+  "Returns true if the object is a Manifold sink."
   [x]
   `(instance? IEventSink ~x))
 
