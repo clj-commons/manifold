@@ -475,8 +475,8 @@
 
 (defn connect-via
   "Feeds all messages from `src` into `callback`, with the understanding that they will
-   eventually be propagated into `dst` in some form.  The return value of `f` should be
-   a deferred yielding either `true` or `false`."
+   eventually be propagated into `dst` in some form.  The return value of `callback`
+   should be a deferred yielding either `true` or `false`."
   ([src callback dst]
     (connect-via src callback dst nil))
   ([src callback dst options]
