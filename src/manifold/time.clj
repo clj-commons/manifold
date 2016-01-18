@@ -165,14 +165,8 @@
      (reify
        IClock
        (in [this interval-millis f]
-         (if (zero? interval-millis)
-           (try
-             (f)
-             (when-let [period (some-> f meta ::period deref)]
-               (.in this period f))
-             (catch Throwable e
-               (log/warn e "error in mock clock")))
-           (swap! events update-in [(+ @now interval-millis)] #(conj (or % []) f))))
+         (swap! events update-in [(+ @now interval-millis)] #(conj (or % []) f))
+         (advance this 0))
        (every [this delay-millis period-millis f]
          (assert (< 0 period-millis))
          (let [period (atom period-millis)
@@ -193,6 +187,7 @@
                  nil)
 
                (let [[t fs] (first @events)]
+                 (swap! events dissoc t)
                  (reset! now t)
                  (doseq [f fs]
                    (let [period (some-> f meta ::period deref)]
@@ -202,7 +197,6 @@
                          (when period (.in this period f))
                          (catch Throwable e
                            (log/warn e "error in mock clock"))))))
-                 (swap! events dissoc t)
                  (recur))))))))))
 
 (let [num-cores  (.availableProcessors (Runtime/getRuntime))

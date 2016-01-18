@@ -469,9 +469,19 @@
 
 (let [result (d/success-deferred true)]
   (defn consume
-    "Feeds all messages from `source` into `callback`."
+    "Feeds all messages from `source` into `callback`.
+
+     Messages will be processed as quickly as the callback can be executed."
     [callback source]
     (connect source (Callback. callback nil result) nil)))
+
+(defn consume-async
+  "Feeds all messages from `source` into `callback`, which must return a deferred yielding
+   `true` or `false`.  If the returned value yields `false`, the consumption will be cancelled.
+
+   Messages will be processed only as quickly as the deferred values are realized."
+  [callback source]
+  (connect source (Callback. callback nil nil) nil))
 
 (defn connect-via
   "Feeds all messages from `src` into `callback`, with the understanding that they will
