@@ -72,7 +72,7 @@
   "Returns a `java.util.concurrent.ExecutorService`, using [Dirigiste](https://github.com/ztellman/dirigiste).
 
    |:---|:----
-   | `thread-factory` | an optional `java.util.concurrent.ThreadFactory` that creates the executor's thrreads. |
+   | `thread-factory` | an optional `java.util.concurrent.ThreadFactory` that creates the executor's threads. |
    | `queue-length` | the maximum number of pending tasks before `.execute()` begins throwing `java.util.concurrent.RejectedExecutionException`, defaults to `0`.
    | `stats-callback` | a function that will be invoked every `control-period` with the relevant statistics for the executor.
    | `sample-period` | the interval, in milliseconds, between sampling the state of the executor for resizing and gathering statistics, defaults to `25`.
@@ -99,11 +99,13 @@
   (let [executor-promise (promise)
         thread-count (atom 0)
         factory (swap! factory-count inc)
-        thread-factory (manifold.executor/thread-factory
-                         #(str "manifold-pool-" factory "-" (swap! thread-count inc))
-                         (if onto?
-                           executor-promise
-                           (deliver (promise) nil)))
+        thread-factory (if thread-factory
+                         thread-factory
+                         (manifold.executor/thread-factory
+                           #(str "manifold-pool-" factory "-" (swap! thread-count inc))
+                           (if onto?
+                             executor-promise
+                             (deliver (promise) nil))))
         ^Executor$Controller c controller
         metrics (if (identical? :none metrics)
                   (EnumSet/noneOf Stats$Metric)
