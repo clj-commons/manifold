@@ -809,7 +809,6 @@
   (downstream [this]
     (manifold.stream.graph/downstream this))
   (close [_]
-    (.set last-put (d/success-deferred false))
     (.close ^IEventStream buf))
   (description [_]
     (description
@@ -826,9 +825,13 @@
   IEventSink
   (put [_ x blocking?]
     (let [size (metric x)]
-      (buf+ size)
-      (.put ^IEventSink buf [size x] blocking?)
-      (let [val (.get last-put)]
+      (let [val (d/chain' (.put ^IEventSink buf [size x] blocking?)
+                  (fn [result]
+                    (if result
+                      (do
+                        (buf+ size)
+                        (.get last-put))
+                      false)))]
         (if blocking?
           @val
           val))))
@@ -836,17 +839,23 @@
     ;; TODO: this doesn't really time out, because that would
     ;; require consume-side filtering of messages
     (let [size (metric x)]
-      (buf+ size)
-      (d/chain' (.put ^IEventSink buf [size x] blocking? timeout ::timeout)
-        (fn [msg]
-          (if (identical? msg ::timeout)
-            (do
-              (buf+ (- size))
-              timeout-val)
-            (let [val (.get last-put)]
-              (if blocking?
-                @val
-                val)))))))
+      (let [val (d/chain' (.put ^IEventSink buf [size x] blocking? timeout ::timeout)
+                  (fn [result]
+                    (cond
+
+                      (identical? result ::timeout)
+                      timeout-val
+
+                      (false? result)
+                      false
+
+                      :else
+                      (do
+                        (buf+ size)
+                        (.get last-put)))))]
+        (if blocking?
+          @val
+          val))))
   (isClosed [_]
     (.isClosed ^IEventSink buf))
   (onClosed [_ callback]
@@ -901,14 +910,15 @@
           buffer-size (AtomicLong. 0)
           last-put (AtomicReference. (d/success-deferred true))
           buf+ (fn [^long n]
-                 (let [buf' (.addAndGet buffer-size n)
-                       buf (unchecked-subtract buf' n)]
-                   (cond
-                     (<= buf' limit)
-                     (d/success! (.get last-put) true)
+                 (locking last-put
+                   (let [buf' (.addAndGet buffer-size n)
+                         buf  (unchecked-subtract buf' n)]
+                     (cond
+                       (and (<= buf' limit) (< limit buf))
+                       (-> last-put .get (d/success! true))
 
-                     (<= buf limit buf')
-                     (d/success! (.getAndSet last-put (d/deferred)) true))))]
+                       (and (<= buf limit) (< limit buf'))
+                       (-> last-put (.getAndSet (d/deferred)) (d/success! true))))))]
 
       (BufferedStream.
         buf

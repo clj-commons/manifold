@@ -319,6 +319,16 @@
 
 ;;;
 
+(deftest ^:stress stress-buffered-stream
+  (let [s (s/buffered-stream identity 100)]
+    (future
+      (dotimes [_ 1e6]
+        @(s/put! s (rand-int 200)))
+      (s/close! s))
+    (-> s s/stream->seq dorun)))
+
+;;;
+
 (defn blocking-queue-benchmark [^BlockingQueue q]
   (future
     (dotimes [i 1e3]
