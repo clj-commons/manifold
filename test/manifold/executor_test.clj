@@ -29,5 +29,5 @@
                     :thread-factory       factory
                     :initial-thread-count thread-count
                     })]
-    (.execute ^Executor executor #(prn "Hello world!"))
+    (is (= false (.isShutdown ^Executor executor)))
     (is (>= (count (filter-threads pool-prefix)) thread-count))))
