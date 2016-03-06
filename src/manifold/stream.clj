@@ -231,7 +231,8 @@
 
 (defn put-all!
   "Puts all values into the sink, returning a deferred that yields `true` if all puts
-   are successful, or `false` otherwise.  Guaranteed to be non-blocking."
+   are successful, or `false` otherwise.  If the sink provides backpressure, will
+   pause. Guaranteed to be non-blocking."
   [^IEventSink sink msgs]
   (d/loop [msgs msgs]
     (if (empty? msgs)
