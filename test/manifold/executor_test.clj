@@ -23,11 +23,11 @@
         factory (e/thread-factory
                   #(str pool-prefix (swap! thread-count inc))
                   (deliver (promise) nil))
-        thread-count 1
+        initial-thread-count 0
         executor (e/instrumented-executor
                    {:controller           controller
                     :thread-factory       factory
-                    :initial-thread-count thread-count
+                    :initial-thread-count initial-thread-count
                     })]
     (is (= false (.isShutdown ^Executor executor)))
-    (is (>= (count (filter-threads pool-prefix)) thread-count))))
+    (is (>= (count (filter-threads pool-prefix)) initial-thread-count))))
