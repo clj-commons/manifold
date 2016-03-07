@@ -23,4 +23,4 @@
                     :thread-factory thread-factory})
         thread-names (LinkedBlockingQueue. 1)]
     (.execute ^Executor executor #(.put thread-names (.getName (Thread/currentThread))))
-    (is (= (.take thread-names) (str threadpool-prefix @thread-count)))))
+    (is (contains? #{(str threadpool-prefix 1) (str threadpool-prefix 2)} (.take thread-names)))))
