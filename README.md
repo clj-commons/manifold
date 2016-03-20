@@ -4,7 +4,7 @@ This library provides basic building blocks for asynchronous programming, and ca
 
 Manifold provides two core abstractions: **deferreds**, which represent a single asynchronous value, and **streams**, which represent an ordered sequence of asynchronous values.
 
-A detailed discussion of Manifold's rationale can be found [here](/docs/rationale.md).  Full documentation can be found [here](http://ideolalia.com/manifold).
+A detailed discussion of Manifold's rationale can be found [here](/docs/rationale.md).  Full documentation can be found [here](http://aleph.io/codox//manifold/).
 
 
 ```clj
