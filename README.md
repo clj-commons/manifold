@@ -8,7 +8,7 @@ A detailed discussion of Manifold's rationale can be found [here](/docs/rational
 
 
 ```clj
-[manifold "0.1.2"]
+[manifold "0.1.3"]
 ```
 
 ### deferreds
