@@ -18,3 +18,11 @@
 * add `mock-clock` and `with-clock` to `manifold.time`, to aid with testing timeouts and other wall-clock behavior
 * add `consume-async` method, which expects the consume callback to return a deferred that yields a boolean, rather than simply a boolean value
 * small corrections and clarifications to doc-strings
+
+### 0.1.3
+
+* Target latest Dirigiste, which is no longer compiled using JDK 8 byte code.
+
+### 0.1.4
+
+* Honor `:thread-factory` parameter in `manifold.executor`.
