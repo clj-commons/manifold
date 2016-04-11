@@ -287,6 +287,14 @@
             s/stream->seq)))
     #_(is (= 1 @cnt))))
 
+(deftest test-drain-into
+  (let [n 100
+        src (s/->source (range n))
+        dst (s/stream)
+        result (s/drain-into src dst)]
+    (is (= (range n) (->> dst s/stream->seq (take n))))
+    (is (= true @result))))
+
 (deftest test-error-handling
 
   (binding [log/*logger-factory* clojure.tools.logging.impl/disabled-logger-factory]

@@ -510,6 +510,19 @@
        (Callback. #(put! proxy %) #(close! proxy) dst nil)
        options))))
 
+(defn drain-into
+  "Takes all messages from `src` and puts them into `dst`, and returns a deferred that
+   yields true once `src` is drained or `dst` is closed.  If `src` is closed or drained,
+   `dst` will not be closed."
+  [src dst]
+  (let [dst (->sink dst)
+        d   (d/deferred)]
+    (connect
+      src
+      (Callback. #(put! dst %) #(d/success! d true) dst nil)
+      {:description "drain-to"})
+    d))
+
 ;;;
 
 (defn stream->seq
