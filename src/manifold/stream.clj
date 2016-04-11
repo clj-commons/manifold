@@ -520,7 +520,7 @@
     (connect
       src
       (Callback. #(put! dst %) #(d/success! d true) dst nil)
-      {:description "drain-to"})
+      {:description "drain-into"})
     d))
 
 ;;;
