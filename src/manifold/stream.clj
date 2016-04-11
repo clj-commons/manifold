@@ -430,15 +430,16 @@
 ;;;
 
 (deftype Callback
-  [f
-   ^IEventSink downstream
-   constant-response]
+    [f
+     close-callback
+     ^IEventSink downstream
+     constant-response]
   IEventStream
   (isSynchronous [_]
     false)
   (close [_]
-    (when downstream
-      (.close ^IEventStream downstream)))
+    (when close-callback
+      (close-callback)))
   (weakHandle [_ ref-queue]
     (if downstream
       (.weakHandle ^IEventStream downstream ref-queue)
@@ -474,7 +475,7 @@
 
      Messages will be processed as quickly as the callback can be executed."
     [callback source]
-    (connect source (Callback. callback nil result) nil)))
+    (connect source (Callback. callback nil nil result) nil)))
 
 (defn consume-async
   "Feeds all messages from `source` into `callback`, which must return a deferred yielding
@@ -482,7 +483,7 @@
 
    Messages will be processed only as quickly as the deferred values are realized."
   [callback source]
-  (connect source (Callback. callback nil nil) nil))
+  (connect source (Callback. callback nil nil nil) nil))
 
 (defn connect-via
   "Feeds all messages from `src` into `callback`, with the understanding that they will
@@ -495,17 +496,19 @@
     (let [dst (->sink dst)]
       (connect
         src
-        (Callback. callback dst nil)
+        (Callback. callback #(close! dst) dst nil)
         options))))
 
 (defn- connect-via-proxy
   ([src proxy dst]
     (connect-via-proxy src proxy dst nil))
   ([src proxy dst options]
-    (let [result (connect-via src #(put! proxy %) dst
-                   (assoc options :downstream? false))]
-      (on-drained src #(close! proxy))
-      result)))
+   (let [dst   (->sink dst)
+         proxy (->sink proxy)]
+     (connect
+       src
+       (Callback. #(put! proxy %) #(close! proxy) dst nil)
+       options))))
 
 ;;;
 
