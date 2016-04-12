@@ -63,7 +63,7 @@ true
 
 `chain` returns a deferred representing the return value of the right-most callback.  If any of the functions returns a deferred or a value that can be coerced into a deferred, the chain will be paused until the deferred yields a value.
 
-Values that can be coerced into a deferred include Clojure futures, Clojure promises, and core.async channels:
+Values that can be coerced into a deferred include Clojure futures, Java futures, and Clojure promises.
 
 ```clj
 > (def d (d/deferred))
