@@ -473,55 +473,73 @@
   (defn consume
     "Feeds all messages from `source` into `callback`.
 
-     Messages will be processed as quickly as the callback can be executed."
+     Messages will be processed as quickly as the callback can be executed. Returns
+     a deferred which yields `true` when `source` is exhausted."
     [callback source]
-    (connect source (Callback. callback nil nil result) nil)))
+    (let [complete (d/deferred)]
+      (connect source (Callback. callback nil #(d/success! complete true) result) nil)
+      complete)))
 
 (defn consume-async
   "Feeds all messages from `source` into `callback`, which must return a deferred yielding
    `true` or `false`.  If the returned value yields `false`, the consumption will be cancelled.
 
-   Messages will be processed only as quickly as the deferred values are realized."
+   Messages will be processed only as quickly as the deferred values are realized. Returns a
+   deferred which yields `true` when `source` is exhausted or `callback` yields `false`."
   [callback source]
-  (connect source (Callback. callback nil nil nil) nil))
+  (let [complete (d/deferred)]
+    (connect source (Callback. callback nil #(d/success! complete true) nil) nil)
+    complete))
 
 (defn connect-via
   "Feeds all messages from `src` into `callback`, with the understanding that they will
    eventually be propagated into `dst` in some form.  The return value of `callback`
    should be a deferred yielding either `true` or `false`. When `false`,  the downstream
-   sink is assumed to be closed, and the connection is severed."
+   sink is assumed to be closed, and the connection is severed.
+
+   Returns a deferred which yields `true` when `src` is exhausted or `callback` yields `false`."
   ([src callback dst]
-    (connect-via src callback dst nil))
+   (connect-via src callback dst nil))
   ([src callback dst options]
-    (let [dst (->sink dst)]
+    (let [dst            (->sink dst)
+          complete       (d/deferred)
+          close-callback #(do
+                            (close! dst)
+                            (d/success! complete true))]
       (connect
         src
-        (Callback. callback #(close! dst) dst nil)
-        options))))
+        (Callback. callback close-callback dst nil)
+        options)
+      complete)))
 
 (defn- connect-via-proxy
   ([src proxy dst]
     (connect-via-proxy src proxy dst nil))
   ([src proxy dst options]
-   (let [dst   (->sink dst)
-         proxy (->sink proxy)]
+   (let [dst            (->sink dst)
+         proxy          (->sink proxy)
+         complete       (d/deferred)
+         close-callback #(do
+                           (close! proxy)
+                           (d/success! complete true))]
      (connect
        src
-       (Callback. #(put! proxy %) #(close! proxy) dst nil)
-       options))))
+       (Callback. #(put! proxy %) close-callback dst nil)
+       options)
+     complete)))
 
 (defn drain-into
   "Takes all messages from `src` and puts them into `dst`, and returns a deferred that
-   yields true once `src` is drained or `dst` is closed.  If `src` is closed or drained,
+   yields `true` once `src` is drained or `dst` is closed.  If `src` is closed or drained,
    `dst` will not be closed."
   [src dst]
-  (let [dst (->sink dst)
-        d   (d/deferred)]
+  (let [dst      (->sink dst)
+        complete (d/deferred)]
     (connect
       src
-      (Callback. #(put! dst %) #(d/success! d true) dst nil)
+      (Callback. #(put! dst %) #(d/success! complete true) dst nil)
       {:description "drain-into"})
-    d))
+    complete))
 
 ;;;
 
