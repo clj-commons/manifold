@@ -996,13 +996,20 @@
       (connect-via-proxy s buf s' {:description {:op "batch"}})
       (on-closed s' #(close! buf))
 
-      (d/loop [msgs [], size 0, earliest-message -1]
-        (if (<= max-size size)
-
+      (d/loop [msgs [], size 0, earliest-message -1, last-message -1]
+        (cond
+          (== size max-size)
           (d/chain' (put! s' msgs)
             (fn [_]
-              (d/recur [] 0 -1)))
+              (d/recur [] 0 -1 -1)))
 
+          (> size max-size)
+          (let [msg (peek msgs)]
+            (d/chain' (put! s' (pop msgs))
+              (fn [_]
+                (d/recur [msg] (metric msg) last-message last-message))))
+
+          :else
           (d/chain' (if (or
                           (nil? max-latency)
                           (neg? earliest-message)
@@ -1019,13 +1026,15 @@
                   (fn [_]
                     (if (drained? s)
                       (close! s')
-                      (d/recur [] 0 -1))))
-                (d/recur
-                  (conj msgs msg)
-                  (+ size (metric msg))
-                  (if (neg? earliest-message)
-                    (System/currentTimeMillis)
-                    earliest-message)))))))
+                      (d/recur [] 0 -1 -1))))
+                (let [time (System/currentTimeMillis)]
+                  (d/recur
+                    (conj msgs msg)
+                    (+ size (metric msg))
+                    (if (neg? earliest-message)
+                      time
+                      earliest-message)
+                    time)))))))
 
       (source-only s'))))
 

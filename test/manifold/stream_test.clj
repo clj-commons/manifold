@@ -199,6 +199,22 @@
           s/stream->seq
           (map (comp doall s/stream->seq)))))))
 
+(defn test-batch [metric max-size]
+  (let [inputs (repeat 10 metric)
+        outputs (partition-all (quot max-size metric) inputs)]
+    (is
+      (= outputs
+         (->> inputs
+              s/->source
+              (s/batch identity max-size 1e4)
+              s/stream->seq)))))
+
+(deftest test-batch-default
+  (test-batch 1 5))
+
+(deftest test-batch-with-metric
+  (test-batch 2 5))
+
 (deftest test-concat
   (let [inputs (range 1e2)
         f #(long (/ % 10))]
