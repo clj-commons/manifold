@@ -215,6 +215,16 @@
 (deftest test-batch-with-metric
   (test-batch 2 5))
 
+(deftest test-batch-with-oversized-message
+  (let [inputs [1 1 9]
+        outputs [[1 1] [9]]]
+    (is
+      (= outputs
+         (->> inputs
+              s/->source
+              (s/batch identity 2 1e4)
+              s/stream->seq)))))
+
 (deftest test-concat
   (let [inputs (range 1e2)
         f #(long (/ % 10))]

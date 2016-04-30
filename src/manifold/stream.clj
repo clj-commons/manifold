@@ -998,7 +998,8 @@
 
       (d/loop [msgs [], size 0, earliest-message -1, last-message -1]
         (cond
-          (== size max-size)
+          (or (== size max-size) (and (> size max-size)
+                                      (== (count msgs) 1)))
           (d/chain' (put! s' msgs)
             (fn [_]
               (d/recur [] 0 -1 -1)))
