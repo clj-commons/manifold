@@ -184,7 +184,8 @@
           (utilization-executor 0.95 Integer/MAX_VALUE
             {:thread-factory (thread-factory
                                #(str "manifold-wait-" (swap! cnt inc))
-                               (deliver (promise) nil))
+                               (deliver (promise) nil)
+                               1e2)
              :stats-callback (fn [stats]
                                (doseq [f @wait-pool-stats-callbacks]
                                  (try
