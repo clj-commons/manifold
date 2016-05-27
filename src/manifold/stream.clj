@@ -795,10 +795,16 @@
     (d/loop []
       (d/chain' (take! in ::none)
         (fn [s']
-          (if (identical? ::none s')
+          (cond
+            (closed? out)
+            (close! s')
+
+            (identical? ::none s')
             (do
               (close! out)
               s')
+
+            :else
             (d/loop []
               (d/chain' (take! s' ::none)
                 (fn [msg]
@@ -807,7 +813,7 @@
                     (put! out msg)))
                 (fn [result]
                   (case result
-                    false (close! in)
+                    false (do (close! s') (close! in))
                     ::none nil
                     (d/recur)))))))
         (fn [result]
