@@ -31,7 +31,7 @@ false
 
 We can check if a sink is closed by calling `closed?`, and register a no-arg callback using `on-closed` to be notified when the sink is closed.
 
-Sources that will never produce any more messages (often because the corresponding sink is closed) is said to be **drained**.  We may check whether a source is drained via `drained?` and `on-drained`.
+Sources that will never produce any more messages (often because the corresponding sink is closed) are said to be **drained**.  We may check whether a source is drained via `drained?` and `on-drained`.
 
 By default, calling `take!` on a drained source will yield a message of `nil`.  However, if `nil` is a valid message, we may want to specify some other return value to denote that the source is drained:
 
