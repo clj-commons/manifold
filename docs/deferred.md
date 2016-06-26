@@ -198,4 +198,4 @@ While Manifold doesn't provide anything as general purpose as core.async's `go` 
 
 ### custom execution models
 
-Both deferreds and sreams allow for custom execution models to be specified.  To learn more, [go here](/docs/execution.md).
+Both deferreds and streams allow for custom execution models to be specified.  To learn more, [go here](/docs/execution.md).
