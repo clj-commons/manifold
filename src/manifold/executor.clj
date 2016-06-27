@@ -24,6 +24,14 @@
 (definline executor []
   `(.get manifold.executor/executor-thread-local))
 
+(defmacro with-executor [executor & body]
+  `(let [executor# (executor)]
+     (.set executor-thread-local ~executor)
+     (try
+       ~@body
+       (finally
+         (.set executor-thread-local executor#)))))
+
 (defn ^ThreadFactory thread-factory
   ([name-generator executor-promise]
      (thread-factory name-generator executor-promise nil))

@@ -9,6 +9,7 @@
     [java.util
      LinkedList]
     [java.lang.ref
+     WeakReference
      ReferenceQueue]
     [java.util.concurrent
      ConcurrentHashMap
@@ -19,7 +20,17 @@
      IEventSource]))
 
 (def ^ReferenceQueue ^:private ref-queue (ReferenceQueue.))
-(def ^ConcurrentHashMap graph (ConcurrentHashMap.))
+
+(def ^ConcurrentHashMap handle->downstreams (ConcurrentHashMap.))
+(def ^ConcurrentHashMap handle->connected-handles (ConcurrentHashMap.))
+
+(defn conj-to-list! [^ConcurrentHashMap m k x]
+  (if-let [^CopyOnWriteArrayList l (.get m k)]
+    (doto l (.add x))
+    (let [l (CopyOnWriteArrayList.)
+          l (or (.putIfAbsent m k l) l)]
+      (doto ^CopyOnWriteArrayList l
+        (.add x)))))
 
 (deftype Downstream
   [^long timeout
@@ -34,14 +45,31 @@
    dst
    ^boolean upstream?])
 
+;;;
+
 (defn downstream [source]
   (when-let [handle (s/weak-handle source)]
-    (when-let [^CopyOnWriteArrayList dsts (.get graph handle)]
-      (->> dsts
+    (when-let [^CopyOnWriteArrayList l (.get handle->downstreams handle)]
+      (->> l
         .iterator
         iterator-seq
-        (map (fn [^Downstream d]
-               [(.description d) (.sink d)]))))))
+        (map
+          (fn [^Downstream d]
+            [(.description d) (.sink d)]))))))
+
+(defn pop-connected! [source]
+  (when-let [handle (s/weak-handle source)]
+    (when-let [^CopyOnWriteArrayList l (.remove handle->connected-handles handle)]
+      (->> l
+        .iterator
+        iterator-seq
+        (map (fn [^WeakReference r] (.get r)))
+        (remove nil?)))))
+
+(defn add-connection! [a b]
+  (conj-to-list! handle->connected-handles a (s/weak-handle b)))
+
+;;;
 
 (defn- async-send
   [^Downstream d msg dsts]
@@ -80,7 +108,7 @@
         (.remove l (.dst x))
         (when (or (.upstream? x) (== 0 (.size l)))
           (s/close! source)
-          (.remove graph (s/weak-handle source))))
+          (.remove handle->downstreams (s/weak-handle source))))
 
       (instance? IEventSink val)
       (s/close! val))))
@@ -92,7 +120,7 @@
     (.remove l (.dst x))
     (when (or (.upstream? x) (== 0 (.size l)))
       (s/close! source)
-      (.remove graph (s/weak-handle source)))))
+      (.remove handle->downstreams (s/weak-handle source)))))
 
 (defn- async-connect
   [^IEventSource source
@@ -150,7 +178,7 @@
         err-callback
         (fn [err]
           (log/error err "error in source of 'connect'")
-          (.remove graph (s/weak-handle source)))]
+          (.remove handle->downstreams (s/weak-handle source)))]
 
     (trampoline
       (fn this
@@ -166,7 +194,7 @@
 
             (identical? ::drained msg)
             (do
-              (.remove graph (s/weak-handle source))
+              (.remove handle->downstreams (s/weak-handle source))
               (let [i (.iterator dsts)]
                 (loop []
                   (when (.hasNext i)
@@ -201,7 +229,7 @@
 
                 (do
                   (s/close! source)
-                  (.remove graph (s/weak-handle source)))
+                  (.remove handle->downstreams (s/weak-handle source)))
 
                 (do
                   (loop []
@@ -228,7 +256,7 @@
               (if (identical? ::drained msg)
 
                 (do
-                  (.remove graph (s/weak-handle source))
+                  (.remove handle->downstreams (s/weak-handle source))
                   (loop []
                     (when (.hasNext i)
                       (let [^Downstream d (.next i)]
@@ -267,7 +295,7 @@
 
             (do
               (s/close! source)
-              (.remove graph (s/weak-handle source)))))))))
+              (.remove handle->downstreams (s/weak-handle source)))))))))
 
 (defn connect
   ([^IEventSource src
@@ -288,10 +316,10 @@
                 dst
                 description)
             k (.weakHandle ^IEventStream src ref-queue)]
-        (if-let [dsts (.get graph k)]
+        (if-let [dsts (.get handle->downstreams k)]
           (.add ^CopyOnWriteArrayList dsts d)
           (let [dsts (CopyOnWriteArrayList.)]
-            (if-let [dsts' (.putIfAbsent graph k dsts)]
+            (if-let [dsts' (.putIfAbsent handle->downstreams k dsts)]
               (.add ^CopyOnWriteArrayList dsts' d)
               (do
                 (.add ^CopyOnWriteArrayList dsts d)

@@ -644,7 +644,9 @@
   [^IDeferred d executor]
   (if (identical? executor (.executor d))
     d
-    (connect d (deferred executor))))
+    (let [d' (deferred executor)]
+      (connect d d')
+      d')))
 
 (defmacro future-with
   "Equivalent to Clojure's `future`, but allows specification of the executor
