@@ -4,7 +4,7 @@
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/ztellman/manifold"
   :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
-                 [io.aleph/dirigiste "0.1.4-alpha1"]
+                 [io.aleph/dirigiste "0.1.3"]
                  [riddley "0.1.12"]]
   :profiles {:dev {:dependencies [[codox-md "0.2.0" :exclusions [org.clojure/clojure]]
                                   [org.clojure/clojure "1.8.0"]
