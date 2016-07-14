@@ -227,6 +227,16 @@
       (.obtrudeException f (Exception.))
       (is (thrown? Exception (-> f d/->deferred deref))))))
 
+(deftest test-finally
+  (let [target-d (d/deferred)
+        d (d/deferred)
+        fd (d/finally
+             d
+             (fn []
+               (d/success! target-d ::delivered)))]
+    (d/error! d (Exception.))
+    (is (= ::delivered (deref target-d 0 ::not-delivered)))))
+
 ;;;
 
 (deftest ^:benchmark benchmark-chain
