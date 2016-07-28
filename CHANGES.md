@@ -26,3 +26,7 @@
 ### 0.1.4
 
 * Honor `:thread-factory` parameter in `manifold.executor`.
+
+### 0.1.5
+
+* fix bugs in `finally` and `consume`
