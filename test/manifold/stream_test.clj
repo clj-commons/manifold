@@ -321,6 +321,14 @@
     (is (= (range n) (->> dst s/stream->seq (take n))))
     (is (= true @result))))
 
+(deftest test-consume
+  (let [src (s/->source [1 2 3])
+        values (atom [])
+        result (-> (s/consume #(swap! values conj %) src)
+                   (d/chain #(do (swap! values conj ::done) %)))]
+    (is (= true @result))
+    (is (= [1 2 3 ::done] @values))))
+
 (deftest test-error-handling
 
   (binding [log/*logger-factory* clojure.tools.logging.impl/disabled-logger-factory]
