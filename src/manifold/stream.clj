@@ -477,7 +477,7 @@
      a deferred which yields `true` when `source` is exhausted."
     [callback source]
     (let [complete (d/deferred)]
-      (connect source (Callback. callback nil #(d/success! complete true) result) nil)
+      (connect source (Callback. callback #(d/success! complete true) nil result) nil)
       complete)))
 
 (defn consume-async
