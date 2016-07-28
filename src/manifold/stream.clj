@@ -488,7 +488,7 @@
    deferred which yields `true` when `source` is exhausted or `callback` yields `false`."
   [callback source]
   (let [complete (d/deferred)]
-    (connect source (Callback. callback nil #(d/success! complete true) nil) nil)
+    (connect source (Callback. callback #(d/success! complete true) nil nil) nil)
     complete))
 
 (defn connect-via
