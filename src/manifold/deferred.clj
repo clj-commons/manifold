@@ -1000,10 +1000,15 @@
         x
         (catch Throwable e
           (error-deferred e)))
-      (chain' x
-        (fn [x']
-          (f)
-          x')))
+      (-> x
+          (chain'
+           (fn [x']
+             (f)
+             x'))
+          (catch'
+              (fn [e]
+                (f)
+                (throw e)))))
     (try
       (f)
       x
