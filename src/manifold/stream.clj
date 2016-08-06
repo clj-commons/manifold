@@ -1004,8 +1004,9 @@
 
       (d/loop [msgs [], size 0, earliest-message -1, last-message -1]
         (cond
-          (or (== size max-size) (and (> size max-size)
-                                      (== (count msgs) 1)))
+          (or
+            (== size max-size)
+            (and (< max-size size) (== (count msgs) 1)))
           (d/chain' (put! s' msgs)
             (fn [_]
               (d/recur [] 0 -1 -1)))
@@ -1021,19 +1022,25 @@
                           (nil? max-latency)
                           (neg? earliest-message)
                           (empty? msgs))
-                      (take! buf ::none)
+                      (take! buf ::empty)
                       (try-take! buf
-                        ::none
+                        ::empty
                         (- max-latency (- (System/currentTimeMillis) earliest-message))
-                        ::none))
+                        ::timeout))
             (fn [msg]
-              (if (identical? ::none msg)
+              (condp identical? msg
+                ::empty
+                (do
+                  (when-not (empty? msgs)
+                    (put! s' msgs))
+                  (close! s'))
+
+                ::timeout
                 (d/chain' (when-not (empty? msgs)
                             (put! s' msgs))
                   (fn [_]
-                    (if (drained? s)
-                      (close! s')
-                      (d/recur [] 0 -1 -1))))
+                    (d/recur [] 0 -1 -1)))
+
                 (let [time (System/currentTimeMillis)]
                   (d/recur
                     (conj msgs msg)
