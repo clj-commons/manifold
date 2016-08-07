@@ -30,3 +30,7 @@
 ### 0.1.5
 
 * fix bugs in `finally` and `consume`
+
+### 0.1.6
+
+* fix bug in `batch`
