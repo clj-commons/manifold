@@ -43,13 +43,13 @@
             (log/error e "")))))
     (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
-    (future
+    #_(future
       (doseq [x vs]
         (try
           (s/put! sink x)
           (catch Throwable e
             (log/error e "")))))
-    (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
+    #_(is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
     (future
       (doseq [x vs]
@@ -62,7 +62,7 @@
     (future
       (doseq [x vs]
         (try
-          (s/put! sink x)
+          @(s/put! sink x)
           (catch Throwable e
             (log/error e "")))))
     (is (= vs (s/stream->seq source 100)))))
