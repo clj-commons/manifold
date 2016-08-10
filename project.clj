@@ -19,10 +19,9 @@
             [lein-jammin "0.1.1"]
             [ztellman/lein-cljfmt "0.1.10"]]
   :cljfmt {:indents {#".*" [[:inner 0]]}}
-  :codox {:src-dir-uri "https://github.com/ztellman/manifold/blob/master/"
-          :src-linenum-anchor-prefix "L"
-          :defaults {:doc/format :markdown}
-          :include [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor]}
+  :codox {:source-uri "https://github.com/ztellman/manifold/blob/master/{filepath}#L{line}"
+          :metadata {:doc/format :markdown}
+          :namespaces [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"
