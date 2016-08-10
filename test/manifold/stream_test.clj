@@ -94,9 +94,9 @@
              (utils/when-class java.util.stream.BasicStream
                (run-source-test #(-> % java.util.ArrayList. .stream)))]]
     (when f
-      (= (range 100) (-> (range 100) f s/->source s/stream->seq))))
-
-  )
+      (= (range 100) (-> (range 100) f s/->source s/stream->seq)))
+    (when f
+      (= (range 100) (-> (range 100) f s/->source (s/stream->seq 10))))))
 
 ;;;
 
