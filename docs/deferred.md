@@ -150,7 +150,7 @@ In `let-flow`, we can treat deferred values as if they're realized.  This is onl
 (let [a (future 1)]
   (let-flow [b (future (+ a 1))
              c (+ b 1)]
-    (+ d 1)))
+    (+ c 1)))
 ```
 
 but not this:
