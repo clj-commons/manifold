@@ -373,14 +373,13 @@
    lock]
 
   clojure.lang.IReference
+  (meta [_] mta)
   (resetMeta [_ m]
     (utils/with-lock* lock
       (set! mta m)))
   (alterMeta [_ f args]
     (utils/with-lock* lock
       (set! mta (apply f mta args))))
-  clojure.lang.IObj
-  (meta [_] mta)
 
 
   IEventStream
@@ -835,9 +834,8 @@
    handle
    mta]
 
-  clojure.lang.IObj
-  (meta [_] @mta)
   clojure.lang.IReference
+  (meta [_] @mta)
   (resetMeta [_ m]
     (reset! mta m))
   (alterMeta [_ f args]
