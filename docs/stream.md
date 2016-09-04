@@ -63,10 +63,10 @@ Again, we specify the timeout and special timeout value.  When using `try-take!`
 The simplest thing we can do a stream is consume every message that comes into it:
 
 ```clj
-> (consume #(prn 'message! %) s)
-true
+> (s/consume #(prn 'message! %) s)
+nil
 > @(s/put! s 1)
-< message! 1 >
+message! 1
 true
 ```
 
@@ -166,7 +166,7 @@ Upon connecting two streams, we can inspect any of the streams using `descriptio
 > (def b (s/stream))
 #'b
 > (s/connect a b {:description "a connection"})
-true
+nil
 > (s/description a)
 {:pending-puts 0, :drained? false, :buffer-size 0, :permanent? false, ...}
 > (s/downstream a)
@@ -181,6 +181,7 @@ We can recursively apply `downstream` to traverse the entire topology of our str
 > (def b (s/stream))
 #'b
 > (s/connect-via a #(s/put! b (inc %)) b)
+nil
 ```
 
 Note that `connect-via` takes an argument between the source and sink, which is a single-argument callback.  This callback will be invoked with messages from the source, under the assumption that they will be propagated to the sink.  This is the underlying mechanism for `map`, `filter`, and other stream operators; it allow us to create complex operations that are visible via `downstream`:
@@ -191,7 +192,7 @@ Note that `connect-via` takes an argument between the source and sink, which is 
 > (s/map inc a)
 << source: ... >>
 > (s/downstream a)
-([{:op "map"} << stream: ... >>])
+([{:op "map"} << sink: {:type "callback"} >>])
 ```
 
 Each element returned by `downstream` is a 2-tuple, the first element describing the connection, and the second element describing the stream it's feeding into.

@@ -36,10 +36,10 @@ Exception: boom
 > (d/on-realized d
     (fn [x] (println "success!" x))
     (fn [x] (println "error!" x)))
-true
+<< ... >>
 
 > (d/success! d :foo)
-< success! :foo >
+success! :foo
 true
 ```
 
@@ -57,7 +57,7 @@ Instead, they should use `manifold.deferred/chain`, which chains together callba
 << ... >>
 
 > (d/success! d 0)
-< x + 3 = 3 >
+x + 3 = 3
 true
 ```
 
@@ -75,7 +75,7 @@ Values that can be coerced into a deferred include Clojure futures, Java futures
 << ... >>
 
 > (d/success! d 0)
-< the future returned 1 >
+the future returned 1
 true
 ```
 
@@ -91,7 +91,7 @@ If any stage in `chain` throws an exception or returns a deferred that yields an
 << ... >>
 
 > (d/success! d 1)
-< whoops, that didn't work: #<ArithmeticException: Divide by zero> >
+whoops, that didn't work: #error {:cause Divide by zero :via [{:type java.lang.ArithmeticException ...
 true
 ```
 
@@ -150,7 +150,7 @@ In `let-flow`, we can treat deferred values as if they're realized.  This is onl
 (let [a (future 1)]
   (let-flow [b (future (+ a 1))
              c (+ b 1)]
-    (+ d 1)))
+    (+ c 1)))
 ```
 
 but not this:
