@@ -446,7 +446,8 @@
   (description [_]
     {:type "callback"})
   (downstream [_]
-    (when downstream [downstream]))
+    (when downstream
+      [[(description downstream) downstream]]))
   IEventSink
   (put [this x _]
     (try
