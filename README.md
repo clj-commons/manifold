@@ -49,10 +49,10 @@ Exception: boom
 > (d/on-realized d
     (fn [x] (println "success!" x))
     (fn [x] (println "error!" x)))
-true
+<< ... >>
 
 > (d/success! d :foo)
-< success! :foo >
+success! :foo
 true
 ```
 
@@ -87,7 +87,7 @@ nil
 > (def s (s/->source c))
 #'s
 > (a/go (a/>! c 1))
-...
+#object[clojure.core.async.impl.channels.ManyToManyChannel 0x7...
 > @(s/take! s)
 1
 ```
@@ -102,7 +102,7 @@ We can also turn a Manifold stream into a different representation by using `con
 > (s/connect s c)
 nil
 > (s/put! s 1)
-...
+<< true >>
 > (a/<!! c)
 1
 ```
