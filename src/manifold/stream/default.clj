@@ -86,16 +86,17 @@
           (nil? (.peek messages))))))
 
   (put [this msg blocking? timeout timeout-val]
-    (let [result
+    (let [acc (LinkedList.)
+
+          result
           (utils/with-lock lock
             (try
               (if (.isClosed this)
-                (d/success-deferred false executor)
-                (add! this msg))
+                false
+                (add! acc msg))
               (catch Throwable e
-                (.close this)
                 (log/error e "error in stream transformer")
-                (d/success-deferred false))))
+                false)))
 
           close?
           (reduced? result)
@@ -105,37 +106,40 @@
             @result
             result)
 
-          val
-          (cond
+          val (loop [val true]
+                (if (.isEmpty acc)
+                  val
+                  (let [x (.removeFirst acc)]
+                    (cond
 
-            (instance? Producer result)
-            (do
-              (log/warn (IllegalStateException.) "excessive pending puts (> 16384), closing stream")
-              (s/close! this)
-              (d/success-deferred false executor))
+                      (instance? Producer x)
+                      (do
+                        (log/warn (IllegalStateException.) "excessive pending puts (> 16384), closing stream")
+                        (s/close! this)
+                        false)
 
-            (instance? Production result)
-            (let [^Production p result]
-              (d/success! (.deferred p) (.message p) (.token p))
-              (if blocking?
-                true
-                (d/success-deferred true executor)))
+                      (instance? Production x)
+                      (let [^Production p x]
+                        (d/success! (.deferred p) (.message p) (.token p))
+                        (recur true))
 
-            (identical? this result)
-            (d/success-deferred true executor)
+                      :else
+                      (do
+                        (d/timeout! result timeout timeout-val)
+                        (recur x))))))]
 
-            :else
-            (do
-              (d/timeout! result timeout timeout-val)
-              (if blocking?
-                @result
-                result)))]
+      (cond
 
-      (if close?
+        (or close? (false? result))
         (do
           (.close this)
           (d/success-deferred false executor))
-        val)))
+
+        (d/deferred? val)
+        val
+
+        :else
+        (d/success-deferred val executor))))
 
   (put [this msg blocking?]
     (.put this msg blocking? nil nil))
@@ -224,32 +228,34 @@
         t-d (d/success-deferred true executor)]
     (fn
       ([]
-         )
+       )
       ([_]
-        (d/success-deferred false))
-      ([_ msg]
-        (or
+       (d/success-deferred false))
+      ([^LinkedList acc msg]
+       (doto acc
+         (.add
+           (or
 
-           ;; see if there are any unclaimed consumers left
-          (loop [^Consumer c (.poll consumers)]
-            (when c
-              (if-let [token (d/claim! (.deferred c))]
-                (Production. (.deferred c) msg token)
-                (recur (.poll consumers)))))
+             ;; see if there are any unclaimed consumers left
+             (loop [^Consumer c (.poll consumers)]
+               (when c
+                 (if-let [token (d/claim! (.deferred c))]
+                   (Production. (.deferred c) msg token)
+                   (recur (.poll consumers)))))
 
-           ;; see if we can enqueue into the buffer
-          (and
-            messages
-            (when (< (.size messages) capacity)
-              (.offer messages msg))
-            t-d)
+             ;; see if we can enqueue into the buffer
+             (and
+               messages
+               (when (< (.size messages) capacity)
+                 (.offer messages msg))
+               t-d)
 
-           ;; add to the producers queue
-          (let [d (d/deferred executor)]
-            (let [pr (Producer. msg d)]
-              (if (and (< (.size producers) 16384) (.offer producers pr))
-                d
-                pr))))))))
+             ;; add to the producers queue
+             (let [d (d/deferred executor)]
+               (let [pr (Producer. msg d)]
+                 (if (and (< (.size producers) 16384) (.offer producers pr))
+                   d
+                   pr))))))))))
 
 (defn stream
   ([]

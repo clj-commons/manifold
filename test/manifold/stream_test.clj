@@ -162,6 +162,8 @@
     (= (s/stream->seq (s/transform xform (s/->source input)))
       (transduce xform conj [] input))
 
+    (mapcat #(repeat 3 %)) (range 10)
+
     (map inc) (range 10)
 
     (map inc) (vec (range 10))
