@@ -1143,11 +1143,12 @@
   (let [vars (->> bindings (partition 2) (map first))
         vals (->> bindings (partition 2) (map second))
         x-sym (gensym "x")
-        val-sym (gensym "val")]
+        val-sym (gensym "val")
+        var-syms (map (fn [_] (gensym "var")) vars)]
     `(let [result# (deferred)]
-       ((fn this# [result# ~@vars]
+       ((fn this# [result# ~@var-syms]
           (clojure.core/loop
-            [~@(interleave vars vars)]
+            [~@(interleave vars var-syms)]
             (let [~x-sym (try
                            ~@body
                            (catch Throwable e#

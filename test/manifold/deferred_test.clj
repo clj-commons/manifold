@@ -213,7 +213,11 @@
   ;; body produces a delayed error result
   (let [ex (Exception.)]
     (is (= ex @(capture-error
-                 (d/loop [] (future-error ex)))))))
+                 (d/loop [] (future-error ex))))))
+
+  ;; destructuring works for loop parameters
+  (is @(capture-success
+        (d/loop [[a & b] [true false]] a))))
 
 (deftest test-coercion
   (is (= 1 (-> 1 clojure.core/future d/->deferred deref)))
