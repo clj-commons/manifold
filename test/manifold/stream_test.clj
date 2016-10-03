@@ -331,6 +331,21 @@
     (is (= true @result))
     (is (= [1 2 3 ::done] @values))))
 
+(deftest test-periodically
+  (testing "produces with delay"
+    (let [s (s/periodically 10 0 (constantly 1))]
+      (Thread/sleep 15)
+      (s/close! s)
+      ;; will produces 2 items here no matter the sleep amount
+      ;; as the periodically stream has a buffer of 1
+      (is (= [1 1] (s/stream->seq s)))))
+
+  (testing "doesn't fail on nil"
+    (let [s (s/periodically 10 0 (constantly nil))]
+      (Thread/sleep 15)
+      (s/close! s)
+      (is (= [nil nil] (s/stream->seq s))))))
+
 (deftest test-error-handling
 
   (binding [log/*logger-factory* clojure.tools.logging.impl/disabled-logger-factory]
