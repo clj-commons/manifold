@@ -35,6 +35,9 @@
     (alter-meta! source assoc 3 4)
     (is (= {1 2 3 4} (meta source)))
 
+    (is (thrown? ClassCastException (with-meta source {})))
+    (is (thrown? ClassCastException (with-meta sink {})))
+
     (future
       (doseq [x vs]
         (try

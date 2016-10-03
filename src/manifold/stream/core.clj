@@ -143,7 +143,6 @@
        ~(vec (distinct (concat params source-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSource
-       clojure.lang.IObj
        clojure.lang.IReference
        ~@(merged-body default-stream-impls default-source-impls body))
 
@@ -157,7 +156,6 @@
        ~(vec (distinct (concat params sink-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSink
-       clojure.lang.IObj
        clojure.lang.IReference
        ~@(merged-body default-stream-impls default-sink-impls body))
 
@@ -172,7 +170,6 @@
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSink
        manifold.stream.core.IEventSource
-       clojure.lang.IObj
        clojure.lang.IReference
        ~@(merged-body default-stream-impls default-sink-impls default-source-impls body))
 

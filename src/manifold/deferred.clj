@@ -356,7 +356,7 @@
              (log/warn val "unconsumed deferred in error state, make sure you're using `catch`."))))]
       nil)
 
-    clojure.lang.IObj
+    clojure.lang.IMeta
     (meta [_] mta)
     clojure.lang.IReference
     (resetMeta [_ m]
@@ -446,7 +446,7 @@
    ^:volatile-mutable mta
    ^Executor executor]
 
-  clojure.lang.IObj
+  clojure.lang.IMeta
   (meta [_] mta)
   clojure.lang.IReference
   (resetMeta [_ m]
@@ -504,7 +504,7 @@
             debug/*dropped-error-logging-enabled?*)
       (log/warn error "unconsumed deferred in error state, make sure you're using `catch`.")))
 
-  clojure.lang.IObj
+  clojure.lang.IMeta
   (meta [_] mta)
   clojure.lang.IReference
   (resetMeta [_ m]
