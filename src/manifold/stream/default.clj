@@ -28,6 +28,16 @@
 (deftype Producer [message deferred])
 (deftype Consumer [deferred default-val])
 
+(defn de-nil [x]
+  (if (nil? x)
+    ::nil
+    x))
+
+(defn re-nil [x]
+  (if (identical? ::nil x)
+    nil
+    x))
+
 (s/def-sink+source Stream
   [^boolean permanent?
    description
@@ -151,18 +161,19 @@
 
               ;; see if we can dequeue from the buffer
               (when-let [msg (and messages (.poll messages))]
+                (let [msg (re-nil msg)]
 
-                ;; check if we're drained
-                (when (and (s/closed? this) (s/drained? this))
-                  (.markDrained this))
+                 ;; check if we're drained
+                 (when (and (s/closed? this) (s/drained? this))
+                   (.markDrained this))
 
-                (if-let [^Producer p (.poll producers)]
-                  (if-let [token (d/claim! (.deferred p))]
-                    (do
-                      (.offer messages (.message p))
-                      (Consumption. msg (.deferred p) token))
-                    (d/success-deferred msg executor))
-                  (d/success-deferred msg executor)))
+                 (if-let [^Producer p (.poll producers)]
+                   (if-let [token (d/claim! (.deferred p))]
+                     (do
+                       (.offer messages (de-nil (.message p)))
+                       (Consumption. msg (.deferred p) token))
+                     (d/success-deferred msg executor))
+                   (d/success-deferred msg executor))))
 
               ;; see if there are any unclaimed producers left
               (loop [^Producer p (.poll producers)]
@@ -205,7 +216,7 @@
             (d/success! (.deferred result) true (.token result))
             (catch Throwable e
               (log/error e "error in callback")))
-          (let [msg (.message result)]
+          (let [msg (re-nil (.message result))]
             (if blocking?
               msg
               (d/success-deferred msg executor))))
@@ -247,7 +258,7 @@
              (and
                messages
                (when (< (.size messages) capacity)
-                 (.offer messages msg))
+                 (.offer messages (de-nil msg)))
                t-d)
 
              ;; add to the producers queue

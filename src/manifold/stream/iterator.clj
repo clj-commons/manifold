@@ -55,7 +55,7 @@
   (take [this default-val blocking? timeout timeout-val]
     (if (nil? timeout)
       (.take this blocking? default-val)
-      (let [d (-> (.take this false default-val)
+      (let [d (-> (.take this default-val false)
                 (d/timeout! timeout timeout-val))]
         (if blocking?
           @d

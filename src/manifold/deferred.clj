@@ -651,10 +651,11 @@
   [executor & body]
   `(let [d# (deferred)]
      (manifold.utils/future-with ~executor
-       (try
-         (success! d# (do ~@body))
-         (catch Throwable e#
-           (error! d# e#))))
+       (when-not (realized? d#)
+         (try
+           (success! d# (do ~@body))
+           (catch Throwable e#
+             (error! d# e#)))))
      d#))
 
 (defmacro future
