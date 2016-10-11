@@ -334,6 +334,16 @@
     (is (= true @result))
     (is (= [1 2 3 ::done] @values))))
 
+(deftest test-consume-async
+  (let [src (s/->source [1 2])
+        values (atom [])
+        result (s/consume-async #(do (swap! values conj %)
+                                     (d/success-deferred (= (count @values) 1)))
+                                src)]
+
+    (is (= [1 2] @values))
+    (is (true? (deref result 100 ::not-done)))))
+
 (deftest test-periodically
   (testing "produces with delay"
     (let [s (s/periodically 10 0 (constantly 1))]
