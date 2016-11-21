@@ -1,10 +1,10 @@
-(defproject manifold "0.1.6-alpha3"
+(defproject manifold "0.1.6-alpha4"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/ztellman/manifold"
   :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
-                 [io.aleph/dirigiste "0.1.4"]
+                 [io.aleph/dirigiste "0.1.5-alpha1"]
                  [riddley "0.1.12"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
                                   [criterium "0.4.4"]
