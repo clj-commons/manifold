@@ -29,7 +29,7 @@ true
 :foo
 ```
 
-However, similar to Clojure's futures, deferreds in Manifold can also represent errors.  Crucially, they also allow for callbacks to be registered, rather than simply blocking on dereferencing.
+However, unlike Clojure's futures, deferreds in Manifold can also represent errors.  Crucially, they also allow for callbacks to be registered, rather than simply blocking on dereferencing.
 
 ```clj
 > (def d (d/deferred))
