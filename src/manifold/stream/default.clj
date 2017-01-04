@@ -135,7 +135,7 @@
 
                       :else
                       (do
-                        (d/timeout! result timeout timeout-val)
+                        (d/timeout! x timeout timeout-val)
                         (recur x))))))]
 
       (cond

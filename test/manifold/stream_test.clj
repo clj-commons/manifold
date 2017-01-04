@@ -349,6 +349,12 @@
       (s/close! s)
       (is (= [nil nil] (s/stream->seq s))))))
 
+(deftest test-try-put
+  (testing "times out"
+    (let [s (s/stream)
+          put-result (s/try-put! s :value 10 ::timeout)]
+      (is (= ::timeout (deref put-result 15 ::wrong))))))
+
 (deftest test-error-handling
 
   (binding [log/*logger-factory* clojure.tools.logging.impl/disabled-logger-factory]
