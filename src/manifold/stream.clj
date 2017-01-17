@@ -487,7 +487,13 @@
    Messages will be processed only as quickly as the deferred values are realized. Returns a
    deferred which yields `true` when `source` is exhausted or `callback` yields `false`."
   [callback source]
-  (let [complete (d/deferred)]
+  (let [complete (d/deferred)
+        callback #(d/chain %
+                    callback
+                    (fn [result]
+                      (when (false? result)
+                        (d/success! complete true))
+                      result))]
     (connect source (Callback. callback #(d/success! complete true) nil nil) nil)
     complete))
 
