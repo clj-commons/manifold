@@ -243,6 +243,26 @@
     (d/error! d (Exception.))
     (is (= ::delivered (deref target-d 0 ::not-delivered)))))
 
+(deftest test-alt
+  (is (#{1 2 3} @(d/alt 1 2 3)))
+  (is (= 2 @(d/alt (d/future (Thread/sleep 10) 1) 2)))
+
+  (is (= 2 @(d/alt (d/future (Thread/sleep 10) (throw (Exception. "boom"))) 2)))
+
+  (is (thrown-with-msg? Exception #"boom"
+        @(d/alt (d/future (throw (Exception. "boom"))) (d/future (Thread/sleep 10)))))
+
+  (testing "uniformly distributed"
+    (let [results (atom {})
+          ;; within 10%
+          n 1e4, r 10, eps (* n 0.1)
+          f #(/ (% n eps) r)]
+      (dotimes [_ n]
+        @(d/chain (apply d/alt (range r))
+                  #(swap! results update % (fnil inc 0))))
+      (doseq [[i times] @results]
+        (is (<= (f -) times (f +)))))))
+
 ;;;
 
 (deftest ^:benchmark benchmark-chain
