@@ -991,27 +991,33 @@
 (defn finally'
   "Like `finally`, but doesn't coerce deferrable values."
   [x f]
-  (if (instance? IDeferred x)
-    (if (realized? x)
-      (try
-        (f)
-        x
-        (catch Throwable e
-          (error-deferred e)))
-      (-> x
-          (chain'
-           (fn [x']
-             (f)
-             x'))
-          (catch'
-              (fn [e]
-                (f)
-                (throw e)))))
-    (try
-      (f)
-      x
-      (catch Throwable e
-        (error-deferred e)))))
+  (success-error-unrealized x
+
+    val (try
+          (f)
+          x
+          (catch Throwable e
+            (error-deferred e)))
+
+    err (try
+          (f)
+          (error-deferred err)
+          (catch Throwable e
+            (error-deferred e)))
+
+    (let [d (deferred)]
+      (on-realized x
+        #(try
+           (f)
+           (success! d %)
+           (catch Throwable e
+             (error! d e)))
+        #(try
+           (f)
+           (error! d %)
+           (catch Throwable e
+             (error! d e))))
+      d)))
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
