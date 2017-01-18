@@ -58,6 +58,10 @@
            (d/chain #(/ 1 %))
            (d/catch ArithmeticException (constantly :foo)))))
 
+  (let [d (d/deferred)]
+    (d/future (Thread/sleep 100) (d/error! d :bar))
+    (is (= :foo @(d/catch d (constantly :foo)))))
+
   (is (= :foo
         @(-> (d/error-deferred :bar)
            (d/catch (constantly :foo)))))
