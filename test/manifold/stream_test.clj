@@ -340,9 +340,8 @@
         result (s/consume-async #(do (swap! values conj %)
                                      (d/success-deferred (= (count @values) 1)))
                                 src)]
-
-    (is (= [1 2] @values))
-    (is (true? (deref result 100 ::not-done)))))
+    (is (true? (deref result 100 ::not-done)))
+    (is (= [1 2] @values))))
 
 (deftest test-periodically
   (testing "produces with delay"
