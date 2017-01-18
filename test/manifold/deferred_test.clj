@@ -59,6 +59,10 @@
            (d/catch ArithmeticException (constantly :foo)))))
 
   (is (= :foo
+        @(-> (d/error-deferred :bar)
+           (d/catch (constantly :foo)))))
+
+  (is (= :foo
         @(-> 0
            d/future
            (d/chain #(/ 1 %))

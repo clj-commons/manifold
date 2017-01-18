@@ -935,7 +935,7 @@
 (defn catch'
   "Like `catch`, but does not coerce deferrable values."
   ([x error-handler]
-     (catch' x Throwable error-handler))
+     (catch' x nil error-handler))
   ([x error-class error-handler]
      (let [x (chain' x)]
        (if-not (deferred? x)
@@ -947,7 +947,7 @@
            val x
 
            err (try
-                 (if (instance? error-class err)
+                 (if (or (nil? error-class) (instance? error-class err))
                    (chain' (error-handler err))
                    (error-deferred err))
                  (catch Throwable e
@@ -979,7 +979,7 @@
 
     "
   ([x error-handler]
-    (catch x Throwable error-handler))
+    (catch x nil error-handler))
   ([x error-class error-handler]
      (if-let [d (->deferred x nil)]
        (-> d
