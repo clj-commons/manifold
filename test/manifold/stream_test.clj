@@ -182,7 +182,17 @@
         @(s/reduce + (s/->source inputs))))
     (is
       (= (reduce + 1 inputs)
-        @(s/reduce + 1 (s/->source inputs))))))
+        @(s/reduce + 1 (s/->source inputs)))))
+
+  (let [inputs (range 10)
+        accf (fn [acc el]
+               (if (= el 5) (reduced :large) el))
+        s (s/->source inputs)]
+    (is (= :large
+           (reduce accf 0 inputs)
+           @(s/reduce accf 0 s)))
+    (is (not (s/drained? s)))
+    (is (= 6 @(s/try-take! s 1)))))
 
 (deftest test-zip
   (let [inputs (partition-all 1e4 (range 3e4))]

@@ -715,7 +715,10 @@
       (source-only s'))))
 
 (defn reduce
-  "Equivalent to Clojure's `reduce`, but returns a deferred representing the return value."
+  "Equivalent to Clojure's `reduce`, but returns a deferred representing the return value.
+
+  The deferred will be realized once the stream is closed or if the accumulator
+  functions returns a `reduced` value."
   ([f s]
     (reduce f ::none s))
   ([f initial-value s]
@@ -731,7 +734,10 @@
                (d/chain' (fn [x]
                            (if (identical? ::none x)
                              val
-                             (d/recur (f val x)))))))))))))
+                             (let [r (f val x)]
+                               (if (reduced? r)
+                                 (deref r)
+                                 (d/recur r))))))))))))))
 
 (defn mapcat
   "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
