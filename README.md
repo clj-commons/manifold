@@ -8,7 +8,7 @@ A detailed discussion of Manifold's rationale can be found [here](http://aleph.i
 
 
 ```clj
-[manifold "0.1.6-alpha6"]
+[manifold "0.1.6"]
 ```
 
 ### deferreds
