@@ -29,8 +29,16 @@
 
 ### 0.1.5
 
+Thanks to Tsutomu Yano and Joshua Griffith
+
 * fix bugs in `finally` and `consume`
 
 ### 0.1.6
 
+Thanks for Vadim Platonov, Miikka Koskinen, Alex Engelberg, and Oleh Palianytsia
+
 * fix bug in `batch`
+* make `reduce` compatible with Clojure's `reduced` short-circuiting
+* make sure `catch` can match non-`Throwable` errors
+* allow for destructuring in `loop`
+* add `alt` mechanism for choosing the first of many deferreds to be realized
