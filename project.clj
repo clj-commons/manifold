@@ -1,4 +1,4 @@
-(defproject manifold "0.1.6"
+(defproject manifold "0.1.7-alpha1"
   :description "a compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}

@@ -1,7 +1,7 @@
 (ns manifold.stream.graph
   (:require
     [manifold.deferred :as d]
-    [manifold.utils :as utils]
+    [manifold.utils :as utils :refer [deftype+]]
     [manifold.stream.core :as s]
     [manifold.executor :as ex]
     [clojure.tools.logging :as log])
@@ -32,14 +32,14 @@
       (doto ^CopyOnWriteArrayList l
         (.add x)))))
 
-(deftype Downstream
+(deftype+ Downstream
   [^long timeout
    ^boolean upstream?
    ^boolean downstream?
    ^IEventSink sink
    ^String description])
 
-(deftype AsyncPut
+(deftype+ AsyncPut
   [deferred
    ^CopyOnWriteArrayList dsts
    dst

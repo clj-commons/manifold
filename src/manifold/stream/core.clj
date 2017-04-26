@@ -1,26 +1,28 @@
-(ns manifold.stream.core)
+(ns manifold.stream.core
+  (:require
+   [manifold.utils :refer [defprotocol+ definterface+ deftype+]]))
 
-(defprotocol Sinkable
+(defprotocol+ Sinkable
   (to-sink [_] "Provides a conversion mechanism to Manifold sinks."))
 
-(defprotocol Sourceable
+(defprotocol+ Sourceable
   (to-source [_] "Provides a conversion mechanism to Manifold source."))
 
-(definterface IEventStream
+(definterface+ IEventStream
   (description [])
   (isSynchronous [])
   (downstream [])
   (weakHandle [reference-queue])
   (close []))
 
-(definterface IEventSink
+(definterface+ IEventSink
   (put [x blocking?])
   (put [x blocking? timeout timeout-val])
   (markClosed [])
   (isClosed [])
   (onClosed [callback]))
 
-(definterface IEventSource
+(definterface+ IEventSource
   (take [default-val blocking?])
   (take [default-val blocking? timeout timeout-val])
   (markDrained [])
@@ -139,7 +141,7 @@
 
 (defmacro def-source [name params & body]
   `(do
-     (deftype ~name
+     (deftype+ ~name
        ~(vec (distinct (concat params source-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSource
@@ -152,7 +154,7 @@
 
 (defmacro def-sink [name params & body]
   `(do
-     (deftype ~name
+     (deftype+ ~name
        ~(vec (distinct (concat params sink-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSink
@@ -165,7 +167,7 @@
 
 (defmacro def-sink+source [name params & body]
   `(do
-     (deftype ~name
+     (deftype+ ~name
        ~(vec (distinct (concat params source-params sink-params)))
        manifold.stream.core.IEventStream
        manifold.stream.core.IEventSink

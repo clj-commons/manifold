@@ -3,7 +3,7 @@
     [clojure.tools.logging :as log]
     [manifold
      [deferred :as d]
-     [utils :as utils]
+     [utils :as utils :refer [deftype+]]
      [executor :as ex]]
     [manifold.stream
      [graph :as g]
@@ -23,10 +23,10 @@
 
 ;;;
 
-(deftype Production [deferred message token])
-(deftype Consumption [message deferred token])
-(deftype Producer [message deferred])
-(deftype Consumer [deferred default-val])
+(deftype+ Production [deferred message token])
+(deftype+ Consumption [message deferred token])
+(deftype+ Producer [message deferred])
+(deftype+ Consumer [deferred default-val])
 
 (defn de-nil [x]
   (if (nil? x)

@@ -5,7 +5,8 @@
   (:require
     [clojure.tools.logging :as log]
     [manifold.executor :as ex]
-    [clojure.string :as str])
+    [clojure.string :as str]
+    [manifold.utils :refer [definterface+ defprotocol+]])
   (:import
     [java.util
      Calendar
@@ -129,11 +130,11 @@
 
 ;;;
 
-(definterface IClock
+(definterface+ IClock
   (in [^double interval-millis ^Runnable f])
   (every [^double delay-millis ^double period-millis ^Runnable f]))
 
-(defprotocol IMockClock
+(defprotocol+ IMockClock
   (now [clock] "Returns the current time for the clock")
   (advance [clock time] "Advances the mock clock by the specified interval of `time`."))
 

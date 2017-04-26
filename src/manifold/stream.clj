@@ -7,7 +7,7 @@
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]
-    [manifold.utils :as utils]
+    [manifold.utils :as utils :refer [deftype+]]
     [manifold.time :as time]
     [manifold.stream
      [core :as core]
@@ -91,7 +91,7 @@
       (sourceable? x) (core/to-source x)
       :else default-val)))
 
-(deftype SinkProxy [^IEventSink sink]
+(deftype+ SinkProxy [^IEventSink sink]
   IEventStream
   (description [_]
     (.description ^IEventStream sink))
@@ -115,7 +115,7 @@
 
 (declare connect)
 
-(deftype SourceProxy [^IEventSource source]
+(deftype+ SourceProxy [^IEventSource source]
   IEventStream
   (description [_]
     (.description ^IEventStream source))
@@ -366,7 +366,7 @@
 
 ;;;
 
-(deftype SplicedStream
+(deftype+ SplicedStream
   [^IEventSink sink
    ^IEventSource source
    ^:volatile-mutable mta
@@ -428,7 +428,7 @@
 
 ;;;
 
-(deftype Callback
+(deftype+ Callback
     [f
      close-callback
      ^IEventSink downstream
@@ -836,7 +836,7 @@
 
 ;;;
 
-(deftype BufferedStream
+(deftype+ BufferedStream
   [buf
    limit
    metric

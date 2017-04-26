@@ -9,7 +9,7 @@
     [riddley.compiler :as compiler]
     [manifold
      [executor :as ex]
-     [utils :as utils]
+     [utils :as utils :refer [defprotocol+ deftype+ definterface+]]
      [time :as time]
      [debug :as debug]]
     [clojure.set :as set])
@@ -39,11 +39,11 @@
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
 
-(defprotocol Deferrable
+(defprotocol+ Deferrable
   (^:private to-deferred [_] "Provides a conversion mechanism to manifold deferreds."))
 
 ;; implies IDeref, IBlockingDeref, IPending
-(definterface IDeferred
+(definterface+ IDeferred
   (executor [])
   (^boolean realized [])
   (onRealized [on-success on-error])
@@ -210,11 +210,11 @@
 
 ;;;
 
-(definterface IDeferredListener
+(definterface+ IDeferredListener
   (onSuccess [x])
   (onError [err]))
 
-(deftype Listener [on-success on-error]
+(deftype+ Listener [on-success on-error]
   IDeferredListener
   (onSuccess [_ x] (on-success x))
   (onError [_ err] (on-error err))
@@ -228,7 +228,7 @@
   ([on-success on-error]
     (Listener. on-success on-error)))
 
-(definterface IMutableDeferred
+(definterface+ IMutableDeferred
   (success [x])
   (success [x claim-token])
   (error [x])
@@ -335,7 +335,7 @@
         (apply concat))))
 
 (both
-  (deftype (either [LeakAwareDeferred] [Deferred])
+  (deftype+ (either [LeakAwareDeferred] [Deferred])
     [^:volatile-mutable val
      ^:volatile-mutable state
      ^:volatile-mutable claim-token
@@ -440,7 +440,7 @@
       (set! consumed? true)
       (deref-deferred timeout-value time TimeUnit/MILLISECONDS))))
 
-(deftype SuccessDeferred
+(deftype+ SuccessDeferred
   [val
    ^:volatile-mutable mta
    ^Executor executor]
@@ -489,7 +489,7 @@
   (deref [this] val)
   (deref [this time timeout-value] val))
 
-(deftype ErrorDeferred
+(deftype+ ErrorDeferred
   [^Throwable error
    ^:volatile-mutable mta
    ^:volatile-mutable consumed?
@@ -1172,7 +1172,7 @@
       (time/in interval #(success! d timeout-value)))
     d))
 
-(deftype Recur [s]
+(deftype+ Recur [s]
   clojure.lang.IDeref
   (deref [_] s))
 

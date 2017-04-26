@@ -126,3 +126,21 @@
               (catch Throwable e
                 )))
       `(do ~@body))))
+
+;;;
+
+(defmacro defprotocol+ [name & body]
+  (when-not (resolve name)
+    `(defprotocol ~name ~@body)))
+
+(defmacro deftype+ [name & body]
+  (when-not (resolve name)
+    `(deftype ~name ~@body)))
+
+(defmacro defrecord+ [name & body]
+  (when-not (resolve name)
+    `(defrecord ~name ~@body)))
+
+(defmacro definterface+ [name & body]
+  (when-not (resolve name)
+    `(definterface ~name ~@body)))

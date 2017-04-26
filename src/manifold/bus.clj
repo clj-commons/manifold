@@ -5,7 +5,8 @@
   (:require
     [manifold
      [stream :as s]
-     [deferred :as d]])
+     [deferred :as d]
+     [utils :refer [deftype+ definterface+]]])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]
@@ -14,7 +15,7 @@
 
 (set! *unchecked-math* true)
 
-(definterface IEventBus
+(definterface+ IEventBus
   (snapshot [])
   (subscribe [topic])
   (downstream [topic])
@@ -74,7 +75,7 @@
             ary')))
       ary)))
 
-(deftype Wrapper [x]
+(deftype+ Wrapper [x]
   Object
   (hashCode [_] (hash x))
   (equals [_ o] (= x (.x ^Wrapper o))))
