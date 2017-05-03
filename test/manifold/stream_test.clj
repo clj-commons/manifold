@@ -363,8 +363,8 @@
       (is (= [1 1] (s/stream->seq s)))))
 
   (testing "doesn't fail on nil"
-    (let [s (s/periodically 10 0 (constantly nil))]
-      (Thread/sleep 15)
+    (let [s (s/periodically 100 0 (constantly nil))]
+      (Thread/sleep 150)
       (s/close! s)
       (is (= [nil nil] (s/stream->seq s))))))
 

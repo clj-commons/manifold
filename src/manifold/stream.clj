@@ -1072,11 +1072,11 @@
   ([max-rate s]
      (throttle max-rate max-rate s))
   ([max-rate max-backlog s]
-     (let [buf (stream)
-           s' (stream)
-           period (double (/ 1000 max-rate))]
+   (let [buf    (stream)
+         s'     (stream)
+         period (double (/ 1000 max-rate))]
 
-       (connect-via-proxy s buf s' {:description {:op "throttle"}})
+     (connect-via-proxy s buf s' {:description {:op "throttle"}})
        (on-closed s' #(close! buf))
 
        (d/loop [backlog 0.0, read-start (System/currentTimeMillis)]
@@ -1091,15 +1091,16 @@
 
            (fn [result]
              (when result
-               (let [elapsed (double (- (System/currentTimeMillis) read-start))
+               (let [elapsed  (double (- (System/currentTimeMillis) read-start))
                      backlog' (min (+ backlog (- (/ elapsed period) 1)) max-backlog)]
                  (if (<= 1 backlog')
                    (- backlog' 1.0)
                    (d/timeout! (d/deferred) (- period elapsed) 0.0)))))
 
            (fn [backlog]
-             (when backlog
-               (d/recur backlog (System/currentTimeMillis))))))
+             (if backlog
+               (d/recur backlog (System/currentTimeMillis))
+               (close! s)))))
 
        (source-only s'))))
 
