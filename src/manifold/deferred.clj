@@ -1335,8 +1335,8 @@
 
 (defmacro let-flow
   "A version of `let` where deferred values that are let-bound or closed over can be treated
-   as if they are realized values.  The body will only be executed once all of the let-bound
-   values, even ones only used for side effects, have been computed.
+   as if they are realized values. Only the let-bound values referenced in the body are
+   computed. The body will only be executed once all those values are computed.
 
    Returns a deferred value, representing the value returned by the body.
 
