@@ -23,3 +23,29 @@
         d (b/publish! b (long 1) 42)]
     (is (= 42 @(s/take! s)))
     (is (= true @d))))
+
+(deftest test-timeout-subscriptions
+  (let [b (b/event-bus)
+        drop-after-ms 20
+        e 5
+        c #(let [s (s/stream)]
+             (s/connect % s {:timeout drop-after-ms})
+             s)
+        fast (c (b/subscribe b :topic-1))
+        slow (c (b/subscribe b :topic-1))
+        results (atom {})
+        consumer (fn [id ms] #(do (swap! results assoc id %) (Thread/sleep ms)))
+        publish! #(let [start (System/nanoTime)]
+                    (-> (b/publish! b :topic-1 %)
+                        (d/chain (fn [_]
+                                   (double (/ (- (System/nanoTime) start) 1000 1000))))
+                        (deref 100 ::timeout)))]
+    (s/consume (consumer :fast 0) fast)
+    (s/consume (consumer :slow 50) slow)
+
+    (is (>= (+ drop-after-ms e) (publish! 1)))
+    (is (= {:fast 1, :slow 1} @results))
+
+    (is (>= (+ drop-after-ms e) (publish! 2)))
+    (is (= {:fast 2, :slow 1} @results))
+    (is (s/drained? slow))))
