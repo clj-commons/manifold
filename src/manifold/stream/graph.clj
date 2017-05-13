@@ -21,7 +21,10 @@
 
 (def ^ReferenceQueue ^:private ref-queue (ReferenceQueue.))
 
+;; a map of source handles onto a CopyOnWriteArrayList of sinks
 (def ^ConcurrentHashMap handle->downstreams (ConcurrentHashMap.))
+
+;; a map of stream handles onto other handles which have coupled life-cycles
 (def ^ConcurrentHashMap handle->connected-handles (ConcurrentHashMap.))
 
 (defn conj-to-list! [^ConcurrentHashMap m k x]
@@ -47,8 +50,8 @@
 
 ;;;
 
-(defn downstream [source]
-  (when-let [handle (s/weak-handle source)]
+(defn downstream [stream]
+  (when-let [handle (s/weak-handle stream)]
     (when-let [^CopyOnWriteArrayList l (.get handle->downstreams handle)]
       (->> l
         .iterator
@@ -57,8 +60,8 @@
           (fn [^Downstream d]
             [(.description d) (.sink d)]))))))
 
-(defn pop-connected! [source]
-  (when-let [handle (s/weak-handle source)]
+(defn pop-connected! [stream]
+  (when-let [handle (s/weak-handle stream)]
     (when-let [^CopyOnWriteArrayList l (.remove handle->connected-handles handle)]
       (->> l
         .iterator
@@ -67,7 +70,7 @@
         (remove nil?)))))
 
 (defn add-connection! [a b]
-  (conj-to-list! handle->connected-handles a (s/weak-handle b)))
+  (conj-to-list! handle->connected-handles (s/weak-handle a) (s/weak-handle b)))
 
 ;;;
 
@@ -76,7 +79,7 @@
   (let [^IEventSink sink (.sink d)]
     (let [x (if (== (.timeout d) -1)
               (.put sink msg false)
-              (.put sink msg false (.timeout d) (when (.downstream? d) d)))]
+              (.put sink msg false (.timeout d) (if (.downstream? d) d false)))]
       (AsyncPut. x dsts d (.upstream? d)))))
 
 (defn- sync-send
@@ -98,20 +101,18 @@
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x val source]
-  (let [d (.deferred x)]
-    (cond
-      (true? val)
-      nil
-
-      (false? val)
+  (let [d   (.deferred x)
+        val (if (instance? IEventSink val)
+              (do
+                (s/close! val)
+                false)
+              val)]
+    (when (false? val)
       (let [^CopyOnWriteArrayList l (.dsts x)]
         (.remove l (.dst x))
         (when (or (.upstream? x) (== 0 (.size l)))
           (s/close! source)
-          (.remove handle->downstreams (s/weak-handle source))))
-
-      (instance? IEventSink val)
-      (s/close! val))))
+          (.remove handle->downstreams (s/weak-handle source)))))))
 
 (defn- handle-async-error [^AsyncPut x err source]
   (some-> ^Downstream (.dst x) .sink s/close!)
@@ -209,6 +210,7 @@
                     ^AsyncPut x (async-send dst msg dsts)
                     d (.deferred x)
                     val (d/success-value d ::none)]
+
                 (if (identical? ::none val)
                   (d/on-realized d
                     (fn [val]
