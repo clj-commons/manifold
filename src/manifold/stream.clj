@@ -1077,32 +1077,32 @@
          period (double (/ 1000 max-rate))]
 
      (connect-via-proxy s buf s' {:description {:op "throttle"}})
-       (on-closed s' #(close! buf))
+     (on-closed s' #(close! buf))
 
-       (d/loop [backlog 0.0, read-start (System/currentTimeMillis)]
-         (d/chain (take! buf ::none)
+     (d/loop [backlog 0.0, read-start (System/currentTimeMillis)]
+       (d/chain (take! buf ::none)
 
-           (fn [msg]
-             (if (identical? ::none msg)
-               (do
-                 (close! s')
-                 false)
-               (put! s' msg)))
+         (fn [msg]
+           (if (identical? ::none msg)
+             (do
+               (close! s')
+               false)
+             (put! s' msg)))
 
-           (fn [result]
-             (when result
-               (let [elapsed  (double (- (System/currentTimeMillis) read-start))
-                     backlog' (min (+ backlog (- (/ elapsed period) 1)) max-backlog)]
-                 (if (<= 1 backlog')
-                   (- backlog' 1.0)
-                   (d/timeout! (d/deferred) (- period elapsed) 0.0)))))
+         (fn [result]
+           (when result
+             (let [elapsed  (double (- (System/currentTimeMillis) read-start))
+                   backlog' (min (+ backlog (- (/ elapsed period) 1)) max-backlog)]
+               (if (<= 1 backlog')
+                 (- backlog' 1.0)
+                 (d/timeout! (d/deferred) (- period elapsed) 0.0)))))
 
-           (fn [backlog]
-             (if backlog
-               (d/recur backlog (System/currentTimeMillis))
-               (close! s)))))
+         (fn [backlog]
+           (if backlog
+             (d/recur backlog (System/currentTimeMillis))
+             (close! s)))))
 
-       (source-only s'))))
+     (source-only s'))))
 
 ;;;
 

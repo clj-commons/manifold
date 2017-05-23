@@ -79,7 +79,7 @@
   (let [^IEventSink sink (.sink d)]
     (let [x (if (== (.timeout d) -1)
               (.put sink msg false)
-              (.put sink msg false (.timeout d) (if (.downstream? d) d false)))]
+              (.put sink msg false (.timeout d) (if (.downstream? d) sink false)))]
       (AsyncPut. x dsts d (.upstream? d)))))
 
 (defn- sync-send
@@ -101,6 +101,7 @@
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x val source]
+  (prn x val source)
   (let [d   (.deferred x)
         val (if (instance? IEventSink val)
               (do
@@ -136,8 +137,8 @@
               (if (nil? d)
                 recur-point
                 (let [^AsyncPut x (async-send d msg dsts)
-                      d (.deferred x)
-                      val (d/success-value d ::none)]
+                      d           (.deferred x)
+                      val         (d/success-value d ::none)]
                   (if (identical? val ::none)
                     (d/on-realized d
                       (fn [v]
@@ -162,7 +163,7 @@
                   #(sync-propagate recur-point msg))
 
                 ;; iterate over async-sinks
-                (let [d (.deferred x)
+                (let [d   (.deferred x)
                       val (d/success-value d ::none)]
                   (if (identical? val ::none)
                     (d/on-realized d
@@ -184,7 +185,7 @@
     (trampoline
       (fn this
         ([]
-          (let [d (.take source ::drained false)]
+         (let [d (.take source ::drained false)]
             (if (d/realized? d)
               (this @d)
               (d/on-realized d
@@ -206,10 +207,10 @@
 
             (== 1 (.size dsts))
             (try
-              (let [dst (.get dsts 0)
+              (let [dst         (.get dsts 0)
                     ^AsyncPut x (async-send dst msg dsts)
-                    d (.deferred x)
-                    val (d/success-value d ::none)]
+                    d           (.deferred x)
+                    val         (d/success-value d ::none)]
 
                 (if (identical? ::none val)
                   (d/on-realized d

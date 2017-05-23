@@ -404,6 +404,17 @@
       (is (nil? @(s/take! s')))
       (is (s/drained? s')))))
 
+(deftest test-connect-timeout
+  (let [src  (s/stream)
+        sink (s/stream)]
+
+    (s/connect src sink {:timeout 10})
+    (s/put-all! src (range 10))
+    (Thread/sleep 20)
+
+    (is (s/closed? sink))
+    (is (s/closed? src))))
+
 ;;;
 
 (deftest ^:stress stress-buffered-stream
