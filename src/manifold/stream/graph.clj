@@ -101,7 +101,6 @@
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x val source]
-  (prn x val source)
   (let [d   (.deferred x)
         val (if (instance? IEventSink val)
               (do

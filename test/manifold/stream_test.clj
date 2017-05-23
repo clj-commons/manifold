@@ -410,7 +410,7 @@
 
     (s/connect src sink {:timeout 10})
     (s/put-all! src (range 10))
-    (Thread/sleep 20)
+    (Thread/sleep 100)
 
     (is (s/closed? sink))
     (is (s/closed? src))))
