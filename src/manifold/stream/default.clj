@@ -71,7 +71,42 @@
         (when-not (s/closed? this)
 
           (try
-            (add!)
+            (let [acc (LinkedList.)
+
+                  result
+                  (try
+                    (add! acc)
+                    (catch Throwable e
+                      (log/error e "error in stream transformer")
+                      false))
+
+                  close?
+                  (reduced? result)
+
+                  result
+                  (if close?
+                    @result
+                    result)]
+
+              (loop [val true]
+                (if (.isEmpty acc)
+                  val
+                  (let [x (.removeFirst acc)]
+                    (cond
+
+                      (instance? Producer x)
+                      (do
+                        (log/warn (IllegalStateException.) "excessive pending puts (> 16384), closing stream")
+                        false)
+
+                      (instance? Production x)
+                      (let [^Production p x]
+                        (d/success! (.deferred p) (.message p) (.token p))
+                        (recur true))
+
+                      :else
+                      (recur x))))))
+
             (catch Throwable e
               (log/error e "error in stream transformer")))
 
