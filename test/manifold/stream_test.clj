@@ -173,7 +173,12 @@
 
     (comp (map inc) (filter even?)) (range 10)
 
-    (comp (map inc) (take 5)) (range 10)))
+    (comp (map inc) (take 5)) (range 10)
+
+    (partition-all 5) (range 12)
+
+    (comp (partition-all 5) (map count)) (range 13)
+    ))
 
 (deftest test-reduce
   (let [inputs (range 1e2)]
