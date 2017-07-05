@@ -275,8 +275,8 @@
     (fn
       ([]
        )
-      ([_]
-       (d/success-deferred false))
+      ([acc]
+        acc)
       ([^LinkedList acc msg]
        (doto acc
          (.add
