@@ -195,7 +195,7 @@
       (= (-> (d/chain t set)
              (deref 10 :broken))
 
-         #{[0 1 2] [3] :drained}))))
+         #{[0 1 2] [3 4] :drained}))))
 
 (deftest test-reduce
   (let [inputs (range 1e2)]
