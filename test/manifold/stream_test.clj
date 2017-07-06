@@ -163,7 +163,7 @@
 
   (are [xform input]
     (= (s/stream->seq (s/transform xform (s/->source input)))
-      (transduce xform conj [] input))
+       (transduce xform conj [] input))
 
     (mapcat #(repeat 3 %)) (range 10)
 
@@ -179,6 +179,23 @@
 
     (comp (partition-all 5) (map count)) (range 13)
     ))
+
+(deftest test-accumulating-transducer-with-multiple-consumers
+  (let [s (s/transform
+            (partition-all 3)
+            (s/->source [0 1 2 3 4]))
+
+        t (d/zip
+            (s/take! s :drained)
+            (s/take! s :drained)
+            (s/take! s :drained))
+        ]
+
+    (is
+      (= (-> (d/chain t set)
+             (deref 10 :broken))
+
+         #{[0 1 2] [3] :drained}))))
 
 (deftest test-reduce
   (let [inputs (range 1e2)]

@@ -75,37 +75,27 @@
 
                   result
                   (try
-                    (add! acc)
+                    (unreduced (add! acc))
                     (catch Throwable e
                       (log/error e "error in stream transformer")
                       false))
+                  ]
 
-                  close?
-                  (reduced? result)
-
-                  result
-                  (if close?
-                    @result
-                    result)]
-
-              (loop [val true]
-                (if (.isEmpty acc)
-                  val
+              (loop []
+                (if-not (.isEmpty acc)
                   (let [x (.removeFirst acc)]
                     (cond
 
                       (instance? Producer x)
-                      (do
-                        (log/warn (IllegalStateException.) "excessive pending puts (> 16384), closing stream")
-                        false)
+                      (log/warn (IllegalStateException.) "excessive pending puts (> 16384) while closing stream")
 
                       (instance? Production x)
                       (let [^Production p x]
                         (d/success! (.deferred p) (.message p) (.token p))
-                        (recur true))
+                        (recur))
 
                       :else
-                      (recur x))))))
+                      (recur))))))
 
             (catch Throwable e
               (log/error e "error in stream transformer")))
