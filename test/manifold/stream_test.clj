@@ -181,21 +181,33 @@
     ))
 
 (deftest test-accumulating-transducer-with-multiple-consumers
-  (let [s (s/transform
-            (partition-all 3)
-            (s/->source [0 1 2 3 4]))
 
-        t (d/zip
-            (s/take! s :drained)
-            (s/take! s :drained)
-            (s/take! s :drained))
-        ]
+  ;; This tests a very particular code path while closing
+  ;; streams with a transducer and multiple consumers.
 
-    (is
-      (= (-> (d/chain t set)
-             (deref 10 :broken))
+  ;; When closing a transformed stream with multiple consumers
+  ;; and an accumulated transducer state, one consumer must
+  ;; receive the last message.  The last message should not be
+  ;; discarded, and the consumers should not be abandoned.
 
-         #{[0 1 2] [3 4] :drained}))))
+  ;; The consumers need to start listening before messages
+  ;; are available, and there should be more than one
+  ;; consumer remaining at the time the stream is closed.
+
+  (let [s (s/stream 0 (partition-all 3))
+
+        d (-> (d/zip (s/take! s :drained)
+                     (s/take! s :drained)
+                     (s/take! s :drained))
+
+              (d/chain (partial into #{})))]
+
+    (-> (s/put-all! s (range 5))
+        (d/finally (partial s/close! s)))
+
+    (is (= #{[0 1 2] [3 4] :drained}
+           (deref d 100 :incomplete!)))))
+
 
 (deftest test-reduce
   (let [inputs (range 1e2)]
