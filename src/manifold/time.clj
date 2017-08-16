@@ -136,7 +136,21 @@
 
 (defprotocol+ IMockClock
   (now [clock] "Returns the current time for the clock")
-  (advance [clock time] "Advances the mock clock by the specified interval of `time`."))
+  (advance [clock time]
+    "Advances the mock clock by the specified interval of `time`.
+
+    Advancing the clock is a continuous action - the clock doesn't just jump
+    from `now` to `new-now = (+ (now clock) time)`. Rather, for each scheduled
+    event within `[now; new-now]` the clock is reset to the time of the event
+    and the event function is executed.
+
+    For example, if you have a periodic function scheduled with
+
+      (every 1 #(swap! counter inc))
+
+    and advance the clock by 5, the counter will be incremented 6 times in
+    total: once initially, as the initial delay is 0 and 5 times for every 1 ms
+    step of the clock."))
 
 (defn scheduled-executor->clock [^ScheduledExecutorService e]
   (reify IClock
