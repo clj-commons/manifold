@@ -47,7 +47,9 @@
         (is (= 5 @n))
         (t/advance c 4)
         (is (= 6 @n))
+        (t/advance c 20)
+        (is (= 10 @n))
 
         (cancel)
         (t/advance c 5)
-        (is (= 6 @n))))))
+        (is (= 10 @n))))))
