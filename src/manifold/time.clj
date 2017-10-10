@@ -136,23 +136,45 @@
 
 (defprotocol+ IMockClock
   (now [clock] "Returns the current time for the clock")
-  (advance [clock time] "Advances the mock clock by the specified interval of `time`."))
+  (advance [clock time]
+    "Advances the mock clock by the specified interval of `time`.
+
+    Advancing the clock is a continuous action - the clock doesn't just jump
+    from `now` to `new-now = (+ (now clock) time)`. Rather, for each scheduled
+    event within `[now; new-now]` the clock is reset to the time of the event
+    and the event function is executed.
+
+    For example, if you have a periodic function scheduled with
+
+      (every 1 #(swap! counter inc))
+
+    and advance the clock by 5, the counter will be incremented 6 times in
+    total: once initially, as the initial delay is 0 and 5 times for every 1 ms
+    step of the clock."))
+
+(defn- cancel-on-exception [f cancel-fn]
+  (fn []
+    (try (f)
+         (catch Throwable t
+           (cancel-fn)
+           (throw t)))))
 
 (defn scheduled-executor->clock [^ScheduledExecutorService e]
   (reify IClock
     (in [_ interval-millis f]
       (.schedule e f (long (* interval-millis 1e3)) TimeUnit/MICROSECONDS))
     (every [_ delay-millis period-millis f]
-      (let [future-ref (promise)]
+      (let [future-ref (promise)
+            cancel-fn (fn []
+                        (let [^Future future @future-ref]
+                          (.cancel future false)))]
         (deliver future-ref
           (.scheduleAtFixedRate e
-            ^Runnable f
+            ^Runnable (cancel-on-exception f cancel-fn)
             (long (* delay-millis 1e3))
             (long (* period-millis 1e3))
             TimeUnit/MICROSECONDS))
-        (fn []
-          (let [^Future future @future-ref]
-            (.cancel future false)))))))
+        cancel-fn))))
 
 (defn mock-clock
   "Creates a clock designed for testing scheduled behaviors.  It can replace the default
@@ -171,9 +193,10 @@
        (every [this delay-millis period-millis f]
          (assert (< 0 period-millis))
          (let [period (atom period-millis)
-               f' (with-meta f {::period period})]
-           (.in this (max 0 delay-millis) f')
-           #(reset! period -1)))
+               cancel-fn #(reset! period -1)]
+           (->> (with-meta (cancel-on-exception f cancel-fn) {::period period})
+                (.in this (max 0 delay-millis)))
+           cancel-fn))
 
        IMockClock
        (now [_] @now)
@@ -245,15 +268,7 @@
   ([period f]
    (every period 0 f))
   ([period initial-delay f]
-   (let [cancel-ref (promise)
-         f (fn []
-             (try
-               (f)
-               (catch Throwable e
-                 (@cancel-ref)
-                 (throw e))))]
-     (deliver cancel-ref (.every *clock* initial-delay period f))
-     #(@cancel-ref))))
+   (.every *clock* initial-delay period f)))
 
 (defn at
   "Schedules no-arg function  `f` to be invoked at `timestamp`, which is the milliseconds

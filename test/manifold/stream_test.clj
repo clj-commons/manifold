@@ -163,7 +163,7 @@
 
   (are [xform input]
     (= (s/stream->seq (s/transform xform (s/->source input)))
-      (transduce xform conj [] input))
+       (transduce xform conj [] input))
 
     (mapcat #(repeat 3 %)) (range 10)
 
@@ -173,7 +173,41 @@
 
     (comp (map inc) (filter even?)) (range 10)
 
-    (comp (map inc) (take 5)) (range 10)))
+    (comp (map inc) (take 5)) (range 10)
+
+    (partition-all 5) (range 12)
+
+    (comp (partition-all 5) (map count)) (range 13)
+    ))
+
+(deftest test-accumulating-transducer-with-multiple-consumers
+
+  ;; This tests a very particular code path while closing
+  ;; streams with a transducer and multiple consumers.
+
+  ;; When closing a transformed stream with multiple consumers
+  ;; and an accumulated transducer state, one consumer must
+  ;; receive the last message.  The last message should not be
+  ;; discarded, and the consumers should not be abandoned.
+
+  ;; The consumers need to start listening before messages
+  ;; are available, and there should be more than one
+  ;; consumer remaining at the time the stream is closed.
+
+  (let [s (s/stream 0 (partition-all 3))
+
+        d (-> (d/zip (s/take! s :drained)
+                     (s/take! s :drained)
+                     (s/take! s :drained))
+
+              (d/chain (partial into #{})))]
+
+    (-> (s/put-all! s (range 5))
+        (d/finally (partial s/close! s)))
+
+    (is (= #{[0 1 2] [3 4] :drained}
+           (deref d 100 :incomplete!)))))
+
 
 (deftest test-reduce
   (let [inputs (range 1e2)]
