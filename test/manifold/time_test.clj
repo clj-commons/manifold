@@ -53,3 +53,15 @@
         (cancel)
         (t/advance c 5)
         (is (= 10 @n))))))
+
+(deftest test-mock-clock-deschedules-after-exception
+  (let [c (t/mock-clock 0)
+        counter (atom 0)]
+    (t/with-clock c
+      (t/every 1
+        (fn []
+          (swap! counter inc)
+          (throw (Exception. "BOOM")))))
+    (is (= 1 @counter))
+    (t/advance c 1)
+    (is (= 1 @counter))))
