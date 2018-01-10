@@ -1284,54 +1284,56 @@
 
 (defn- expand-let-flow [chain-fn zip-fn bindings body]
   (let [[_ bindings & body] (walk/macroexpand-all `(let ~bindings ~@body))
-        locals (keys (compiler/locals))
-        vars (->> bindings (partition 2) (map first))
-        marker (gensym)
-        vars' (->> vars (concat locals) (map #(vary-meta % assoc marker true)))
-        gensyms (repeatedly (count vars') gensym)
-        gensym->var (zipmap gensyms vars')
-        vals' (->> bindings (partition 2) (map second) (concat locals))
-        gensym->deps (zipmap
-                       gensyms
-                       (->> (count vars')
-                         range
-                         (map
-                           (fn [n]
-                             `(let [~@(interleave (take n vars') (repeat nil))
-                                    ~(nth vars' n) ~(nth vals' n)])))
-                         (map
-                           (fn [n form]
-                             (map
-                               (zipmap vars' (take n gensyms))
-                               (back-references marker form)))
-                           (range))))
-        binding-dep? (->> gensym->deps vals (apply concat) set)
-        body-dep? (->> `(let [~@(interleave
-                                  vars'
-                                  (repeat nil))]
-                          ~@body)
-                    (back-references marker)
-                    (map (zipmap vars' gensyms))
-                    set)
-        dep? (set/union binding-dep? body-dep?)]
-    `(let [~@(mapcat
-               (fn [n var val gensym]
-                 (let [var->gensym (zipmap (take n vars') gensyms)
-                       deps (gensym->deps gensym)]
-                   (if (empty? deps)
-                     (when (dep? gensym)
-                       [gensym val])
-                     [gensym
-                      `(~chain-fn (~zip-fn ~@deps)
-                         (fn [[~@(map gensym->var deps)]]
-                           ~val))])))
-               (range)
-               vars'
-               vals'
-               gensyms)]
-       (~chain-fn (~zip-fn ~@body-dep?)
-         (fn [[~@(map gensym->var body-dep?)]]
-           ~@body)))))
+        locals              (keys (compiler/locals))
+        vars                (->> bindings (partition 2) (map first))
+        marker              (gensym)
+        vars'               (->> vars (concat locals) (map #(vary-meta % assoc marker true)))
+        gensyms             (repeatedly (count vars') gensym)
+        gensym->var         (zipmap gensyms vars')
+        vals'               (->> bindings (partition 2) (map second) (concat locals))
+        gensym->deps        (zipmap
+                              gensyms
+                              (->> (count vars')
+                                range
+                                (map
+                                  (fn [n]
+                                    `(let [~@(interleave (take n vars') (repeat nil))
+                                           ~(nth vars' n) ~(nth vals' n)])))
+                                (map
+                                  (fn [n form]
+                                    (map
+                                      (zipmap vars' (take n gensyms))
+                                      (back-references marker form)))
+                                  (range))))
+        binding-dep?        (->> gensym->deps vals (apply concat) set)
+        body-dep?           (->> `(let [~@(interleave
+                                            vars'
+                                            (repeat nil))]
+                                    ~@body)
+                              (back-references marker)
+                              (map (zipmap vars' gensyms))
+                              set)
+        dep?                (set/union binding-dep? body-dep?)]
+    `(let [executor# (manifold.executor/executor)]
+       (manifold.executor/with-executor nil
+         (let [~@(mapcat
+                   (fn [n var val gensym]
+                     (let [deps (gensym->deps gensym)]
+                       (if (empty? deps)
+                         (when (dep? gensym)
+                           [gensym val])
+                         [gensym
+                          `(~chain-fn (~zip-fn ~@deps)
+                            (fn [[~@(map gensym->var deps)]]
+                              ~val))])))
+                   (range)
+                   vars'
+                   vals'
+                   gensyms)]
+           (~chain-fn (~zip-fn ~@body-dep?)
+            (fn [[~@(map gensym->var body-dep?)]]
+              (manifold.executor/with-executor executor#
+                ~@body))))))))
 
 (defmacro let-flow
   "A version of `let` where deferred values that are let-bound or closed over can be treated
