@@ -73,6 +73,15 @@
            (d/catch ArithmeticException (constantly :foo))))))
 
 (deftest test-let-flow
+
+  (let [flag (atom false)]
+    @(let [z (clojure.core/future 1)]
+       (d/let-flow [x (d/future (clojure.core/future z))
+                    _ (d/future (Thread/sleep 1000) (reset! flag true))
+                    y (d/future (+ z x))]
+         (d/future (+ x x y z))))
+    (is (= true @flag)))
+
   (is (= 5
         @(let [z (clojure.core/future 1)]
            (d/let-flow [x (d/future (clojure.core/future z))

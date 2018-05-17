@@ -1306,12 +1306,14 @@
                                       (back-references marker form)))
                                   (range))))
         binding-dep?        (->> gensym->deps vals (apply concat) set)
+
         body-dep?           (->> `(let [~@(interleave
                                             vars'
                                             (repeat nil))]
                                     ~@body)
                               (back-references marker)
                               (map (zipmap vars' gensyms))
+                              (concat (drop (count vars) gensyms))
                               set)
         dep?                (set/union binding-dep? body-dep?)]
     `(let [executor# (manifold.executor/executor)]
