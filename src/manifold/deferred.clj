@@ -300,13 +300,16 @@
                     "invalid claim-token")))
         false)))
 
+(defmacro ^:private throw' [val]
+  `(if (instance? Throwable ~val)
+     (throw ~val)
+     (throw (ex-info "" {:error ~val}))))
+
 (defmacro ^:private deref-deferred [timeout-value & await-args]
   (let [latch-sym (with-meta (gensym "latch") {:tag "java.util.concurrent.CountDownLatch"})]
     `(condp identical? ~'state
        ::success ~'val
-       ::error   (if (instance? Throwable ~'val)
-                   (throw ~'val)
-                   (throw (ex-info "" {:error ~'val})))
+       ::error   (throw' ~'val)
        (let [~latch-sym (CountDownLatch. 1)
              f# (fn [_#] (.countDown ~latch-sym))]
          (on-realized ~'this f# f#)
@@ -318,7 +321,7 @@
            (if result#
              (if (identical? ::success ~'state)
                ~'val
-               (throw ~'val))
+               (throw' ~'val))
              ~timeout-value))))))
 
 (defmacro ^:private both [body]
@@ -546,14 +549,10 @@
   clojure.lang.IBlockingDeref
   (deref [this]
     (set! consumed? true)
-    (if (instance? Throwable error)
-      (throw error)
-      (throw (ex-info "" {:error error}))))
+    (throw' error))
   (deref [this time timeout-value]
     (set! consumed? true)
-    (if (instance? Throwable error)
-      (throw error)
-      (throw (ex-info "" {:error error})))))
+    (throw' error)))
 
 (let [created (AtomicLong. 0)]
   (defn deferred
