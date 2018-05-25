@@ -164,6 +164,22 @@
     (future' (d/error! d (IllegalStateException. "boom")))
     (is (thrown? IllegalStateException (deref d 1000 ::timeout))))
 
+  ;; test deref with non-Throwable error result
+  (are [d timeout]
+    (= :bar
+       (-> (is (thrown? clojure.lang.ExceptionInfo
+                 (if timeout (deref d 1000 ::timeout) @d)))
+         ex-data
+         :error))
+
+    (doto (d/deferred) (d/error! :bar)) true
+
+    (doto (d/deferred) (as-> d (future' (d/error! d :bar)))) true
+
+    (d/error-deferred :bar) true
+
+    (d/error-deferred :bar) false)
+
   ;; multiple callbacks w/ success
   (let [n 50
         d (d/deferred)
