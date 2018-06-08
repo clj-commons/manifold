@@ -35,10 +35,25 @@ Thanks to Tsutomu Yano and Joshua Griffith
 
 ### 0.1.6
 
-Thanks for Vadim Platonov, Miikka Koskinen, Alex Engelberg, and Oleh Palianytsia
+Thanks to Vadim Platonov, Miikka Koskinen, Alex Engelberg, and Oleh Palianytsia
 
 * fix bug in `batch`
 * make `reduce` compatible with Clojure's `reduced` short-circuiting
 * make sure `catch` can match non-`Throwable` errors
 * allow for destructuring in `loop`
 * add `alt` mechanism for choosing the first of many deferreds to be realized
+
+### 0.1.7
+
+Thanks to Ted Cushman, Vadim Platonov
+
+* Increase stack size in the wait-pool
+* Fix lifecycle bugs in `throttle`, `partition-all`, and `transform`
+* Change `let-flow` to wait on all deferred values, not just the ones used by the body
+
+### 0.1.8
+
+Thanks to Paweł Stroiński
+
+* Fix handling of non-`Throwable` deferred errors when dereferencing
+
