@@ -129,6 +129,6 @@ to your application's project.clj.
 
 ### license
 
-Copyright © 2014 Zach Tellman
+Copyright © 2014-2018 Zach Tellman
 
 Distributed under the MIT License.
