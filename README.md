@@ -127,6 +127,10 @@ or by adding
 
 to your application's project.clj.
 
+### Clojurescript
+
+A Clojurescript implementation of Manifold can be found here: [dm3/manifold-cljs](https://github.com/dm3/manifold-cljs).
+
 ### license
 
 Copyright © 2014-2018 Zach Tellman
