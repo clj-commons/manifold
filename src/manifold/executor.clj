@@ -41,6 +41,7 @@
     (reify ThreadFactory
       (newThread [_ runnable]
         (let [name (name-generator)
+              curr-loader (.getClassLoader (class thread-factory))
               f #(do
                    (.set executor-thread-local @executor-promise)
                    (.run ^Runnable runnable))]
@@ -48,7 +49,8 @@
             (if stack-size
               (Thread. nil f name stack-size)
               (Thread. nil f name))
-            (.setDaemon daemon?)))))))
+            (.setDaemon daemon?)
+            (.setContextClassLoader curr-loader)))))))
 
 ;;;
 
