@@ -34,8 +34,10 @@
 
 (defn ^ThreadFactory thread-factory
   ([name-generator executor-promise]
-     (thread-factory name-generator executor-promise nil))
+   (thread-factory name-generator executor-promise nil true))
   ([name-generator executor-promise stack-size]
+   (thread-factory name-generator executor-promise stack-size true))
+  ([name-generator executor-promise stack-size daemon?]
     (reify ThreadFactory
       (newThread [_ runnable]
         (let [name (name-generator)
@@ -46,7 +48,7 @@
             (if stack-size
               (Thread. nil f name stack-size)
               (Thread. nil f name))
-            (.setDaemon true)))))))
+            (.setDaemon daemon?)))))))
 
 ;;;
 
