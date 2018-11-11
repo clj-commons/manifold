@@ -125,7 +125,7 @@
 ;;;
 
 (in-ns 'manifold.deferred)
-(clojure.core/declare success! error! deferred)
+(clojure.core/declare success! error! deferred realized?)
 (in-ns 'manifold.time)
 
 ;;;
@@ -251,10 +251,11 @@
     [^double interval f]
     (let [d (manifold.deferred/deferred)
           f (fn []
-              (try
-                (manifold.deferred/success! d (f))
-                (catch Throwable e
-                  (manifold.deferred/error! d e))))]
+              (when-not (manifold.deferred/realized? d)
+                (try
+                  (manifold.deferred/success! d (f))
+                  (catch Throwable e
+                    (manifold.deferred/error! d e)))))]
       (.in *clock* interval f)
       d))
 
