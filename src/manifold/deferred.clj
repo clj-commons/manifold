@@ -1315,7 +1315,7 @@
                               (concat (drop (count vars) gensyms))
                               set)
         dep?                (set/union binding-dep? body-dep?)]
-    `(let [executor# (manifold.executor/executor)]
+    `(let [executor# (or (manifold.executor/executor) (ex/execute-pool))]
        (manifold.executor/with-executor nil
          (let [~@(mapcat
                    (fn [n var val gensym]
@@ -1331,10 +1331,9 @@
                    vars'
                    vals'
                    gensyms)]
-           (~chain-fn (~zip-fn ~@body-dep?)
+           (~chain-fn (d/onto (~zip-fn ~@body-dep?) executor#)
             (fn [[~@(map gensym->var body-dep?)]]
-              (manifold.executor/with-executor executor#
-                ~@body))))))))
+              ~@body)))))))
 
 (defmacro let-flow
   "A version of `let` where deferred values that are let-bound or closed over can be treated
