@@ -5,10 +5,10 @@
   :url "https://github.com/ztellman/manifold"
   :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "0.1.6-alpha1"]
+                 [org.clojure/core.async "0.4.474" :scope "provided"]
                  [riddley "0.1.15"]]
   :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
-                                  [criterium "0.4.4"]
-                                  [org.clojure/core.async "0.4.474"]]}}
+                                  [criterium "0.4.4"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
                                  (cons (:tag %) (keys %))))
