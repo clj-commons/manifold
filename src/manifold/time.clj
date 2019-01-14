@@ -235,8 +235,8 @@
                          (deliver (promise) nil)))))]
   (def ^:dynamic ^IClock *clock*
     (reify IClock
-      (in [_ f interval] (.in ^IClock @clock f interval))
-      (every [_ f delay period] (.every ^IClock @clock f delay period)))))
+      (in [_ interval f] (.in ^IClock @clock interval f))
+      (every [_ delay period f] (.every ^IClock @clock delay period f)))))
 
 (defmacro with-clock
   "Ensures that all calls to `every` and `in` are made through the specified clock, rather
