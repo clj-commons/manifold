@@ -1331,7 +1331,7 @@
                    vars'
                    vals'
                    gensyms)]
-           (~chain-fn (d/onto (~zip-fn ~@body-dep?) executor#)
+           (~chain-fn (onto (~zip-fn ~@body-dep?) executor#)
             (fn [[~@(map gensym->var body-dep?)]]
               ~@body)))))))
 
