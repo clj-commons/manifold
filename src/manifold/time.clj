@@ -125,7 +125,7 @@
 ;;;
 
 (in-ns 'manifold.deferred)
-(clojure.core/declare success! error! deferred realized?)
+(clojure.core/declare success! error! deferred realized? chain)
 (in-ns 'manifold.time)
 
 ;;;
@@ -162,7 +162,10 @@
 (defn scheduled-executor->clock [^ScheduledExecutorService e]
   (reify IClock
     (in [_ interval-millis f]
-      (.schedule e f (long (* interval-millis 1e3)) TimeUnit/MICROSECONDS))
+      (let [^Future scheduled-future (.schedule e f (long (* interval-millis 1e3)) TimeUnit/MICROSECONDS)
+            cancel-fn (fn []
+                        (.cancel scheduled-future false))]
+        cancel-fn))
     (every [_ delay-millis period-millis f]
       (let [future-ref (promise)
             cancel-fn (fn []
@@ -227,12 +230,13 @@
       cnt        (atom 0)
       clock      (delay
                    (scheduled-executor->clock
-                     (ScheduledThreadPoolExecutor.
-                       1
-                       (ex/thread-factory
-                         (fn []
-                           (str "manifold-scheduler-pool-" (swap! cnt inc)))
-                         (deliver (promise) nil)))))]
+                     (doto (ScheduledThreadPoolExecutor.
+                             1
+                             (ex/thread-factory
+                               (fn []
+                                 (str "manifold-scheduler-pool-" (swap! cnt inc)))
+                               (deliver (promise) nil)))
+                       (.setRemoveOnCancelPolicy true))))]
   (def ^:dynamic ^IClock *clock*
     (reify IClock
       (in [_ interval f] (.in ^IClock @clock interval f))
@@ -247,7 +251,8 @@
 
 (defn in
   "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred
-     representing the returned value of the function."
+     representing the returned value of the function. If the returned deferred is completed before
+     the interval has passed, the timeout function will be cancelled."
     [^double interval f]
     (let [d (manifold.deferred/deferred)
           f (fn []
@@ -255,8 +260,9 @@
                 (try
                   (manifold.deferred/success! d (f))
                   (catch Throwable e
-                    (manifold.deferred/error! d e)))))]
-      (.in *clock* interval f)
+                    (manifold.deferred/error! d e)))))
+          cancel-fn (.in *clock* interval f)]
+      (manifold.deferred/chain d (fn [_] (cancel-fn)))
       d))
 
 (defn every
