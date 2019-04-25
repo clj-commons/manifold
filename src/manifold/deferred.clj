@@ -1027,11 +1027,9 @@
     (finally' d f)
     (finally' x f)))
 
-(defn zip'
-  "Like `zip`, but only unwraps Manifold deferreds."
-  {:inline (fn [x] `(chain' ~x vector))
-   :inline-arities #{1}}
-  [& vals]
+(defn zipseq'
+  "Like `zipseq`, but only unwraps Manifold deferreds."
+  [vals]
   (let [cnt (count vals)
         ^objects ary (object-array cnt)
         counter (AtomicInteger. cnt)]
@@ -1075,6 +1073,24 @@
               (.decrementAndGet counter)
               (recur d idx' rst))))))))
 
+(defn zipseq
+  "Takes a collection of values, some of which may be deferrable, and returns a deferred that will yield a list
+   of realized values.
+
+        @(zipseq [1 2 3]) => [1 2 3]
+        @(zipseq [(future 1) 2 3]) => [1 2 3]
+
+  "
+  [vals]
+  (zipseq' (map #(or (->deferred % nil) %) vals)))
+
+(defn zip'
+  "Like `zip`, but only unwraps Manifold deferreds."
+  {:inline (fn [x] `(chain' ~x vector))
+   :inline-arities #{1}}
+  [& vals]
+  (zipseq' vals))
+
 (defn zip
   "Takes a list of values, some of which may be deferrable, and returns a deferred that will yield a list
    of realized values.
@@ -1086,9 +1102,7 @@
   {:inline (fn [x] `(chain ~x vector))
    :inline-arities #{1}}
   [& vals]
-  (->> vals
-    (map #(or (->deferred % nil) %))
-    (apply zip')))
+  (zipseq' (map #(or (->deferred % nil) %) vals)))
 
 ;; same technique as clojure.core.async/random-array
 (defn- random-array [n]
