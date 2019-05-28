@@ -25,6 +25,5 @@
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"
-                       "-XX:+UseConcMarkSweepGC"
                        "-Xmx2g"
                        "-XX:NewSize=1g"])
