@@ -60,7 +60,7 @@ Again, we specify the timeout and special timeout value.  When using `try-take!`
 
 ### stream operators
 
-The simplest thing we can do a stream is consume every message that comes into it:
+The simplest thing we can do with a stream is consume every message that comes into it:
 
 ```clj
 > (s/consume #(prn 'message! %) s)
