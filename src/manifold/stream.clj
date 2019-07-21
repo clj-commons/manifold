@@ -3,7 +3,7 @@
     :doc "Methods for creating, transforming, and interacting with asynchronous streams of values."}
   manifold.stream
   (:refer-clojure
-    :exclude [map filter mapcat reductions reduce concat])
+    :exclude [map filter mapcat reductions reduce concat flatten])
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]
@@ -756,6 +756,26 @@
   ([f s & rest]
     (->> (apply zip s rest)
       (mapcat #(apply f %)))))
+
+
+(defn flatten
+  "Equivalent to Clojure's `flatten`, but for streams instead of sequences."
+  [s]
+  (let [s' (stream)]
+    (connect-via s
+      (fn [x]
+        (if (sequential? x)
+          (let [xs  (mapv (partial put! s')
+                          (clj/flatten x))]
+            (d/chain (apply d/zip xs)
+                     (fn [xs]
+                       ;; TODO: how to better handle if puts fail?
+                       (every? true? xs))))
+          (put! s' x)))
+      s'
+      {:description {:op "flatten"}})
+
+    (source-only s')))
 
 (defn lazily-partition-by
   "Equivalent to Clojure's `partition-by`, but returns a stream of streams.  This means that
