@@ -72,6 +72,23 @@
            (d/chain #(/ 1 %))
            (d/catch ArithmeticException (constantly :foo))))))
 
+(deftest test-catch-data
+  (is (= {:type :foo}
+         @(-> (d/future (throw (ex-info "" {:type :foo})))
+              (d/catch :foo identity))))
+
+  (is (thrown? ArithmeticException
+               @(-> 0
+                    d/future
+                    (d/chain #(/ 1 %))
+                    (d/catch :foo identity))))
+
+  (is (= {:a {:b {:c :d}}}
+         @(-> (d/future (throw (ex-info "" {:a {:b {:c :d}}})))
+              (d/catch #(when (= (get-in (ex-data %) [:a :b :c]) :d)
+                          (ex-data %))
+                  identity)))))
+
 (deftest test-let-flow
 
   (let [flag (atom false)]

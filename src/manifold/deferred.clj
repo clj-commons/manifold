@@ -929,15 +929,47 @@
   ([x f g]
     (chain- nil x f g))
   ([x f g & fs]
-     (apply chain- nil x f g fs)))
+   (apply chain- nil x f g fs)))
+
+(defn- error-match-fn
+  "Predicate which checks for a match on an error based on
+   the `error-pattern` argument to `catch'`, upon successful
+   matching, yields the appropriate value to the error handler.
+
+   patterns can be:
+
+   - nil, matching everything and yielding the Exception
+   - a keyword, which will be compared against the `:type` key
+     in the error's `ex-data`. The `ex-data` will be chained
+     to the handler in that case
+   - a function which must observe the same behavior
+   - a class which will check for instances of that class"
+  [pattern]
+  (cond
+    (nil? pattern)
+    identity
+
+    (keyword? pattern)
+    (fn [err]
+      (let [data (ex-data err)]
+        (when (= (:type data) pattern)
+          data)))
+
+    (fn? pattern)
+    pattern
+
+    :else
+    (fn [err]
+      (when (instance? pattern err)
+        err))))
 
 (defn catch'
   "Like `catch`, but does not coerce deferrable values."
   ([x error-handler]
      (catch' x nil error-handler))
-  ([x error-class error-handler]
+  ([x error-pattern error-handler]
      (let [x (chain' x)
-           catch? #(or (nil? error-class) (instance? error-class %))]
+           catch? (error-match-fn error-pattern)]
        (if-not (deferred? x)
 
          ;; not a deferred value, skip over it
@@ -947,8 +979,8 @@
            val x
 
            err (try
-                 (if (catch? err)
-                   (chain' (error-handler err))
+                 (if-let [caught (catch? err)]
+                   (chain' (error-handler caught))
                    (error-deferred err))
                  (catch Throwable e
                    (error-deferred e)))
@@ -958,8 +990,8 @@
              (on-realized x
                #(success! d' %)
                #(try
-                  (if (catch? %)
-                    (chain'- d' (error-handler %))
+                  (if-let [caught (catch? %)]
+                    (chain'- d' (error-handler caught))
                     (chain'- d' (error-deferred %)))
                   (catch Throwable e
                     (error! d' e))))
