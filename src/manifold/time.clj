@@ -125,7 +125,7 @@
 ;;;
 
 (in-ns 'manifold.deferred)
-(clojure.core/declare success! error! deferred realized? chain)
+(clojure.core/declare success! error! deferred realized? chain connect)
 (in-ns 'manifold.time)
 
 ;;;
@@ -258,7 +258,7 @@
           f (fn []
               (when-not (manifold.deferred/realized? d)
                 (try
-                  (manifold.deferred/success! d (f))
+                  (manifold.deferred/connect (f) d)
                   (catch Throwable e
                     (manifold.deferred/error! d e)))))
           cancel-fn (.in *clock* interval f)]

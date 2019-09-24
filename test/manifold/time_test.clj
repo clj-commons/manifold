@@ -6,9 +6,25 @@
     [manifold.time :as t]))
 
 (deftest test-in
-  (let [n (atom 0)]
-    @(t/in 1 #(swap! n inc))
-    (is (= 1 @n))))
+  (testing "side-effecting function"
+    (let [n (atom 0)]
+     @(t/in 1 #(swap! n inc))
+     (is (= 1 @n))))
+
+  (testing "function throws exception"
+    (is (thrown?
+          Exception
+          @(t/in 1 (fn [] (throw (Exception. "Boom")))))))
+
+  (testing "delayed function returns deferred"
+    (let [d (d/deferred)]
+      (d/success! d 1)
+      (is (= 1 @(t/in 1 (fn [] d))))))
+
+  (testing "delayed function returns failed deferred"
+    (let [d (d/deferred)]
+      (d/error! d (Exception. "BOOM"))
+      (is (thrown? Exception @(t/in 1 (fn [] d)))))))
 
 (deftest test-every
   (let [n (atom 0)
