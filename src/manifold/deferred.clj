@@ -1115,10 +1115,16 @@
             (success-error-unrealized x
               val (success! d val)
               err (error! d err)
-              (do (on-realized (chain' x)
-                    #(success! d %)
-                    #(error! d %))
-                  (recur (inc i))))
+              (let [l (listener #(success! d %)
+                                #(error! d %))]
+                (add-listener! x l)
+                (on-realized d
+                             (fn [&args]
+                               (cancel-listener! x l))
+                             (fn [&args]
+                               (cancel-listener! x l)))
+
+                (recur (inc i))))
             (success! d x)))))
     d))
 
