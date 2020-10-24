@@ -389,8 +389,8 @@
 
 (deftest test-periodically
   (testing "produces with delay"
-    (let [s (s/periodically 10 0 (constantly 1))]
-      (Thread/sleep 15)
+    (let [s (s/periodically 20 0 (constantly 1))]
+      (Thread/sleep 30)
       (s/close! s)
       ;; will produces 2 items here no matter the sleep amount
       ;; as the periodically stream has a buffer of 1

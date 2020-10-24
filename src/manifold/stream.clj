@@ -245,7 +245,7 @@
 
 (defn try-put!
   "Puts a value into a stream if the put can successfully be completed in `timeout`
-   milliseconds.  Returns a promiise that yields `true` if it succeeds, and `false`
+   milliseconds.  Returns a promise that yields `true` if it succeeds, and `false`
    if it fails or times out.  Guaranteed to be non-blocking.
 
    A special `timeout-val` may be specified, if it is important to differentiate
