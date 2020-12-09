@@ -1,3 +1,6 @@
+[![Clojars Project](https://img.shields.io/clojars/v/manifold.svg)](https://clojars.org/manifold)
+[![cljdoc badge](https://cljdoc.org/badge/manifold)](https://cljdoc.org/d/manifold)
+[![CircleCI](https://circleci.com/gh/clj-commons/manifold.svg?style=svg)](https://circleci.com/gh/clj-commons/manifold)
 ![](docs/manifold.png)
 
 This library provides basic building blocks for asynchronous programming, and can be used as a translation layer between libraries which use similar but incompatible abstractions.
