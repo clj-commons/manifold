@@ -233,7 +233,7 @@
         (do
           (log/warn (IllegalStateException.) "excessive pending takes (> 16384), closing stream")
           (s/close! this)
-          (d/success-deferred false executor))
+          (d/success-deferred default-val executor))
 
         (instance? Consumption result)
         (let [^Consumption result result]
