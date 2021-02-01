@@ -4,11 +4,11 @@
     [clojure.core.async :as async]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold
-     [stream :as s]
-     [utils :as utils]
-     [deferred :as d]
-     [executor :as ex]])
+    [manifold.stream :as s]
+    [manifold.stream.default :as sd]
+    [manifold.utils :as utils]
+    [manifold.deferred :as d]
+    [manifold.executor :as ex])
   (:import
     [java.util.concurrent
      Executors
@@ -102,6 +102,17 @@
       (= (range 100) (-> (range 100) f s/->source (s/stream->seq 10))))))
 
 ;;;
+
+(deftest test-pending-takes-cleaned-up
+  (let [timeout 1
+        pending-s (sd/stream)
+        default-val ::default
+        timeout-val ::timeout]
+    (testing "take one more than the max number of allowed pending takes"
+      (dotimes [_ sd/max-consumers]
+        (s/try-take! pending-s default-val timeout timeout-val))
+      (is (= timeout-val @(s/try-take! pending-s default-val timeout timeout-val))
+          "Should timeout and deliver timeout-val instead of failing and returning default-val"))))
 
 (deftest test-deliver-pending-takes-on-close
   (let [input-s  (s/stream)
