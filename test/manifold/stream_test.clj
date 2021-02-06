@@ -103,16 +103,22 @@
 
 ;;;
 
-(deftest test-pending-takes-cleaned-up
+(deftest test-pending-takes-and-puts-cleaned-up
   (let [timeout 1
-        pending-s (sd/stream)
         default-val ::default
         timeout-val ::timeout]
     (testing "take one more than the max number of allowed pending takes"
-      (dotimes [_ sd/max-consumers]
-        (s/try-take! pending-s default-val timeout timeout-val))
-      (is (= timeout-val @(s/try-take! pending-s default-val timeout timeout-val))
-          "Should timeout and deliver timeout-val instead of failing and returning default-val"))))
+      (let [pending-s (sd/stream)]
+        (dotimes [_ sd/max-consumers]
+          (s/try-take! pending-s default-val timeout timeout-val))
+        (is (= timeout-val @(s/try-take! pending-s default-val timeout timeout-val))
+            "Should timeout and deliver timeout-val instead of failing and returning default-val")))
+    (testing "put one more than the max number of allowed pending puts"
+      (let [pending-s (sd/stream)]
+        (dotimes [_ sd/max-producers]
+          (s/try-put! pending-s ::x timeout timeout-val))
+        (is (= timeout-val @(s/try-put! pending-s ::x timeout timeout-val))
+            "Should timeout and deliver timeout-val")))))
 
 (deftest test-deliver-pending-takes-on-close
   (let [input-s  (s/stream)

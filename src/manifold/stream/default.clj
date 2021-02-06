@@ -3,7 +3,7 @@
     [clojure.tools.logging :as log]
     [manifold
      [deferred :as d]
-     [utils :as utils :refer [deftype+]]
+     [utils :as utils :refer [deftype+ defrecord+]]
      [executor :as ex]]
     [manifold.stream
      [graph :as g]
@@ -26,13 +26,14 @@
 ;;;
 
 (def max-dirty-takes "Every X takes, scan for timed-out deferreds and remove" 64)
+(def max-dirty-puts "Every X puts, scan for timed-out deferreds and remove" 64)
 (def max-consumers "Maximum number of pending consumers" 16384)
 (def max-producers "Maximum number of pending producers" 16384)
 
 (deftype+ Production [deferred message token])
 (deftype+ Consumption [message deferred token])
-(deftype+ Producer [message deferred])
-(deftype+ Consumer [deferred default-val])
+(defrecord+ Producer [message deferred])
+(defrecord+ Consumer [deferred default-val])
 
 (defn de-nil [x]
   (if (nil? x)
@@ -44,13 +45,13 @@
     nil
     x))
 
-(defn- cleanup-expired-consumers
+(defn- cleanup-expired-deferreds
   "Removes all realized deferreds (presumably from timing out)."
-  [^LinkedList consumers]
-  (when-not (.isEmpty consumers)
-    (let [iter (.iterator consumers)]
+  [^LinkedList l]
+  (when-not (.isEmpty l)
+    (let [iter (.iterator l)]
       (loop [c (.next iter)]
-        (when (-> c (.-deferred) (d/realized?))
+        (when (-> c :deferred d/realized?)
           (.remove iter))
         (when (.hasNext iter)
           (recur (.next iter)))))))
@@ -240,7 +241,7 @@
                 (d/success-deferred timeout-val executor)
                 (do
                   (when (> (.getAndIncrement dirty-takes) max-dirty-takes)
-                    (cleanup-expired-consumers consumers)
+                    (cleanup-expired-deferreds consumers)
                     (.set dirty-takes 0))
                   (let [d (d/deferred executor)]
                     (d/timeout! d timeout timeout-val)
@@ -281,7 +282,8 @@
    ^LinkedList consumers
    ^Queue messages
    capacity
-   executor]
+   executor
+   ^AtomicLong dirty-puts]
   (let [capacity (long capacity)
         t-d (d/success-deferred true executor)]
     (fn
@@ -309,11 +311,15 @@
                t-d)
 
              ;; add to the producers queue
-             (let [d (d/deferred executor)]
-               (let [pr (Producer. msg d)]
-                 (if (and (< (.size producers) max-producers) (.offer producers pr))
-                   d
-                   pr))))))))))
+             (do
+               (when (> (.getAndIncrement dirty-puts) max-dirty-puts)
+                 (cleanup-expired-deferreds producers)
+                 (.set dirty-puts 0))
+               (let [d (d/deferred executor)]
+                 (let [pr (Producer. msg d)]
+                   (if (and (< (.size producers) max-producers) (.offer producers pr))
+                     d
+                     pr)))))))))))
 
 (defn stream
   ([]
@@ -325,11 +331,12 @@
   ([buffer-size xform executor]
     (let [consumers    (LinkedList.)
           producers    (LinkedList.)
+          dirty-takes  (AtomicLong.)
+          dirty-puts   (AtomicLong.)
           buffer-size  (long (Math/max 0 (long buffer-size)))
           messages     (when (pos? buffer-size) (ArrayDeque.))
-          add!         (add! producers consumers messages buffer-size executor)
-          add!         (if xform (xform add!) add!)
-          dirty-takes  (AtomicLong.)]
+          add!         (add! producers consumers messages buffer-size executor dirty-puts)
+          add!         (if xform (xform add!) add!)]
       (->Stream
         false
         nil
@@ -358,12 +365,13 @@
          executor (ex/executor)}}]
   (let [consumers   (LinkedList.)
         producers   (LinkedList.)
+        dirty-takes  (AtomicLong.)
+        dirty-puts   (AtomicLong.)
         buffer-size (long (or buffer-size 0))
         messages    (when buffer-size (ArrayDeque.))
         buffer-size (if buffer-size (long (Math/max 0 buffer-size)) 0)
-        add!        (add! producers consumers messages buffer-size executor)
-        add!        (if xform (xform add!) add!)
-        dirty-takes (AtomicLong.)]
+        add!        (add! producers consumers messages buffer-size executor dirty-puts)
+        add!        (if xform (xform add!) add!)]
     (->Stream
       permanent?
       description
