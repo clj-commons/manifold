@@ -122,20 +122,32 @@
         (is
           (= (reduce #(%2 %1) 0 fs)
             @(apply d/chain 0 fs')
-            @(apply d/chain' 0 fs'))))))
+            @(apply d/chain' 0 fs')))))))
 
+(deftest test-binding-conveyance
+  (binding [*dynamic-var* :inner]
+    (let [d (-> (future' 1)
+                (d/chain (fn [_] *dynamic-var*)))]
+      (is (= :inner (deref d 100 ::timeout)))))
 
-  (testing "binding conveyance"
+  (executor/with-executor (executor/fixed-thread-executor 3)
     (binding [*dynamic-var* :inner]
       (let [d (-> (future' 1)
-                  (d/chain (fn [_] *dynamic-var*)))]
-        (is (= :inner @(capture-success d)))))
+                  (d/chain inc inc inc (fn [_] *dynamic-var*)))]
+        (is (= :inner (deref d 100 ::timeout))))))
 
-    (executor/with-executor (executor/fixed-thread-executor 2)
-      (binding [*dynamic-var* :inner]
-        (let [d (-> (future' 1)
-                    (d/chain (fn [_] *dynamic-var*)))]
-          (is (= :inner @(capture-success d))))))))
+  (executor/with-executor (executor/fixed-thread-executor 3)
+    (binding [*dynamic-var* :inner]
+      (let [d (-> (future' 1)
+                  (d/chain inc inc inc (fn [_] (future' *dynamic-var*))))]
+        (is (= :inner (deref d 100 ::timeout))))))
+
+  (executor/with-executor (executor/fixed-thread-executor 3)
+    (binding [*dynamic-var* :inner]
+      (let [d (-> (future' 1)
+                  (d/chain #(throw (Exception. "boom")))
+                  (d/catch Exception (constantly *dynamic-var*)))]
+        (is (= :inner (deref d 100 ::timeout)))))))
 
 (deftest test-deferred
   ;; success!
