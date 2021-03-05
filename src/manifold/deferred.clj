@@ -77,11 +77,31 @@
            ~error-clause))
        ~success-clause)))
 
+(defn- binding-conveyor-fn
+  [f]
+  (let [frame (clojure.lang.Var/cloneThreadBindingFrame)]
+    (fn
+      ([]
+         (clojure.lang.Var/resetThreadBindingFrame frame)
+         (f))
+      ([x]
+         (clojure.lang.Var/resetThreadBindingFrame frame)
+         (f x))
+      ([x y]
+         (clojure.lang.Var/resetThreadBindingFrame frame)
+         (f x y))
+      ([x y z]
+         (clojure.lang.Var/resetThreadBindingFrame frame)
+         (f x y z))
+      ([x y z & args]
+         (clojure.lang.Var/resetThreadBindingFrame frame)
+         (apply f x y z args)))))
+
 (definline on-realized
   "Registers callbacks with the manifold deferred for both success and error outcomes."
   [x on-success on-error]
   `(let [^manifold.deferred.IDeferred x# ~x]
-     (.onRealized x# ~on-success ~on-error)
+     (.onRealized x# (binding-conveyor-fn ~on-success) (binding-conveyor-fn ~on-error))
      x#))
 
 (definline deferred?
