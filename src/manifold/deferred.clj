@@ -77,32 +77,24 @@
            ~error-clause))
        ~success-clause)))
 
-(defn- binding-conveyor-fn
-  [f]
-  (let [frame (clojure.lang.Var/cloneThreadBindingFrame)]
-    (fn
-      ([]
-         (clojure.lang.Var/resetThreadBindingFrame frame)
-         (f))
-      ([x]
-         (clojure.lang.Var/resetThreadBindingFrame frame)
-         (f x))
-      ([x y]
-         (clojure.lang.Var/resetThreadBindingFrame frame)
-         (f x y))
-      ([x y z]
-         (clojure.lang.Var/resetThreadBindingFrame frame)
-         (f x y z))
-      ([x y z & args]
-         (clojure.lang.Var/resetThreadBindingFrame frame)
-         (apply f x y z args)))))
-
 (definline on-realized
   "Registers callbacks with the manifold deferred for both success and error outcomes."
   [x on-success on-error]
-  `(let [^manifold.deferred.IDeferred x# ~x]
-     (.onRealized x# (binding-conveyor-fn ~on-success) (binding-conveyor-fn ~on-error))
-     x#))
+  (let [binding-conveyor
+        (fn [f]
+          (let [frame (clojure.lang.Var/cloneThreadBindingFrame)]
+            (fn [x]
+              (let [curr-frame (clojure.lang.Var/getThreadBindingFrame)]
+                (clojure.lang.Var/resetThreadBindingFrame frame)
+                (try
+                  (f x)
+                  (finally
+                    (clojure.lang.Var/resetThreadBindingFrame curr-frame)))))))]
+    `(let [^manifold.deferred.IDeferred x# ~x]
+       (.onRealized x#
+                    (~binding-conveyor ~on-success)
+                    (~binding-conveyor ~on-error))
+       x#)))
 
 (definline deferred?
   "Returns true if the object is an instance of a Manifold deferred."
