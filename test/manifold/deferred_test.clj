@@ -125,16 +125,24 @@
             @(apply d/chain' 0 fs')))))))
 
 (deftest test-binding-conveyance
-  (binding [*dynamic-var* :inner]
-    (let [d (-> (future' 1)
-                (d/chain (fn [_] *dynamic-var*)))]
-      (is (= :inner (deref d 100 ::timeout)))))
+  (binding [*dynamic-var* :outer]
+    (let [d (-> (future' {})
+                (d/chain #(assoc % :outer *dynamic-var*)))]
+      (binding [*dynamic-var* :inner]
+        (let [d (d/chain d #(assoc % :inner *dynamic-var*))]
+          (is (= {:inner :inner
+                  :outer :outer}
+                 (deref d 100 ::timeout)))))))
 
   (executor/with-executor (executor/fixed-thread-executor 3)
-    (binding [*dynamic-var* :inner]
-      (let [d (-> (future' 1)
-                  (d/chain inc inc inc (fn [_] *dynamic-var*)))]
-        (is (= :inner (deref d 100 ::timeout))))))
+    (binding [*dynamic-var* :outer]
+      (let [d (-> (future' {})
+                  (d/chain #(assoc % :outer *dynamic-var*)))]
+        (binding [*dynamic-var* :inner]
+          (let [d (d/chain d #(assoc % :inner *dynamic-var*))]
+            (is (= {:inner :inner
+                    :outer :outer}
+                 (deref d 100 ::timeout))))))))
 
   (executor/with-executor (executor/fixed-thread-executor 3)
     (binding [*dynamic-var* :inner]
