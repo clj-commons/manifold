@@ -5,7 +5,8 @@
     [manifold.utils :as utils]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold.deferred :as d]))
+    [manifold.deferred :as d]
+    [manifold.executor :as executor]))
 
 (defmacro future' [& body]
   `(d/future
@@ -14,6 +15,8 @@
        ~@body
        (catch Exception e#
          (.printStackTrace e#)))))
+
+(def ^:dynamic *dynamic-var* :root)
 
 (defn future-error
   [ex]
@@ -119,7 +122,20 @@
         (is
           (= (reduce #(%2 %1) 0 fs)
             @(apply d/chain 0 fs')
-            @(apply d/chain' 0 fs')))))))
+            @(apply d/chain' 0 fs'))))))
+
+
+  (testing "binding conveyance"
+    (binding [*dynamic-var* :inner]
+      (let [d (-> (future' 1)
+                  (d/chain (fn [_] *dynamic-var*)))]
+        (is (= :inner @(capture-success d)))))
+
+    (executor/with-executor (executor/fixed-thread-executor 2)
+      (binding [*dynamic-var* :inner]
+        (let [d (-> (future' 1)
+                    (d/chain (fn [_] *dynamic-var*)))]
+          (is (= :inner @(capture-success d))))))))
 
 (deftest test-deferred
   ;; success!
