@@ -48,13 +48,14 @@
 (defn- cleanup-expired-deferreds
   "Removes all realized deferreds (presumably from timing out)."
   [^LinkedList l]
-  (when-not (.isEmpty l)
-    (let [iter (.iterator l)]
-      (loop [c (.next iter)]
-        (when (-> c :deferred d/realized?)
-          (.remove iter))
-        (when (.hasNext iter)
-          (recur (.next iter)))))))
+  (locking l
+    (when-not (.isEmpty l)
+      (let [iter (.iterator l)]
+        (loop [c (.next iter)]
+          (when (-> c :deferred d/realized?)
+            (.remove iter))
+          (when (.hasNext iter)
+            (recur (.next iter))))))))
 
 (s/def-sink+source Stream
   [^boolean permanent?
