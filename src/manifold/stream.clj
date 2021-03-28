@@ -282,7 +282,7 @@
    Guaranteed to be non-blocking.
 
    Special `timeout-val` and `default-val` values may be specified, if it is
-   important to differentiate between actual `nil` values and failures."
+   important to differentiate between actual `nil` values and timeouts/failures."
   {:inline (fn
              ([source timeout]
                `(.take ~(with-meta source {:tag "manifold.stream.core.IEventSource"}) nil false ~timeout nil))

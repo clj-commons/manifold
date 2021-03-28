@@ -3,7 +3,7 @@
     [clojure.tools.logging :as log]
     [manifold
      [deferred :as d]
-     [utils :as utils :refer [deftype+]]
+     [utils :as utils :refer [deftype+ defrecord+]]
      [executor :as ex]]
     [manifold.stream
      [graph :as g]
@@ -17,16 +17,23 @@
     [java.util.concurrent
      BlockingQueue
      ArrayBlockingQueue
-     LinkedBlockingQueue]))
+     LinkedBlockingQueue]
+    [java.util.concurrent.atomic
+     AtomicLong]))
 
 (set! *unchecked-math* true)
 
 ;;;
 
+(def max-dirty-takes "Every X takes, scan for timed-out deferreds and remove" 64)
+(def max-dirty-puts "Every X puts, scan for timed-out deferreds and remove" 64)
+(def max-consumers "Maximum number of pending consumers" 16384)
+(def max-producers "Maximum number of pending producers" 16384)
+
 (deftype+ Production [deferred message token])
 (deftype+ Consumption [message deferred token])
-(deftype+ Producer [message deferred])
-(deftype+ Consumer [deferred default-val])
+(defrecord+ Producer [message deferred])
+(defrecord+ Consumer [deferred default-val])
 
 (defn de-nil [x]
   (if (nil? x)
@@ -38,6 +45,18 @@
     nil
     x))
 
+(defn- cleanup-expired-deferreds
+  "Removes all realized deferreds (presumably from timing out)."
+  [^LinkedList l]
+  (locking l
+    (when-not (.isEmpty l)
+      (let [iter (.iterator l)]
+        (loop [c (.next iter)]
+          (when (-> c :deferred d/realized?)
+            (.remove iter))
+          (when (.hasNext iter)
+            (recur (.next iter))))))))
+
 (s/def-sink+source Stream
   [^boolean permanent?
    description
@@ -46,7 +65,8 @@
    ^long capacity
    ^Queue messages
    executor
-   add!]
+   add!
+   ^AtomicLong dirty-takes]
 
   (isSynchronous [_] false)
 
@@ -87,7 +107,7 @@
                     (cond
 
                       (instance? Producer x)
-                      (log/warn (IllegalStateException.) "excessive pending puts (> 16384) while closing stream")
+                      (log/warn (IllegalStateException.) (format "excessive pending puts (> %d) while closing stream" max-producers))
 
                       (instance? Production x)
                       (let [^Production p x]
@@ -149,7 +169,7 @@
 
                       (instance? Producer x)
                       (do
-                        (log/warn (IllegalStateException.) "excessive pending puts (> 16384), closing stream")
+                        (log/warn (IllegalStateException.) (format "excessive pending puts (> %d), closing stream" max-producers))
                         (s/close! this)
                         false)
 
@@ -220,20 +240,24 @@
               ;; add to the consumers queue
               (if (and timeout (<= timeout 0))
                 (d/success-deferred timeout-val executor)
-                (let [d (d/deferred executor)]
-                  (d/timeout! d timeout timeout-val)
-                  (let [c (Consumer. d default-val)]
-                    (if (and (< (.size consumers) 16384) (.offer consumers c))
-                      d
-                      c))))))]
+                (do
+                  (when (> (.getAndIncrement dirty-takes) max-dirty-takes)
+                    (cleanup-expired-deferreds consumers)
+                    (.set dirty-takes 0))
+                  (let [d (d/deferred executor)]
+                    (d/timeout! d timeout timeout-val)
+                    (let [c (Consumer. d default-val)]
+                      (if (and (< (.size consumers) max-consumers) (.offer consumers c))
+                        d
+                        c)))))))]
 
       (cond
 
         (instance? Consumer result)
         (do
-          (log/warn (IllegalStateException.) "excessive pending takes (> 16384), closing stream")
+          (log/warn (IllegalStateException.) (format "excessive pending takes (> %s), closing stream"  max-consumers))
           (s/close! this)
-          (d/success-deferred false executor))
+          (d/success-deferred default-val executor))
 
         (instance? Consumption result)
         (let [^Consumption result result]
@@ -259,7 +283,8 @@
    ^LinkedList consumers
    ^Queue messages
    capacity
-   executor]
+   executor
+   ^AtomicLong dirty-puts]
   (let [capacity (long capacity)
         t-d (d/success-deferred true executor)]
     (fn
@@ -287,11 +312,15 @@
                t-d)
 
              ;; add to the producers queue
-             (let [d (d/deferred executor)]
-               (let [pr (Producer. msg d)]
-                 (if (and (< (.size producers) 16384) (.offer producers pr))
-                   d
-                   pr))))))))))
+             (do
+               (when (> (.getAndIncrement dirty-puts) max-dirty-puts)
+                 (cleanup-expired-deferreds producers)
+                 (.set dirty-puts 0))
+               (let [d (d/deferred executor)]
+                 (let [pr (Producer. msg d)]
+                   (if (and (< (.size producers) max-producers) (.offer producers pr))
+                     d
+                     pr)))))))))))
 
 (defn stream
   ([]
@@ -303,9 +332,11 @@
   ([buffer-size xform executor]
     (let [consumers    (LinkedList.)
           producers    (LinkedList.)
+          dirty-takes  (AtomicLong.)
+          dirty-puts   (AtomicLong.)
           buffer-size  (long (Math/max 0 (long buffer-size)))
           messages     (when (pos? buffer-size) (ArrayDeque.))
-          add!         (add! producers consumers messages buffer-size executor)
+          add!         (add! producers consumers messages buffer-size executor dirty-puts)
           add!         (if xform (xform add!) add!)]
       (->Stream
         false
@@ -315,7 +346,8 @@
         buffer-size
         messages
         executor
-        add!))))
+        add!
+        dirty-takes))))
 
 (defn onto [ex s]
   (if (and (instance? Stream s) (identical? ex (.executor ^Stream s)))
@@ -334,10 +366,12 @@
          executor (ex/executor)}}]
   (let [consumers   (LinkedList.)
         producers   (LinkedList.)
+        dirty-takes  (AtomicLong.)
+        dirty-puts   (AtomicLong.)
         buffer-size (long (or buffer-size 0))
         messages    (when buffer-size (ArrayDeque.))
         buffer-size (if buffer-size (long (Math/max 0 buffer-size)) 0)
-        add!        (add! producers consumers messages buffer-size executor)
+        add!        (add! producers consumers messages buffer-size executor dirty-puts)
         add!        (if xform (xform add!) add!)]
     (->Stream
       permanent?
@@ -347,4 +381,5 @@
       buffer-size
       messages
       executor
-      add!)))
+      add!
+      dirty-takes)))

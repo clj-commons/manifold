@@ -1,7 +1,0 @@
-language: clojure
-script: lein do clean, jammin 180 test
-jdk:
-  - openjdk7
-  - openjdk8
-  - openjdk9
-  - openjdk11
