@@ -1316,8 +1316,8 @@
                                             (repeat nil))]
                                     ~@body)
                               (back-references marker)
+                              (concat vars)
                               (map (zipmap vars' gensyms))
-                              (concat (drop (count vars) gensyms))
                               set)
         dep?                (set/union binding-dep? body-dep?)]
     `(let [executor# (or (manifold.executor/executor) (ex/execute-pool))]
