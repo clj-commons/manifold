@@ -251,9 +251,9 @@
 
 (defn in
   "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred
-  representing the returned value of the function. If the returned deferred is completed before
-  the interval has passed, the timeout function will be cancelled. If `f` returns a deferred,
-  then it will be "
+  representing the returned value of the function (or deferred value if `f` itself returns a 
+  deferred). If the returned deferred is completed before the interval has passed, the timeout 
+  function will be cancelled."
     [^double interval f]
     (let [d (manifold.deferred/deferred)
           f (fn []
@@ -280,6 +280,7 @@
 
 (defn at
   "Schedules no-arg function `f` to be invoked at `timestamp`, which is the milliseconds
-  since the epoch.  Returns a deferred representing the returned value of the function."
+  since the epoch.  Returns a deferred representing the returned value of the function
+  (or deferred value if `f` itself returns a deferred)."
   [timestamp f]
   (in (max 0 (- timestamp (System/currentTimeMillis))) f))
