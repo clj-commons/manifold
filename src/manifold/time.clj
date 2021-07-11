@@ -125,7 +125,7 @@
 ;;;
 
 (in-ns 'manifold.deferred)
-(clojure.core/declare success! error! deferred realized? chain)
+(clojure.core/declare success! error! deferred realized? chain connect)
 (in-ns 'manifold.time)
 
 ;;;
@@ -251,14 +251,15 @@
 
 (defn in
   "Schedules no-arg function `f` to be invoked in `interval` milliseconds.  Returns a deferred
-     representing the returned value of the function. If the returned deferred is completed before
-     the interval has passed, the timeout function will be cancelled."
+  representing the returned value of the function (or deferred value if `f` itself returns a 
+  deferred). If the returned deferred is completed before the interval has passed, the timeout 
+  function will be cancelled."
     [^double interval f]
     (let [d (manifold.deferred/deferred)
           f (fn []
               (when-not (manifold.deferred/realized? d)
                 (try
-                  (manifold.deferred/success! d (f))
+                  (manifold.deferred/connect (f) d)
                   (catch Throwable e
                     (manifold.deferred/error! d e)))))
           cancel-fn (.in *clock* interval f)]
@@ -278,7 +279,8 @@
    (.every *clock* initial-delay period f)))
 
 (defn at
-  "Schedules no-arg function  `f` to be invoked at `timestamp`, which is the milliseconds
-   since the epoch.  Returns a deferred representing the returned value of the function."
+  "Schedules no-arg function `f` to be invoked at `timestamp`, which is the milliseconds
+  since the epoch.  Returns a deferred representing the returned value of the function
+  (or deferred value if `f` itself returns a deferred)."
   [timestamp f]
   (in (max 0 (- timestamp (System/currentTimeMillis))) f))
