@@ -1,8 +1,8 @@
-(defproject manifold "0.1.9-alpha4"
-  :description "a compatibility layer for event-driven abstractions"
+(defproject manifold "0.1.9-alpha5"
+  :description "A compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
-  :url "https://github.com/ztellman/manifold"
+  :url "https://github.com/clj-commons/manifold"
   :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "0.1.6-alpha1"]
                  [riddley "0.1.15"]]
@@ -19,7 +19,7 @@
             [lein-jammin "0.1.1"]
             [ztellman/lein-cljfmt "0.1.10"]]
   :cljfmt {:indents {#".*" [[:inner 0]]}}
-  :codox {:source-uri "https://github.com/ztellman/manifold/blob/master/{filepath}#L{line}"
+  :codox {:source-uri "https://github.com/clj-commons/manifold/blob/master/{filepath}#L{line}"
           :metadata {:doc/format :markdown}
           :namespaces [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor]}
   :global-vars {*warn-on-reflection* true}
