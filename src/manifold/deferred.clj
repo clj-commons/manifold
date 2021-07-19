@@ -1330,14 +1330,14 @@
                            [gensym val])
                          [gensym
                           `(~chain-fn (~zip-fn ~@deps)
-                            (fn [[~@(map gensym->var deps)]]
+                            (bound-fn [[~@(map gensym->var deps)]]
                               ~val))])))
                    (range)
                    vars'
                    vals'
                    gensyms)]
            (~chain-fn (onto (~zip-fn ~@body-dep?) executor#)
-            (fn [[~@(map gensym->var body-dep?)]]
+            (bound-fn [[~@(map gensym->var body-dep?)]]
               ~@body)))))))
 
 (defmacro let-flow
