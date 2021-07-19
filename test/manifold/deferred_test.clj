@@ -118,7 +118,57 @@
         (is (= ["cat" "cat" "cat"]
                @(d/let-flow [a d
                              b (do a *test-dynamic-var*)]
-                  [a b *test-dynamic-var*])))))))
+                  [a b *test-dynamic-var*]))))))
+
+  (let [start          (System/currentTimeMillis)
+        future-timeout (d/future (Thread/sleep 500) "b")
+        expected       (d/future (Thread/sleep 5) "cat")]
+    @(d/let-flow [x (d/alt future-timeout expected)]
+       x)
+
+    (is (>= 300 (- (System/currentTimeMillis) start))
+        "Alt in let-flow should only take as long as the first deferred to finish."))
+
+  (is (every? #(= "cat" %)
+              (for [i (range 50)]
+                (let [future-timeout (d/future (Thread/sleep 100) "b")
+                      expected       (d/future (Thread/sleep 5) "cat")]
+                  @(d/let-flow [x (d/alt future-timeout expected)]
+                     x))))
+      "Resolution of deferreds in alt inside a let-flow should always be consistent.")
+
+  (let [start          (System/currentTimeMillis)
+        future-timeout (d/future (Thread/sleep 300) "b")
+        expected       (d/future (Thread/sleep 5) "cat")]
+    (is (= "cat"
+           @(d/let-flow [x (d/alt future-timeout expected)
+                         y (d/alt x future-timeout)]
+              (d/alt future-timeout y)))
+        "Alts referencing newly introduced symbols shouldn't cause compiler errors.")
+    (is (>= 200 (- (System/currentTimeMillis) start))
+        "Alt in body should only take as long as the first deferred to finish."))
+
+  (is (= ::timeout
+         @(d/let-flow [x (d/timeout! (d/future (Thread/sleep 1000) "cat") 50 ::timeout)]
+            x))
+      "Timeouts introduced in let-flow should be respected.")
+
+  (let [start (System/currentTimeMillis)
+        slow  (d/future (Thread/sleep 300) "slow")
+        fast  (d/future (Thread/sleep 5) "fast")]
+    (is (= "fast"
+           @(d/let-flow [x "cat"]
+              (d/let-flow [z (d/alt slow fast)]
+                z)))
+        "let-flow's should behave identically inside the body of another let-flow")
+    (is (= "fast"
+           @(d/let-flow [x "cat"
+                         y (d/let-flow [z (d/alt slow fast)]
+                             z)]
+              y))
+        "let-flow's should behave identically inside the bindings of another let-flow")
+    (is (>= 200 (- (System/currentTimeMillis) start))
+        "let-flow's should behave identically inside another let-flow")))
 
 (deftest test-chain-errors
   (let [boom (fn [n] (throw (ex-info "" {:n n})))]
