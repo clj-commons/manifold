@@ -166,6 +166,27 @@ In this example, `c` is declared within a normal `let` binding, and as such we c
 
 It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's goroutines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a goroutine are inherently sequential.
 
+### manifold.tsasvla
+
+An alternate way to write code using deferreds is the macro `manifold.tsasvla/tsasvla`. This macro is an almost exact mirror of the `go` macro from [clojure/core.async](https://github.com/clojure/core.async), to the point where it actually utilizes the state machine functionality from core.async. In order to use this macro, `core.async` must be a dependency provided by the user. The main difference between `go` and `tsasvla`, besides tsasvla working with deferrables instead of core.async channels, is the `take` function being `<!?` instead of `<!`. The difference in function names is used to indicate exceptions behave the same as a non-async clojure block (i.e. are thrown) instead of silently swallowed & returning `nil`.  
+
+The benefit of this macro over `let-flow` is that it gives complete control of when deferreds should be realized to the user of the macro, removing any potential surprises (especially around timeouts).
+
+```clj
+@(tsasvla (+ (<!? (d/future 10))
+             (<!? (d/future 20))))                          ;; ==> 30
+```
+
+```clj
+(<!! (core.async/go (try (<! (go (/ 5 0)))
+                         (catch Exception e
+                           "ERROR"))))                      ; ==> nil
+
+@(tsasvla (try (<!? (d/future (/ 5 0)))
+               (catch Exception e
+                 "ERROR")))                                 ; ==> "ERROR"
+```
+
 ### `manifold.deferred/loop`
 
 Manifold also provides a `loop` macro, which allows for asynchronous loops to be defined.  Consider `manifold.stream/consume`, which allows a function to be invoked with each new message from a stream.  We can implement similar behavior like so:
