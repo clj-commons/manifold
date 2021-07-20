@@ -68,6 +68,25 @@
   {'manifold.tsasvla/<!-no-throw `manifold.tsasvla/take!
    :Return                      `return-deferred})
 
+(defmacro tsasvla-exeuctor
+  "Implementation of tsasvla that allows specifying executor. See docstring of tsasvla for usage."
+  [executor & body]
+  (let [executor     (vary-meta executor assoc :tag 'Executor)
+        crossing-env (zipmap (keys &env) (repeatedly gensym))]
+    `(let [d#                 (d/deferred)
+           captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
+       (.execute ~executor ^Runnable
+                 (^:once fn* []
+                   (let [~@(mapcat (fn [[l sym]] [sym `(^:once fn* [] ~(vary-meta l dissoc :tag))]) crossing-env)
+                         f# ~(ioc/state-machine `(do ~@body) 1 [crossing-env &env] async-custom-terminators)
+                         state# (-> (f#)
+                                    (ioc/aset-all! ioc/USER-START-IDX d#
+                                                   ioc/BINDINGS-IDX captured-bindings#))]
+                     (run-state-machine-wrapped state#))))
+       ;; chain is8 being used to apply unwrap chain
+       (d/chain d#)))
+  )
+
 (defmacro tsasvla
   "წასვლა - Georgian for \"to go\"
   Asynchronously executes the body on manifold's default executor, returning
@@ -97,19 +116,7 @@
   - `deferred/chain` only works with single deferreds, which means having to write code in
   unnatural ways to handle multiple deferreds."
   [& body]
-  (let [crossing-env (zipmap (keys &env) (repeatedly gensym))]
-    `(let [d#                 (d/deferred)
-           captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]
-       (.execute ^Executor (ex/execute-pool) ^Runnable
-                 (^:once fn* []
-                   (let [~@(mapcat (fn [[l sym]] [sym `(^:once fn* [] ~(vary-meta l dissoc :tag))]) crossing-env)
-                         f# ~(ioc/state-machine `(do ~@body) 1 [crossing-env &env] async-custom-terminators)
-                         state# (-> (f#)
-                                    (ioc/aset-all! ioc/USER-START-IDX d#
-                                                   ioc/BINDINGS-IDX captured-bindings#))]
-                     (run-state-machine-wrapped state#))))
-       ;; chain is8 being used to apply unwrap chain
-       (d/chain d#))))
+  `(tsasvla-exeuctor (ex/execute-pool) ~@body))
 
 (tsasvla "cat")
 

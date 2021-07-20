@@ -1,9 +1,11 @@
 (ns manifold.tsasvla-test
   (:require [clojure.test :refer :all]
-            [manifold.tsasvla :refer [tsasvla <!?]]
+            [manifold.tsasvla :refer [tsasvla <!? tsasvla-exeuctor]]
             [manifold.deferred :as d]
-            [manifold.test-utils :refer :all])
-  (:import (java.util.concurrent TimeoutException)))
+            [manifold.test-utils :refer :all]
+            [manifold.executor :as ex]
+            [clojure.string :as str])
+  (:import (java.util.concurrent TimeoutException Executor)))
 
 (deftest async-test
   (testing "values are returned correctly"
@@ -121,7 +123,20 @@
     (is (= 1 @(tsasvla (<!? (d/alt (d/deferred) (d/success-deferred 1))))))
     (is (= 1 @(d/alt (tsasvla (<!? (d/deferred))) (d/success-deferred 1))))))
 
-(deftest ^:benchmark benchmark-tsasvla
+(deftest tsasvla-specify-executor-pool
+  (let [prefix          "tsasvla-custom-executor"
+        cnt             (atom 0)
+        custom-executor (ex/utilization-executor 0.95 Integer/MAX_VALUE
+                                                 {:thread-factory (ex/thread-factory
+                                                                    #(str prefix (swap! cnt inc))
+                                                                    (deliver (promise) nil))
+                                                  :stats-callback (constantly nil)})]
+    (try (is (str/starts-with? @(tsasvla-exeuctor custom-executor (.getName (Thread/currentThread))) prefix)
+             "Running on custom executor, thread naming should be respected.")
+         (println @(tsasvla-exeuctor custom-executor (.getName (Thread/currentThread))))
+         (finally (.shutdown custom-executor)))))
+
+#_(deftest ^:benchmark benchmark-tsasvla
   (bench "invoke comp x1"
          ((comp inc) 0))
   (bench "tsasvla x1"
