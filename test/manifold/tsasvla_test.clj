@@ -4,7 +4,8 @@
             [manifold.deferred :as d]
             [manifold.test-utils :refer :all]
             [manifold.executor :as ex]
-            [clojure.string :as str])
+            [clojure.string :as str]
+            [manifold.stream :as s])
   (:import (java.util.concurrent TimeoutException Executor)))
 
 (deftest async-test
@@ -135,6 +136,18 @@
              "Running on custom executor, thread naming should be respected.")
          (println @(tsasvla-exeuctor custom-executor (.getName (Thread/currentThread))))
          (finally (.shutdown custom-executor)))))
+
+(deftest tsasvla-streams
+  (let [test-stream (s/stream)
+        test-d      (tsasvla [(<!? test-stream)
+                              (<!? test-stream)
+                              (<!? test-stream)
+                              (<!? test-stream)
+                              (<!? test-stream)])]
+    (dotimes [n 3]
+      (s/put! test-stream n))
+    (s/close! test-stream)
+    (is (= @test-d [0 1 2 nil nil]))))
 
 #_(deftest ^:benchmark benchmark-tsasvla
   (bench "invoke comp x1"

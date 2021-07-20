@@ -5,8 +5,10 @@
              [executor :as ex]
              [deferred :as d]]
             [clojure.core.async.impl
-             [ioc-macros :as ioc]])
-  (:import (java.util.concurrent Executor)))
+             [ioc-macros :as ioc]]
+            [manifold.stream :as s])
+  (:import (java.util.concurrent Executor)
+           (manifold.stream.core IEventSource)))
 
 (defn return-deferred [state value]
   (let [d (ioc/aget-object state ioc/USER-START-IDX)]
@@ -45,6 +47,8 @@
   (let [handler          (fn [x]
                            (ioc/aset-all! state ioc/VALUE-IDX x ioc/STATE-IDX blk)
                            (run-state-machine-wrapped state))
+        ;; if `d` is a stream, use `take` to get a deferrable that we can wait on
+        d                (if (instance? IEventSource d) (s/take! d) d)
         d-is-deferrable? (d/deferrable? d)]
     (if
       ;; if d is not deferrable immediately resume processing state machine
