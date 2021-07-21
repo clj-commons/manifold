@@ -1,6 +1,6 @@
 (ns manifold.tsasvla-test
   (:require [clojure.test :refer :all]
-            [manifold.tsasvla :refer [tsasvla <!? tsasvla-exeuctor]]
+            [manifold.tsasvla :refer [tsasvla <!? tsasvla-executor]]
             [manifold.deferred :as d]
             [manifold.test-utils :refer :all]
             [manifold.executor :as ex]
@@ -132,9 +132,9 @@
                                                                     #(str prefix (swap! cnt inc))
                                                                     (deliver (promise) nil))
                                                   :stats-callback (constantly nil)})]
-    (try (is (str/starts-with? @(tsasvla-exeuctor custom-executor (.getName (Thread/currentThread))) prefix)
+    (try (is (str/starts-with? @(tsasvla-executor custom-executor (.getName (Thread/currentThread))) prefix)
              "Running on custom executor, thread naming should be respected.")
-         (println @(tsasvla-exeuctor custom-executor (.getName (Thread/currentThread))))
+         (println @(tsasvla-executor custom-executor (.getName (Thread/currentThread))))
          (finally (.shutdown custom-executor)))))
 
 (deftest tsasvla-streams
@@ -149,7 +149,7 @@
     (s/close! test-stream)
     (is (= @test-d [0 1 2 nil nil]))))
 
-#_(deftest ^:benchmark benchmark-tsasvla
+(deftest ^:benchmark benchmark-tsasvla
   (bench "invoke comp x1"
          ((comp inc) 0))
   (bench "tsasvla x1"

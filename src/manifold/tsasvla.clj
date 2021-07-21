@@ -72,7 +72,7 @@
   {'manifold.tsasvla/<!-no-throw `manifold.tsasvla/take!
    :Return                      `return-deferred})
 
-(defmacro tsasvla-exeuctor
+(defmacro tsasvla-executor
   "Implementation of tsasvla that allows specifying executor. See docstring of tsasvla for usage."
   [executor & body]
   (let [executor     (vary-meta executor assoc :tag 'Executor)
@@ -120,7 +120,7 @@
   - `deferred/chain` only works with single deferreds, which means having to write code in
   unnatural ways to handle multiple deferreds."
   [& body]
-  `(tsasvla-exeuctor (ex/execute-pool) ~@body))
+  `(tsasvla-executor (ex/execute-pool) ~@body))
 
 (tsasvla "cat")
 
