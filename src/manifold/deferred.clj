@@ -1130,7 +1130,7 @@
     @(alt (future (Thread/sleep 1) 1)
           (future (Thread/sleep 1) 2)) => 1 or 2 depending on the thread scheduling
 
-  Values appearing earlier in the input are preferred."
+  The values are not tried in-order, but iterated over with an initial random shuffle."
   [& vals]
   (->> vals
        (map #(or (->deferred % nil) %))
