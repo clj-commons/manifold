@@ -11,7 +11,7 @@ A detailed discussion of Manifold's rationale can be found [here](http://aleph.i
 
 
 ```clj
-[manifold "0.1.9-alpha5"]
+[manifold "0.1.9-alpha6"]
 ```
 
 ### deferreds

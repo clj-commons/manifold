@@ -1,24 +1,21 @@
-(defproject manifold "0.1.9-alpha5"
+(defproject manifold "0.1.9-alpha6"
   :description "A compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/clj-commons/manifold"
-  :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
-                 [io.aleph/dirigiste "0.1.6-alpha1"]
+  :dependencies [[org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
+                 [io.aleph/dirigiste "1.0.0"]
                  [riddley "0.1.15"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
-                                  [criterium "0.4.4"]
-                                  [org.clojure/core.async "0.4.474"]]}}
+  :profiles {:dev {:dependencies [[org.clojure/clojure "1.10.3"]
+                                  [criterium "0.4.6"]
+                                  [org.clojure/core.async "1.3.618"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
                                  (cons (:tag %) (keys %))))
                    :benchmark :benchmark
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
-  :plugins [[lein-codox "0.9.4"]
-            [lein-jammin "0.1.1"]
-            [ztellman/lein-cljfmt "0.1.10"]]
-  :cljfmt {:indents {#".*" [[:inner 0]]}}
+  :plugins [[lein-codox "0.10.7"]]
   :codox {:source-uri "https://github.com/clj-commons/manifold/blob/master/{filepath}#L{line}"
           :metadata {:doc/format :markdown}
           :namespaces [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor]}
