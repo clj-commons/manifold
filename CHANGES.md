@@ -1,3 +1,15 @@
+### 0.1.9-SNAPSHOT
+
+Contributions by Matthew Davidson
+
+* Updated docs to use cljdoc.org by default
+
+### 0.1.9-alpha6
+
+Contributions by Matthew Davidson
+
+* Bumped up dependencies to modern versions
+
 ### 0.1.9-alpha5
 
 Contributions by Erik Assum, Matthew Davidson, led, Dominic Monroe, Justin Sonntag
