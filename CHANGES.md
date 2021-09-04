@@ -1,3 +1,5 @@
+### 0.2.0-SNAPSHOT
+
 ### 0.1.9
 
 Contributions by Erik Assum, Reynald Borer, Matthew Davidson, Alexey Kachayev, led, Dominic Monroe, Pierre-Yves Ritschard, Ryan Smith, Justin Sonntag, Zach Tellman, Luo Tian, and Philip van Heerden.
