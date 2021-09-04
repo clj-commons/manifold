@@ -1,5 +1,5 @@
 [![Clojars Project](https://img.shields.io/clojars/v/manifold.svg)](https://clojars.org/manifold)
-[![cljdoc badge](https://cljdoc.org/badge/manifold/manifold)](https://cljdoc.org/d/manifold/manifold/CURRENT)
+[![cljdoc badge](https://cljdoc.org/badge/manifold/manifold)](https://cljdoc.org/d/manifold/manifold)
 [![CircleCI](https://circleci.com/gh/clj-commons/manifold.svg?style=svg)](https://circleci.com/gh/clj-commons/manifold)
 ![](docs/manifold.png)
 
@@ -7,7 +7,7 @@ This library provides basic building blocks for asynchronous programming, and ca
 
 Manifold provides two core abstractions: **deferreds**, which represent a single asynchronous value, and **streams**, which represent an ordered sequence of asynchronous values.
 
-A detailed discussion of Manifold's rationale can be found [here](http://aleph.io/manifold/rationale.html).  Full documentation can be found [here](https://cljdoc.org/d/manifold/manifold/CURRENT).
+A detailed discussion of Manifold's rationale can be found [here](http://aleph.io/manifold/rationale.html).  Full documentation can be found [here](https://cljdoc.org/d/manifold/manifold).
 
 
 ```clojure
@@ -112,13 +112,17 @@ nil
 
 Manifold can use any transducer, which are applied via `transform`.  It also provides stream-specific transforms, including `zip`, `reduce`, `buffer`, `batch`, and `throttle`.  [To learn more about streams, go here](/docs/stream.md).
 
-### Java 8 extensions
+### Clojurescript
+
+A Clojurescript implementation of Manifold can be found here: [dm3/manifold-cljs](https://github.com/dm3/manifold-cljs).
+
+### Older Java support
 
 Manifold includes support for a few classes introduced in Java 8:
 `java.util.concurrent.CompletableFuture` and `java.util.stream.BaseStream`.
-Support for Java 8 is detected automatically at compile time; if you are
-AOT compiling Manifold on Java 8 or newer, and will be running the compiled
-jar with a Java 7 or older JRE, you will need to disable this feature, by
+Support for Java 8+ is detected automatically at compile time; if you are
+AOT compiling Manifold on Java 8 or newer, but will be running the compiled
+jar with a Java 7 or older JRE, you will need to disable them, by
 setting the JVM option `"manifold.disable-jvm8-primitives"`, either at the
 command line with
 
@@ -130,9 +134,6 @@ or by adding
 
 to your application's project.clj.
 
-### Clojurescript
-
-A Clojurescript implementation of Manifold can be found here: [dm3/manifold-cljs](https://github.com/dm3/manifold-cljs).
 
 ### License
 

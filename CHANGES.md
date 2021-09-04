@@ -3,6 +3,7 @@
 Contributions by Matthew Davidson
 
 * Updated docs to use cljdoc.org by default
+* Minor doc improvements
 
 ### 0.1.9-alpha6
 
