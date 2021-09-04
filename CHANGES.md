@@ -1,31 +1,16 @@
-### 0.1.9-SNAPSHOT
+### 0.1.9
 
-Contributions by Matthew Davidson
+Contributions by Erik Assum, Reynald Borer, Matthew Davidson, Alexey Kachayev, led, Dominic Monroe, Pierre-Yves Ritschard, Ryan Smith, Justin Sonntag, Zach Tellman, Luo Tian, and Philip van Heerden.
 
 * Updated docs to use cljdoc.org by default
 * Minor doc improvements
-
-### 0.1.9-alpha6
-
-Contributions by Matthew Davidson
-
 * Bumped up dependencies to modern versions
-
-### 0.1.9-alpha5
-
-Contributions by Erik Assum, Matthew Davidson, led, Dominic Monroe, Justin Sonntag
-
 * Convert to CircleCI for testing and remove `jammin`
 * Set up for clj-commons
 * Fix bug where excessive pending takes return wrong deferred
-* Clean up timed-out pending takes and exponses vars to control clean up behavior
+* Clean up timed-out pending takes and exposes vars to control clean-up behavior
 * Remove Travis CI
 * Allow functions passed to `time/in` to return a deferred
-
-### 0.1.9-alpha4
-
-Contributions by Reynald Borer, Alexey Kachayev, Pierre-Yves Ritschard, Ryan Smith, Zach Tellman, Luo Tian, and Philip van Heerden
-
 * Make `time/in` cancellable
 * Extend thread-factory builder to create non-daemon threads
 * Prevent `let-flow` body from executing on last deferred thread
@@ -70,7 +55,6 @@ Thanks to Tsutomu Yano and Joshua Griffith
 ### 0.1.3
 
 * Target latest Dirigiste, which is no longer compiled using JDK 8 byte code.
-
 
 ### 0.1.2
 

@@ -11,7 +11,7 @@ A detailed discussion of Manifold's rationale can be found [here](http://aleph.i
 
 
 ```clojure
-[manifold "0.1.9-SNAPSHOT"]
+[manifold "0.1.9"]
 ```
 
 ### Deferreds
