@@ -222,7 +222,7 @@
                          (f)
                          (when period (.in this period f))
                          (catch Throwable e
-                           (log/warn e "error in mock clock"))))))
+                           (log/debug e "error in mock clock"))))))
                  (recur))))))))))
 
 (let [num-cores (.availableProcessors (Runtime/getRuntime))
