@@ -1290,6 +1290,7 @@
   (let [[_ bindings & body] (walk/macroexpand-all `(let ~bindings ~@body))
         locals              (keys (compiler/locals))
         vars                (->> bindings (partition 2) (map first))
+        _                   (assert (apply distinct? vars) "Let binding vars must be unique.")
         marker              (gensym)
         vars'               (->> vars (concat locals) (map #(vary-meta % assoc marker true)))
         gensyms             (repeatedly (count vars') gensym)
