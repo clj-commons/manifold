@@ -13,15 +13,14 @@
      AtomicReference]))
 
 (s/def-source CoreAsyncSource
-  [ch
-   ^AtomicReference last-take]
+  [ch ^AtomicReference last-take]
 
   (isSynchronous [_] false)
 
   (description [this]
-    {:source? true
+    {:source?  true
      :drained? (s/drained? this)
-     :type "core.async"})
+     :type     "core.async"})
 
   (close [_]
     (a/close! ch))
@@ -40,35 +39,35 @@
             d' (.getAndSet last-take d)
             f  (fn [_]
                  (a/take! ch
-                   (fn [msg]
-                     (d/success! d
-                       (if (nil? msg)
-                         (do
-                           (.markDrained this)
-                           default-val)
-                         msg)))))]
+                          (fn [msg]
+                            (d/success! d
+                                        (if (nil? msg)
+                                          (do
+                                            (.markDrained this)
+                                            default-val)
+                                          msg)))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
         d)))
 
   (take [this default-val blocking? timeout timeout-val]
-    (let [d  (d/deferred)
-          d' (.getAndSet last-take d)
+    (let [d            (d/deferred)
+          d'           (.getAndSet last-take d)
 
           ;; if I don't take this out of the goroutine, core.async OOMs on compilation
           mark-drained #(.markDrained this)
-          f  (fn [_]
-               (a/go
-                 (let [result (a/alt!
-                                ch ([x] (if (nil? x)
-                                          (do
-                                            (mark-drained)
-                                            default-val)
-                                          x))
-                                (a/timeout timeout) timeout-val
-                                :priority true)]
-                   (d/success! d result))))]
+          f            (fn [_]
+                         (a/go
+                           (let [result (a/alt!
+                                          ch ([x] (if (nil? x)
+                                                    (do
+                                                      (mark-drained)
+                                                      default-val)
+                                                    x))
+                                          (a/timeout timeout) timeout-val
+                                          :priority true)]
+                             (d/success! d result))))]
       (if (d/realized? d')
         (f nil)
         (d/on-realized d' f f))
@@ -77,15 +76,14 @@
         d))))
 
 (s/def-sink CoreAsyncSink
-  [ch
-   ^AtomicReference last-put]
+  [ch ^AtomicReference last-put]
 
   (isSynchronous [_] false)
 
   (description [this]
-    {:sink? true
+    {:sink?   true
      :closed? (s/closed? this)
-     :type "core.async"})
+     :type    "core.async"})
 
   (close [this]
     (utils/with-lock lock
@@ -96,8 +94,8 @@
           (let [d (.get last-put)
                 f (fn [_] (a/close! ch))]
             (d/on-realized d
-              (fn [_] (a/close! ch))
-              nil)
+                           (fn [_] (a/close! ch))
+                           nil)
             true)))))
 
   (put [this x blocking?]
@@ -122,8 +120,8 @@
               f  (fn [_]
                    (a/go
                      (d/success! d
-                       (boolean
-                         (a/>! ch x)))))]
+                                 (boolean
+                                   (a/>! ch x)))))]
           (if (d/realized? d')
             (f nil)
             (d/on-realized d' f f))

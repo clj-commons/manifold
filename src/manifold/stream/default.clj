@@ -71,16 +71,16 @@
   (isSynchronous [_] false)
 
   (description [this]
-    (let [m {:type "manifold"
-             :sink? true
-             :source? true
-             :pending-puts (.size producers)
+    (let [m {:type            "manifold"
+             :sink?           true
+             :source?         true
+             :pending-puts    (.size producers)
              :buffer-capacity capacity
-             :buffer-size (if messages (.size messages) 0)
-             :pending-takes (.size consumers)
-             :permanent? permanent?
-             :closed? (s/closed? this)
-             :drained? (s/drained? this)}]
+             :buffer-size     (if messages (.size messages) 0)
+             :pending-takes   (.size consumers)
+             :permanent?      permanent?
+             :closed?         (s/closed? this)
+             :drained?        (s/drained? this)}]
       (if description
         (description m)
         m)))
@@ -91,15 +91,12 @@
         (when-not (s/closed? this)
 
           (try
-            (let [acc (LinkedList.)
-
-                  result
-                  (try
-                    (unreduced (add! acc))
-                    (catch Throwable e
-                      (log/error e "error in stream transformer")
-                      false))
-                  ]
+            (let [acc    (LinkedList.)
+                  result (try
+                           (unreduced (add! acc))
+                           (catch Throwable e
+                             (log/error e "error in stream transformer")
+                             false))]
 
               (loop []
                 (if-not (.isEmpty acc)
@@ -136,52 +133,49 @@
   (isDrained [this]
     (utils/with-lock lock
       (and (s/closed? this)
-        (nil? (.peek producers))
-        (or (nil? messages)
-          (nil? (.peek messages))))))
+           (nil? (.peek producers))
+           (or (nil? messages)
+               (nil? (.peek messages))))))
 
   (put [this msg blocking? timeout timeout-val]
-    (let [acc (LinkedList.)
+    (let [acc    (LinkedList.)
 
-          result
-          (utils/with-lock lock
-            (try
-              (if (.isClosed this)
-                false
-                (add! acc msg))
-              (catch Throwable e
-                (log/error e "error in stream transformer")
-                false)))
+          result (utils/with-lock lock
+                   (try
+                     (if (.isClosed this)
+                       false
+                       (add! acc msg))
+                     (catch Throwable e
+                       (log/error e "error in stream transformer")
+                       false)))
 
-          close?
-          (reduced? result)
+          close? (reduced? result)
 
-          result
-          (if close?
-            @result
-            result)
+          result (if close?
+                   @result
+                   result)
 
-          val (loop [val true]
-                (if (.isEmpty acc)
-                  val
-                  (let [x (.removeFirst acc)]
-                    (cond
+          val    (loop [val true]
+                   (if (.isEmpty acc)
+                     val
+                     (let [x (.removeFirst acc)]
+                       (cond
 
-                      (instance? Producer x)
-                      (do
-                        (log/warn (IllegalStateException.) (format "excessive pending puts (> %d), closing stream" max-producers))
-                        (s/close! this)
-                        false)
+                         (instance? Producer x)
+                         (do
+                           (log/warn (IllegalStateException.) (format "excessive pending puts (> %d), closing stream" max-producers))
+                           (s/close! this)
+                           false)
 
-                      (instance? Production x)
-                      (let [^Production p x]
-                        (d/success! (.deferred p) (.message p) (.token p))
-                        (recur true))
+                         (instance? Production x)
+                         (let [^Production p x]
+                           (d/success! (.deferred p) (.message p) (.token p))
+                           (recur true))
 
-                      :else
-                      (do
-                        (d/timeout! x timeout timeout-val)
-                        (recur x))))))]
+                         :else
+                         (do
+                           (d/timeout! x timeout timeout-val)
+                           (recur x))))))]
 
       (cond
 
@@ -208,17 +202,17 @@
               (when-let [msg (and messages (.poll messages))]
                 (let [msg (re-nil msg)]
 
-                 ;; check if we're drained
-                 (when (and (s/closed? this) (s/drained? this))
-                   (.markDrained this))
+                  ;; check if we're drained
+                  (when (and (s/closed? this) (s/drained? this))
+                    (.markDrained this))
 
-                 (if-let [^Producer p (.poll producers)]
-                   (if-let [token (d/claim! (.deferred p))]
-                     (do
-                       (.offer messages (de-nil (.message p)))
-                       (Consumption. msg (.deferred p) token))
-                     (d/success-deferred msg executor))
-                   (d/success-deferred msg executor))))
+                  (if-let [^Producer p (.poll producers)]
+                    (if-let [token (d/claim! (.deferred p))]
+                      (do
+                        (.offer messages (de-nil (.message p)))
+                        (Consumption. msg (.deferred p) token))
+                      (d/success-deferred msg executor))
+                    (d/success-deferred msg executor))))
 
               ;; see if there are any unclaimed producers left
               (loop [^Producer p (.poll producers)]
@@ -235,7 +229,7 @@
 
               ;; closed, return << default-val >>
               (and (s/closed? this)
-                (d/success-deferred default-val executor))
+                   (d/success-deferred default-val executor))
 
               ;; add to the consumers queue
               (if (and timeout (<= timeout 0))
@@ -255,7 +249,7 @@
 
         (instance? Consumer result)
         (do
-          (log/warn (IllegalStateException.) (format "excessive pending takes (> %s), closing stream"  max-consumers))
+          (log/warn (IllegalStateException.) (format "excessive pending takes (> %s), closing stream" max-consumers))
           (s/close! this)
           (d/success-deferred default-val executor))
 
@@ -286,12 +280,10 @@
    executor
    ^AtomicLong dirty-puts]
   (let [capacity (long capacity)
-        t-d (d/success-deferred true executor)]
+        t-d      (d/success-deferred true executor)]
     (fn
-      ([]
-       )
-      ([acc]
-        acc)
+      ([])
+      ([acc] acc)
       ([^LinkedList acc msg]
        (doto acc
          (.add
@@ -324,30 +316,30 @@
 
 (defn stream
   ([]
-    (stream 0 nil (ex/executor)))
+   (stream 0 nil (ex/executor)))
   ([buffer-size]
-    (stream buffer-size nil (ex/executor)))
+   (stream buffer-size nil (ex/executor)))
   ([buffer-size xform]
-    (stream buffer-size xform (ex/executor)))
+   (stream buffer-size xform (ex/executor)))
   ([buffer-size xform executor]
-    (let [consumers    (LinkedList.)
-          producers    (LinkedList.)
-          dirty-takes  (AtomicLong.)
-          dirty-puts   (AtomicLong.)
-          buffer-size  (long (Math/max 0 (long buffer-size)))
-          messages     (when (pos? buffer-size) (ArrayDeque.))
-          add!         (add! producers consumers messages buffer-size executor dirty-puts)
-          add!         (if xform (xform add!) add!)]
-      (->Stream
-        false
-        nil
-        producers
-        consumers
-        buffer-size
-        messages
-        executor
-        add!
-        dirty-takes))))
+   (let [consumers   (LinkedList.)
+         producers   (LinkedList.)
+         dirty-takes (AtomicLong.)
+         dirty-puts  (AtomicLong.)
+         buffer-size (long (Math/max 0 (long buffer-size)))
+         messages    (when (pos? buffer-size) (ArrayDeque.))
+         add!        (add! producers consumers messages buffer-size executor dirty-puts)
+         add!        (if xform (xform add!) add!)]
+     (->Stream
+       false
+       nil
+       producers
+       consumers
+       buffer-size
+       messages
+       executor
+       add!
+       dirty-takes))))
 
 (defn onto [ex s]
   (if (and (instance? Stream s) (identical? ex (.executor ^Stream s)))
@@ -362,12 +354,12 @@
            description
            executor
            xform]
-    :or {permanent? false
-         executor (ex/executor)}}]
+    :or   {permanent? false
+           executor   (ex/executor)}}]
   (let [consumers   (LinkedList.)
         producers   (LinkedList.)
-        dirty-takes  (AtomicLong.)
-        dirty-puts   (AtomicLong.)
+        dirty-takes (AtomicLong.)
+        dirty-puts  (AtomicLong.)
         buffer-size (long (or buffer-size 0))
         messages    (when buffer-size (ArrayDeque.))
         buffer-size (if buffer-size (long (Math/max 0 buffer-size)) 0)

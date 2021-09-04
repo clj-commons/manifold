@@ -1,5 +1,9 @@
 ### 0.2.0-SNAPSHOT
 
+Contributions by Matthew Davidson
+
+* Modernized indentation to match current Clojure styles and fixed misalignments
+
 ### 0.1.9
 
 Contributions by Erik Assum, Reynald Borer, Matthew Davidson, Alexey Kachayev, led, Dominic Monroe, Pierre-Yves Ritschard, Ryan Smith, Justin Sonntag, Zach Tellman, Luo Tian, and Philip van Heerden.

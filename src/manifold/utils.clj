@@ -27,17 +27,17 @@
      nil))
 
 (defmacro future-with [executor & body]
-  `(let [frame# (clojure.lang.Var/cloneThreadBindingFrame)
+  `(let [frame#              (clojure.lang.Var/cloneThreadBindingFrame)
          ^Executor executor# ~executor
-         f# (fn []
-              (let [curr-frame# (clojure.lang.Var/getThreadBindingFrame)]
-                (clojure.lang.Var/resetThreadBindingFrame frame#)
-                (try
-                  ~@body
-                  (catch Throwable e#
-                    (log/error e# "error in manifold.utils/future-with"))
-                  (finally
-                    (clojure.lang.Var/resetThreadBindingFrame curr-frame#)))))]
+         f#                  (fn []
+                               (let [curr-frame# (clojure.lang.Var/getThreadBindingFrame)]
+                                 (clojure.lang.Var/resetThreadBindingFrame frame#)
+                                 (try
+                                   ~@body
+                                   (catch Throwable e#
+                                     (log/error e# "error in manifold.utils/future-with"))
+                                   (finally
+                                     (clojure.lang.Var/resetThreadBindingFrame curr-frame#)))))]
      (.execute executor# ^Runnable f#)
      nil))
 
@@ -48,9 +48,9 @@
 (def ^:const max-depth 50)
 
 (defmacro without-overflow [executor & body]
-  `(let [depth# (.get stack-depth)
+  `(let [depth#  (.get stack-depth)
          depth'# (if (nil? depth#) 0 depth#)
-         f# (fn [] ~@body)]
+         f#      (fn [] ~@body)]
      (if (> depth'# max-depth)
        (future-with ~executor (f#))
        (try
@@ -119,12 +119,12 @@
 
 (defmacro when-class [class & body]
   (let [disable-property (System/getProperty "manifold.disable-jvm8-primitives")
-        disabled? (and disable-property (not= disable-property "false"))]
+        disabled?        (and disable-property (not= disable-property "false"))]
     (when (and (not disabled?)
-            (try
-              (Class/forName (name class))
-              (catch Throwable e
-                )))
+               (try
+                 (Class/forName (name class))
+                 (catch Throwable e
+                   )))
       `(do ~@body))))
 
 ;;;

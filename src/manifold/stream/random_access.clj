@@ -28,7 +28,7 @@
     (.set idx size))
 
   (description [this]
-    {:type "random-access-list"
+    {:type     "random-access-list"
      :drained? (s/drained? this)})
 
   (take [this default-val blocking?]
