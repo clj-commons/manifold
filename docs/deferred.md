@@ -1,8 +1,8 @@
-### deferreds
+### Deferreds
 
 A deferred in Manifold is similar to a Clojure promise:
 
-```clj
+```clojure
 > (require '[manifold.deferred :as d])
 nil
 
@@ -18,7 +18,7 @@ true
 
 However, similar to Clojure's futures, deferreds in Manifold can also represent errors.  Crucially, they also allow for callbacks to be registered, rather than simply blocking on dereferencing.
 
-```clj
+```clojure
 > (def d (d/deferred))
 #'d
 
@@ -29,7 +29,7 @@ true
 Exception: boom
 ```
 
-```clj
+```clojure
 > (def d (d/deferred))
 #'d
 
@@ -43,13 +43,13 @@ success! :foo
 true
 ```
 
-### composing with deferreds
+### Composing with deferreds
 
 Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, no one should ever use `on-realized`.
 
 Instead, they should use `manifold.deferred/chain`, which chains together callbacks, left to right:
 
-```clj
+```clojure
 > (def d (d/deferred))
 #'d
 
@@ -65,7 +65,7 @@ true
 
 Values that can be coerced into a deferred include Clojure futures, Java futures, and Clojure promises.
 
-```clj
+```clojure
 > (def d (d/deferred))
 #'d
 
@@ -81,7 +81,7 @@ true
 
 If any stage in `chain` throws an exception or returns a deferred that yields an error, all subsequent stages are skipped, and the deferred returned by `chain` yields that same error.  To handle these cases, you can use `manifold.deferred/catch`:
 
-```clj
+```clojure
 > (def d (d/deferred))
 #p
 
@@ -99,14 +99,14 @@ Using the `->` threading operator, `chain` and `catch` can be easily and arbitra
 
 To combine multiple deferrable values into a single deferred that yields all their results, we can use `manifold.deferred/zip`:
 
-```clj
+```clojure
 > @(d/zip (future 1) (future 2) (future 3))
 (1 2 3)
 ```
 
 Finally, we can use `manifold.deferred/timeout!` to register a timeout on the deferred which will yield either a specified timeout value or a `TimeoutException` if the deferred is not realized within `n` milliseconds.
 
-```clj
+```clojure
 > @(d/timeout!
      (d/future (Thread/sleep 1000) :foo)
      100
@@ -126,7 +126,7 @@ Wherever possible, use `manifold.deferred/deferred` instead of `promise`, and `m
 
 Let's say that we have two services which provide us numbers, and want to get their sum.  By using `zip` and `chain` together, this is relatively straightforward:
 
-```clj
+```clojure
 (defn deferred-sum []
   (let [a (call-service-a)
         b (call-service-b)]
@@ -137,7 +137,7 @@ Let's say that we have two services which provide us numbers, and want to get th
 
 However, this isn't a very direct expression of what we're doing.  For more complex relationships between deferred values, our code will become even more difficult to understand.  In these cases, it's often best to use `let-flow`.
 
-```clj
+```clojure
 (defn deferred-sum []
   (let-flow [a (call-service-a)
              b (call-service-b)]
@@ -146,7 +146,7 @@ However, this isn't a very direct expression of what we're doing.  For more comp
 
 In `let-flow`, we can treat deferred values as if they're realized.  This is only true of values declared within or closed over by `let-flow`, however.  So we can do this:
 
-```clj
+```clojure
 (let [a (future 1)]
   (let-flow [b (future (+ a 1))
              c (+ b 1)]
@@ -155,7 +155,7 @@ In `let-flow`, we can treat deferred values as if they're realized.  This is onl
 
 but not this:
 
-```clj
+```clojure
 (let-flow [a (future 1)
            b (let [c (future 1)]
                 (+ a c))]
@@ -170,7 +170,7 @@ It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https
 
 Manifold also provides a `loop` macro, which allows for asynchronous loops to be defined.  Consider `manifold.stream/consume`, which allows a function to be invoked with each new message from a stream.  We can implement similar behavior like so:
 
-```clj
+```clojure
 (require
   '[manifold.deferred :as d]
   '[manifold.stream :as s])
@@ -196,6 +196,6 @@ Here we define a loop which takes messages one at a time from `stream`, and pass
 
 While Manifold doesn't provide anything as general purpose as core.async's `go` macro, the combination of `loop` and `let-flow` can allow for the specification of highly intricate asynchronous workflows.
 
-### custom execution models
+### Custom execution models
 
 Both deferreds and streams allow for custom execution models to be specified.  To learn more, [go here](/docs/execution.md).

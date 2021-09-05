@@ -8,8 +8,8 @@
 (deftest test-in
   (testing "side-effecting function"
     (let [n (atom 0)]
-     @(t/in 1 #(swap! n inc))
-     (is (= 1 @n))))
+      @(t/in 1 #(swap! n inc))
+      (is (= 1 @n))))
 
   (testing "function throws exception"
     (is (thrown?
@@ -38,8 +38,8 @@
     (is (= 2 @n))))
 
 (deftest test-mock-clock
-  (let [c (t/mock-clock 0)
-        n (atom 0)
+  (let [c   (t/mock-clock 0)
+        n   (atom 0)
         inc #(swap! n inc)]
     (t/with-clock c
 
@@ -71,13 +71,13 @@
         (is (= 10 @n))))))
 
 (deftest test-mock-clock-deschedules-after-exception
-  (let [c (t/mock-clock 0)
+  (let [c       (t/mock-clock 0)
         counter (atom 0)]
     (t/with-clock c
       (t/every 1
-        (fn []
-          (swap! counter inc)
-          (throw (Exception. "BOOM")))))
+               (fn []
+                 (swap! counter inc)
+                 (throw (Exception. "BOOM")))))
     (is (= 1 @counter))
     (t/advance c 1)
     (is (= 1 @counter))))

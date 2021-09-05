@@ -24,54 +24,54 @@
 
 (defn capture-success
   ([result]
-    (capture-success result true))
+   (capture-success result true))
   ([result expected-return-value]
-    (let [p (promise)]
-      (d/on-realized result
-        #(do (deliver p %) expected-return-value)
-        (fn [_] (throw (Exception. "ERROR"))))
-      p)))
+   (let [p (promise)]
+     (d/on-realized result
+                    #(do (deliver p %) expected-return-value)
+                    (fn [_] (throw (Exception. "ERROR"))))
+     p)))
 
 (defn capture-error
   ([result]
-    (capture-error result true))
+   (capture-error result true))
   ([result expected-return-value]
-    (let [p (promise)]
-      (d/on-realized result
-        (fn [_] (throw (Exception. "SUCCESS")))
-        #(do (deliver p %) expected-return-value))
-      p)))
+   (let [p (promise)]
+     (d/on-realized result
+                    (fn [_] (throw (Exception. "SUCCESS")))
+                    #(do (deliver p %) expected-return-value))
+     p)))
 
 (deftest test-catch
   (is (thrown? ArithmeticException
-        @(-> 0
-           (d/chain #(/ 1 %))
-           (d/catch IllegalStateException (constantly :foo)))))
+               @(-> 0
+                    (d/chain #(/ 1 %))
+                    (d/catch IllegalStateException (constantly :foo)))))
 
   (is (thrown? ArithmeticException
-        @(-> 0
-           d/future
-           (d/chain #(/ 1 %))
-           (d/catch IllegalStateException (constantly :foo)))))
+               @(-> 0
+                    d/future
+                    (d/chain #(/ 1 %))
+                    (d/catch IllegalStateException (constantly :foo)))))
 
   (is (= :foo
-        @(-> 0
-           (d/chain #(/ 1 %))
-           (d/catch ArithmeticException (constantly :foo)))))
+         @(-> 0
+              (d/chain #(/ 1 %))
+              (d/catch ArithmeticException (constantly :foo)))))
 
   (let [d (d/deferred)]
     (d/future (Thread/sleep 100) (d/error! d :bar))
     (is (= :foo @(d/catch d (constantly :foo)))))
 
   (is (= :foo
-        @(-> (d/error-deferred :bar)
-           (d/catch (constantly :foo)))))
+         @(-> (d/error-deferred :bar)
+              (d/catch (constantly :foo)))))
 
   (is (= :foo
-        @(-> 0
-           d/future
-           (d/chain #(/ 1 %))
-           (d/catch ArithmeticException (constantly :foo))))))
+         @(-> 0
+              d/future
+              (d/chain #(/ 1 %))
+              (d/catch ArithmeticException (constantly :foo))))))
 
 (def ^:dynamic *test-dynamic-var*)
 
@@ -97,20 +97,20 @@
     (is (= true @flag)))
 
   (is (= 5
-        @(let [z (clojure.core/future 1)]
-           (d/let-flow [x (d/future (clojure.core/future z))
-                        y (d/future (+ z x))]
-             (d/future (+ x x y z))))))
+         @(let [z (clojure.core/future 1)]
+            (d/let-flow [x (d/future (clojure.core/future z))
+                         y (d/future (+ z x))]
+              (d/future (+ x x y z))))))
 
   (is (= 2
-        @(let [d (d/deferred)]
-           (d/let-flow [[x] (future' [1])]
-             (d/let-flow [[x'] (future' [(inc x)])
-                          y (future' true)]
-               (when y x'))))))
+         @(let [d (d/deferred)]
+            (d/let-flow [[x] (future' [1])]
+              (d/let-flow [[x'] (future' [(inc x)])
+                           y (future' true)]
+                (when y x'))))))
 
   (testing "let-flow callbacks happen on different executor retain thread bindings"
-    (let [d                (d/deferred (test-execute-pool))
+    (let [d (d/deferred (test-execute-pool))
           test-internal-fn (fn [] (let [x *test-dynamic-var*]
                                     (d/future (Thread/sleep 100) (d/success! d x))))]
       (binding [*test-dynamic-var* "cat"]
@@ -128,23 +128,23 @@
               j (range 10)]
           (let [fs (concat (repeat i inc) [boom] (repeat j inc))]
             (is (= i
-                  @(-> (apply d/chain 0 fs)
-                     (d/catch (fn [e] (:n (ex-data e)))))
-                  @(-> (apply d/chain' 0 fs)
-                     (d/catch' (fn [e] (:n (ex-data e)))))))))))))
+                   @(-> (apply d/chain 0 fs)
+                        (d/catch (fn [e] (:n (ex-data e)))))
+                   @(-> (apply d/chain' 0 fs)
+                        (d/catch' (fn [e] (:n (ex-data e)))))))))))))
 
 (deftest test-chain
   (dorun
     (for [i (range 10)
           j (range i)]
-      (let [fs (take i (cycle [inc #(* % 2)]))
+      (let [fs  (take i (cycle [inc #(* % 2)]))
             fs' (-> fs
-                  vec
-                  (update-in [j] (fn [f] #(d/future (f %)))))]
+                    vec
+                    (update-in [j] (fn [f] #(d/future (f %)))))]
         (is
           (= (reduce #(%2 %1) 0 fs)
-            @(apply d/chain 0 fs')
-            @(apply d/chain' 0 fs')))))))
+             @(apply d/chain 0 fs')
+             @(apply d/chain' 0 fs')))))))
 
 (deftest test-deferred
   ;; success!
@@ -154,7 +154,7 @@
     (is (= 1 @d)))
 
   ;; claim and success!
-  (let [d (d/deferred)
+  (let [d     (d/deferred)
         token (d/claim! d)]
     (is token)
     (is (= false (d/success! d 1)))
@@ -163,15 +163,15 @@
     (is (= 1 @d)))
 
   ;; error!
-  (let [d (d/deferred)
+  (let [d  (d/deferred)
         ex (IllegalStateException. "boom")]
     (is (= true (d/error! d ex)))
     (is (= ex @(capture-error d ::return)))
     (is (thrown? IllegalStateException @d)))
 
   ;; claim and error!
-  (let [d (d/deferred)
-        ex (IllegalStateException. "boom")
+  (let [d     (d/deferred)
+        ex    (IllegalStateException. "boom")
         token (d/claim! d)]
     (is token)
     (is (= false (d/error! d ex)))
@@ -193,9 +193,9 @@
   (are [d timeout]
     (= :bar
        (-> (is (thrown? clojure.lang.ExceptionInfo
-                 (if timeout (deref d 1000 ::timeout) @d)))
-         ex-data
-         :error))
+                        (if timeout (deref d 1000 ::timeout) @d)))
+           ex-data
+           :error))
 
     (doto (d/deferred) (d/error! :bar)) true
 
@@ -206,24 +206,24 @@
     (d/error-deferred :bar) false)
 
   ;; multiple callbacks w/ success
-  (let [n 50
-        d (d/deferred)
+  (let [n               50
+        d               (d/deferred)
         callback-values (->> (range n)
-                          (map (fn [_] (d/future (capture-success d))))
-                          (map deref)
-                          doall)]
+                             (map (fn [_] (d/future (capture-success d))))
+                             (map deref)
+                             doall)]
     (is (= true (d/success! d 1)))
     (is (= 1 (deref d 1000 ::timeout)))
     (is (= (repeat n 1) (map deref callback-values))))
 
   ;; multiple callbacks w/ error
-  (let [n 50
-        d (d/deferred)
+  (let [n               50
+        d               (d/deferred)
         callback-values (->> (range n)
-                          (map (fn [_] (d/future (capture-error d))))
-                          (map deref)
-                          doall)
-        ex (Exception.)]
+                             (map (fn [_] (d/future (capture-error d))))
+                             (map deref)
+                             doall)
+        ex              (Exception.)]
     (is (= true (d/error! d ex)))
     (is (thrown? Exception (deref d 1000 ::timeout)))
     (is (= (repeat n ex) (map deref callback-values))))
@@ -293,11 +293,11 @@
 
 (deftest test-finally
   (let [target-d (d/deferred)
-        d (d/deferred)
-        fd (d/finally
-             d
-             (fn []
-               (d/success! target-d ::delivered)))]
+        d        (d/deferred)
+        fd       (d/finally
+                   d
+                   (fn []
+                     (d/success! target-d ::delivered)))]
     (d/error! d (Exception.))
     (is (= ::delivered (deref target-d 0 ::not-delivered)))))
 
@@ -308,13 +308,13 @@
   (is (= 2 @(d/alt (d/future (Thread/sleep 10) (throw (Exception. "boom"))) 2)))
 
   (is (thrown-with-msg? Exception #"boom"
-        @(d/alt (d/future (throw (Exception. "boom"))) (d/future (Thread/sleep 10)))))
+                        @(d/alt (d/future (throw (Exception. "boom"))) (d/future (Thread/sleep 10)))))
 
   (testing "uniformly distributed"
     (let [results (atom {})
           ;; within 10%
-          n 1e4, r 10, eps (* n 0.1)
-          f #(/ (% n eps) r)]
+          n       1e4, r 10, eps (* n 0.1)
+          f       #(/ (% n eps) r)]
       (dotimes [_ n]
         @(d/chain (apply d/alt (range r))
                   #(swap! results update % (fnil inc 0))))
@@ -401,15 +401,15 @@
 
 (deftest ^:stress test-deferred-chain
   (dotimes [_ 1e4]
-    (let [d (d/deferred)
+    (let [d      (d/deferred)
           result (d/future
                    (last
                      (take 1e4
-                       (iterate
-                         #(let [d' (d/deferred)]
-                            (d/connect % d')
-                            d')
-                         d))))]
+                           (iterate
+                             #(let [d' (d/deferred)]
+                                (d/connect % d')
+                                d')
+                             d))))]
       (Thread/sleep (rand-int 10))
       (d/success! d 1)
       (is (= 1 @@result)))))

@@ -18,10 +18,10 @@
      TimeUnit]))
 
 (defn run-sink-source-test [gen]
-  (let [x (gen)
-        sink (s/->sink x)
+  (let [x      (gen)
+        sink   (s/->sink x)
         source (s/->source x)
-        vs (range 1e4)]
+        vs     (range 1e4)]
 
     (reset-meta! sink nil)
     (is (= nil (meta sink)))
@@ -47,11 +47,11 @@
     (is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
     #_(future
-      (doseq [x vs]
-        (try
-          (s/put! sink x)
-          (catch Throwable e
-            (log/error e "")))))
+        (doseq [x vs]
+          (try
+            (s/put! sink x)
+            (catch Throwable e
+              (log/error e "")))))
     #_(is (= vs (repeatedly (count vs) #(deref (s/take! source)))))
 
     (future
@@ -104,7 +104,7 @@
 ;;;
 
 (deftest test-pending-takes-and-puts-cleaned-up
-  (let [timeout 1
+  (let [timeout     1
         default-val ::default
         timeout-val ::timeout]
     (testing "take one more than the max number of allowed pending takes"
@@ -162,19 +162,19 @@
 
     (s/close! s)
 
-    (is (= false  @(s/put! s 2)))
-    (is (= true   (s/closed? s)))
-    (is (= false  (s/drained? s)))
-    (is (= 1      @(s/take! s)))
-    (is (= nil    @(s/take! s)))
-    (is (= true   (s/drained? s)))))
+    (is (= false @(s/put! s 2)))
+    (is (= true (s/closed? s)))
+    (is (= false (s/drained? s)))
+    (is (= 1 @(s/take! s)))
+    (is (= nil @(s/take! s)))
+    (is (= true (s/drained? s)))))
 
 (deftest test-transducers
   (let [s (s/stream 0
-            (comp
-              (map inc)
-              (filter even?)
-              (take 3)))]
+                    (comp
+                      (map inc)
+                      (filter even?)
+                      (take 3)))]
     (s/put-all! s (range 10))
     (is (= [2 4 6] (s/stream->seq s))))
 
@@ -230,15 +230,15 @@
   (let [inputs (range 1e2)]
     (is
       (= (reduce + inputs)
-        @(s/reduce + (s/->source inputs))))
+         @(s/reduce + (s/->source inputs))))
     (is
       (= (reduce + 1 inputs)
-        @(s/reduce + 1 (s/->source inputs)))))
+         @(s/reduce + 1 (s/->source inputs)))))
 
   (let [inputs (range 10)
-        accf (fn [acc el]
-               (if (= el 5) (reduced :large) el))
-        s (s/->source inputs)]
+        accf   (fn [acc el]
+                 (if (= el 5) (reduced :large) el))
+        s      (s/->source inputs)]
     (is (= :large
            (reduce accf 0 inputs)
            @(s/reduce accf 0 s)))
@@ -249,24 +249,24 @@
   (let [inputs (partition-all 1e4 (range 3e4))]
     (is
       (= (apply map vector inputs)
-        (->> inputs
-          (map s/->source)
-          (apply s/zip)
-          s/stream->seq)))))
+         (->> inputs
+              (map s/->source)
+              (apply s/zip)
+              s/stream->seq)))))
 
 (deftest test-lazily-partition-by
   (let [inputs (range 1e2)
-        f #(long (/ % 10))]
+        f      #(long (/ % 10))]
     (is
       (= (partition-by f inputs)
-        (->> inputs
-          s/->source
-          (s/lazily-partition-by f)
-          s/stream->seq
-          (map (comp doall s/stream->seq)))))))
+         (->> inputs
+              s/->source
+              (s/lazily-partition-by f)
+              s/stream->seq
+              (map (comp doall s/stream->seq)))))))
 
 (defn test-batch [metric max-size]
-  (let [inputs (repeat 10 metric)
+  (let [inputs  (repeat 10 metric)
         outputs (partition-all (quot max-size metric) inputs)]
     (is
       (= outputs
@@ -282,7 +282,7 @@
   (test-batch 2 5))
 
 (deftest test-batch-with-oversized-message
-  (let [inputs [1 1 9]
+  (let [inputs  [1 1 9]
         outputs [[1 1] [9]]]
     (is
       (= outputs
@@ -293,14 +293,14 @@
 
 (deftest test-concat
   (let [inputs (range 1e2)
-        f #(long (/ % 10))]
+        f      #(long (/ % 10))]
     (is
       (= inputs
-        (->> inputs
-          s/->source
-          (s/lazily-partition-by f)
-          s/concat
-          s/stream->seq)))))
+         (->> inputs
+              s/->source
+              (s/lazily-partition-by f)
+              s/concat
+              s/stream->seq)))))
 
 (deftest test-buffer
   (let [s (s/buffered-stream identity 10)]
@@ -328,23 +328,23 @@
 
     (apply =
 
-      ;; seq version
-      (seq-f f input)
+           ;; seq version
+           (seq-f f input)
 
-      ;; single operation
-      (->> (s/->source input)
-        (stream-f f)
-        s/stream->seq)
+           ;; single operation
+           (->> (s/->source input)
+                (stream-f f)
+                s/stream->seq)
 
-      ;; three simultaneous operations
-      (let [src (s/stream)
-            f #(->> src
-                 (stream-f f)
-                 (s/buffer (count input)))
-            dsts (doall (repeatedly 3 f))]
-        (d/chain (s/put-all! src input)
-          (fn [_] (s/close! src)))
-        (map s/stream->seq dsts)))
+           ;; three simultaneous operations
+           (let [src  (s/stream)
+                 f    #(->> src
+                            (stream-f f)
+                            (s/buffer (count input)))
+                 dsts (doall (repeatedly 3 f))]
+             (d/chain (s/put-all! src input)
+                      (fn [_] (s/close! src)))
+             (map s/stream->seq dsts)))
 
     map s/map inc (range 10)
 
@@ -363,32 +363,32 @@
 
 (deftest test-cleanup
   (let [cnt (atom 0)
-        f (fn [idx]
-            (swap! cnt inc)
-            (d/future
-              (range (* idx 10) (+ 10 (* idx 10)))))]
+        f   (fn [idx]
+              (swap! cnt inc)
+              (d/future
+                (range (* idx 10) (+ 10 (* idx 10)))))]
     (is (= (range 10)
-          (->> (range)
-            dechunk
-            (map f)
-            s/->source
-            s/realize-each
-            (s/map s/->source)
-            s/concat
-            (s/transform (take 10))
-            s/stream->seq)))
+           (->> (range)
+                dechunk
+                (map f)
+                s/->source
+                s/realize-each
+                (s/map s/->source)
+                s/concat
+                (s/transform (take 10))
+                s/stream->seq)))
     #_(is (= 1 @cnt))))
 
 (deftest test-drain-into
-  (let [n 100
-        src (s/->source (range n))
-        dst (s/stream)
+  (let [n      100
+        src    (s/->source (range n))
+        dst    (s/stream)
         result (s/drain-into src dst)]
     (is (= (range n) (->> dst s/stream->seq (take n))))
     (is (= true @result))))
 
 (deftest test-consume
-  (let [src (s/->source [1 2 3])
+  (let [src    (s/->source [1 2 3])
         values (atom [])
         result (-> (s/consume #(swap! values conj %) src)
                    (d/chain #(do (swap! values conj ::done) %)))]
@@ -396,7 +396,7 @@
     (is (= [1 2 3 ::done] @values))))
 
 (deftest test-consume-async
-  (let [src (s/->source [1 2])
+  (let [src    (s/->source [1 2])
         values (atom [])
         result (s/consume-async #(do (swap! values conj %)
                                      (d/success-deferred (= (count @values) 1)))
@@ -421,7 +421,7 @@
 
 (deftest test-try-put
   (testing "times out"
-    (let [s (s/stream)
+    (let [s          (s/stream)
           put-result (s/try-put! s :value 10 ::timeout)]
       (is (= ::timeout (deref put-result 15 ::wrong))))))
 
@@ -429,7 +429,7 @@
 
   (binding [log/*logger-factory* clojure.tools.logging.impl/disabled-logger-factory]
 
-    (let [s (s/stream)
+    (let [s  (s/stream)
           s' (s/map #(/ 1 %) s)]
       (is (not (s/closed? s)))
       (is (not (s/drained? s')))
@@ -437,7 +437,7 @@
       (is (s/closed? s))
       (is (s/drained? s')))
 
-    (let [s (s/stream)
+    (let [s  (s/stream)
           s' (s/map #(d/future (/ 1 %)) s)]
       (is (not (s/closed? s)))
       (is (not (s/drained? s')))
@@ -445,10 +445,10 @@
       (is (not (s/closed? s)))
       (is (not (s/drained? s'))))
 
-    (let [s (s/stream)
+    (let [s  (s/stream)
           s' (->> s
-               (s/map #(d/future (/ 1 %)))
-               s/realize-each)]
+                  (s/map #(d/future (/ 1 %)))
+                  s/realize-each)]
       (is (not (s/closed? s)))
       (is (not (s/drained? s')))
       (s/put-all! s (range 10))

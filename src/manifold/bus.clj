@@ -1,6 +1,6 @@
 (ns
   ^{:author "Zach Tellman"
-    :doc "An implementation of an event bus, where publishers and subscribers can interact via topics."}
+    :doc    "An implementation of an event bus, where publishers and subscribers can interact via topics."}
   manifold.bus
   (:require
     [manifold
@@ -52,7 +52,7 @@
 (defn- conj' [ary x]
   (if (nil? ary)
     (object-array [x])
-    (let [len (Array/getLength ary)
+    (let [len  (Array/getLength ary)
           ary' (object-array (inc len))]
       (System/arraycopy ary 0 ary' 0 len)
       (aset ^objects ary' len x)
@@ -89,54 +89,54 @@
 (defn event-bus
   "Returns an event bus that can be used with `publish!` and `subscribe`."
   ([]
-    (event-bus s/stream))
+   (event-bus s/stream))
   ([stream-generator]
-    (let [topic->subscribers (ConcurrentHashMap.)]
-      (reify IEventBus
+   (let [topic->subscribers (ConcurrentHashMap.)]
+     (reify IEventBus
 
-        (snapshot [_]
-          (->> topic->subscribers
-            (map
-              (fn [[topic subscribers]]
-                (clojure.lang.MapEntry. (unwrap topic) (into [] subscribers))))
-            (into {})))
+       (snapshot [_]
+         (->> topic->subscribers
+              (map
+                (fn [[topic subscribers]]
+                  (clojure.lang.MapEntry. (unwrap topic) (into [] subscribers))))
+              (into {})))
 
-        (subscribe [_ topic]
-          (let [s (stream-generator)]
+       (subscribe [_ topic]
+         (let [s (stream-generator)]
 
-            ;; CAS to add
-            (loop []
-              (let [subscribers (.get topic->subscribers (wrap topic))
-                    subscribers' (conj' subscribers s)]
-                (if (nil? subscribers)
-                  (when (.putIfAbsent topic->subscribers (wrap topic) subscribers')
-                    (recur))
-                  (when-not (.replace topic->subscribers (wrap topic) subscribers subscribers')
-                    (recur)))))
+           ;; CAS to add
+           (loop []
+             (let [subscribers  (.get topic->subscribers (wrap topic))
+                   subscribers' (conj' subscribers s)]
+               (if (nil? subscribers)
+                 (when (.putIfAbsent topic->subscribers (wrap topic) subscribers')
+                   (recur))
+                 (when-not (.replace topic->subscribers (wrap topic) subscribers subscribers')
+                   (recur)))))
 
-            ;; CAS to remove
-            (s/on-closed s
-              (fn []
-                (loop []
-                  (let [subscribers (.get topic->subscribers (wrap topic))
-                        subscribers' (disj' subscribers s)]
-                    (if (nil? subscribers')
-                      (when-not (.remove topic->subscribers (wrap topic) subscribers)
-                        (recur))
-                      (when-not (.replace topic->subscribers (wrap topic) subscribers subscribers')
-                        (recur)))))))
+           ;; CAS to remove
+           (s/on-closed s
+                        (fn []
+                          (loop []
+                            (let [subscribers  (.get topic->subscribers (wrap topic))
+                                  subscribers' (disj' subscribers s)]
+                              (if (nil? subscribers')
+                                (when-not (.remove topic->subscribers (wrap topic) subscribers)
+                                  (recur))
+                                (when-not (.replace topic->subscribers (wrap topic) subscribers subscribers')
+                                  (recur)))))))
 
-            (s/source-only s)))
+           (s/source-only s)))
 
-        (publish [_ topic message]
-          (let [subscribers (.get topic->subscribers (wrap topic))]
-            (if (nil? subscribers)
-              (d/success-deferred false)
-              (-> (apply d/zip' (map #(s/put! % message) subscribers))
-                (d/chain' (fn [_] true))))))
+       (publish [_ topic message]
+         (let [subscribers (.get topic->subscribers (wrap topic))]
+           (if (nil? subscribers)
+             (d/success-deferred false)
+             (-> (apply d/zip' (map #(s/put! % message) subscribers))
+                 (d/chain' (fn [_] true))))))
 
-        (downstream [_ topic]
-          (seq (.get topic->subscribers (wrap topic))))
+       (downstream [_ topic]
+         (seq (.get topic->subscribers (wrap topic))))
 
-        (isActive [_ topic]
-          (boolean (.get topic->subscribers (wrap topic))))))))
+       (isActive [_ topic]
+         (boolean (.get topic->subscribers (wrap topic))))))))
