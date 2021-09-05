@@ -75,17 +75,6 @@
 
 (def ^:dynamic *test-dynamic-var*)
 
-(let [execute-pool-promise
-      (delay
-        (let [cnt (atom 0)]
-          (ex/utilization-executor 0.95 Integer/MAX_VALUE
-                                   {:thread-factory (ex/thread-factory
-                                                      #(str "manifold-test-execute-" (swap! cnt inc))
-                                                      (deliver (promise) nil))
-                                    :stats-callback (constantly nil)})))]
-  (defn test-execute-pool []
-    @execute-pool-promise))
-
 (deftest test-let-flow
 
   (let [flag (atom false)]
@@ -110,7 +99,7 @@
                 (when y x'))))))
 
   (testing "let-flow callbacks happen on different executor retain thread bindings"
-    (let [d (d/deferred (test-execute-pool))
+    (let [d (d/deferred (ex/fixed-thread-executor 1))
           test-internal-fn (fn [] (let [x *test-dynamic-var*]
                                     (d/future (Thread/sleep 100) (d/success! d x))))]
       (binding [*test-dynamic-var* "cat"]
