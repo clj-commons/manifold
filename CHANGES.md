@@ -1,8 +1,9 @@
 ### 0.2.0-SNAPSHOT
 
-Contributions by Matthew Davidson
+Contributions by Matthew Davidson, Ryan Smith
 
-* Modernized indentation to match current Clojure styles and fixed misalignments
+* Switch to `bound-fn` in `let-flow` to fix bug where dynamic vars were incorrect for other threads 
+* Modernized indentation to match current Clojure styles and fix misalignments
 
 ### 0.1.9
 
