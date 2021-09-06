@@ -5,7 +5,8 @@
     [manifold.utils :as utils]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
-    [manifold.deferred :as d]))
+    [manifold.deferred :as d]
+    [manifold.executor :as ex]))
 
 (defmacro future' [& body]
   `(d/future
@@ -72,6 +73,8 @@
               (d/chain #(/ 1 %))
               (d/catch ArithmeticException (constantly :foo))))))
 
+(def ^:dynamic *test-dynamic-var*)
+
 (deftest test-let-flow
 
   (let [flag (atom false)]
@@ -93,7 +96,18 @@
             (d/let-flow [[x] (future' [1])]
               (d/let-flow [[x'] (future' [(inc x)])
                            y (future' true)]
-                (when y x')))))))
+                (when y x'))))))
+
+  (testing "let-flow callbacks happen on different executor retain thread bindings"
+    (let [d (d/deferred (ex/fixed-thread-executor 1))
+          test-internal-fn (fn [] (let [x *test-dynamic-var*]
+                                    (d/future (Thread/sleep 100) (d/success! d x))))]
+      (binding [*test-dynamic-var* "cat"]
+        (test-internal-fn)
+        (is (= ["cat" "cat" "cat"]
+               @(d/let-flow [a d
+                             b (do a *test-dynamic-var*)]
+                  [a b *test-dynamic-var*])))))))
 
 (deftest test-chain-errors
   (let [boom (fn [n] (throw (ex-info "" {:n n})))]
@@ -388,3 +402,4 @@
       (Thread/sleep (rand-int 10))
       (d/success! d 1)
       (is (= 1 @@result)))))
+
