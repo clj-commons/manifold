@@ -15,7 +15,7 @@
     (d/success! d value)
     d))
 
-(defn <!-no-throw
+(defn <!
   "takes value from deferred. Must be called inside a (go ...) block. Will
   return nil if closed. Will park if nothing is available. If an error
   is thrown inside the body, that error will be placed as the return value.
@@ -30,7 +30,7 @@
   Will park if nothing is available. If value that is returned is
   a Throwable, will re-throw."
   [port]
-  `(let [r# (<!-no-throw ~port)]
+  `(let [r# (<! ~port)]
      (if (instance? Throwable r#)
        ;; this is a re-throw of the original throwable. the expectation is that
        ;; it still will maintain the original stack trace
@@ -69,8 +69,8 @@
               nil))))))
 
 (def async-custom-terminators
-  {'manifold.go-off/<!-no-throw `manifold.go-off/take!
-   :Return                      `return-deferred})
+  {'manifold.go-off/<! `manifold.go-off/take!
+   :Return             `return-deferred})
 
 (defmacro go-off-executor
   "Implementation of go-off that allows specifying executor. See docstring of go-off for usage."
@@ -94,7 +94,7 @@
 (defmacro go-off
   "Asynchronously executes the body on manifold's default executor, returning
   immediately to the calling thread. Additionally, any visible calls to <!?
-  and <!-no-throw deferred operations within the body will block (if necessary)
+  and <! deferred operations within the body will block (if necessary)
   by 'parking' the calling thread rather than tying up an OS thread.
   Upon completion of the operation, the body will be resumed.
 
