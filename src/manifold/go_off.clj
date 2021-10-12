@@ -1,6 +1,6 @@
 (ns ^{:author "Ryan Smith"
       :doc    "Provide a variant of `core.async/go` that works with manifold's deferreds and executors. Utilizes core.async's state-machine generator, so core.async must be available as a dependency."}
-  manifold.tsasvla
+  manifold.go-off
   (:require [manifold
              [executor :as ex]
              [deferred :as d]]
@@ -20,13 +20,13 @@
   return nil if closed. Will park if nothing is available. If an error
   is thrown inside the body, that error will be placed as the return value.
 
-  N.B. To make `tsasvla` usage idiomatic with the rest of manifold, use `<!?`
+  N.B. To make `go-off` usage idiomatic with the rest of manifold, use `<!?`
   instead of this directly."
   [port]
-  (assert nil "<! used not in (tsasvla ...) block"))
+  (assert nil "<! used not in (go-off ...) block"))
 
 (defmacro <!?
-  "takes a val from port. Must be called inside a (tsasvla ...) block.
+  "takes a val from port. Must be called inside a (go-off ...) block.
   Will park if nothing is available. If value that is returned is
   a Throwable, will re-throw."
   [port]
@@ -69,11 +69,11 @@
               nil))))))
 
 (def async-custom-terminators
-  {'manifold.tsasvla/<!-no-throw `manifold.tsasvla/take!
+  {'manifold.go-off/<!-no-throw `manifold.go-off/take!
    :Return                      `return-deferred})
 
-(defmacro tsasvla-executor
-  "Implementation of tsasvla that allows specifying executor. See docstring of tsasvla for usage."
+(defmacro go-off-executor
+  "Implementation of go-off that allows specifying executor. See docstring of go-off for usage."
   [executor & body]
   (let [executor     (vary-meta executor assoc :tag 'Executor)
         crossing-env (zipmap (keys &env) (repeatedly gensym))]
@@ -91,9 +91,8 @@
        (d/chain d#)))
   )
 
-(defmacro tsasvla
-  "წასვლა - Georgian for \"to go\"
-  Asynchronously executes the body on manifold's default executor, returning
+(defmacro go-off
+  "Asynchronously executes the body on manifold's default executor, returning
   immediately to the calling thread. Additionally, any visible calls to <!?
   and <!-no-throw deferred operations within the body will block (if necessary)
   by 'parking' the calling thread rather than tying up an OS thread.
@@ -108,7 +107,7 @@
   to address the following major points from core.async & vanilla manifold deferreds:
 
   - `core.async/go` assumes that all of your code is able to be purely async
-  and will never block the handling threads. Tsasvla removes the concept of handling
+  and will never block the handling threads. go-off removes the concept of handling
   threads, which means blocking is not an issue, but if you spawn too many of these you
   can create too many threads for the OS to handle.
   - `core.async/go` has absolutely no way of bubbling up exceptions and assumes all
@@ -120,9 +119,9 @@
   - `deferred/chain` only works with single deferreds, which means having to write code in
   unnatural ways to handle multiple deferreds."
   [& body]
-  `(tsasvla-executor (ex/execute-pool) ~@body))
+  `(go-off-executor (ex/execute-pool) ~@body))
 
-(tsasvla "cat")
+(go-off "cat")
 
-@(tsasvla (+ (<!? (d/future 10))
+@(go-off (+ (<!? (d/future 10))
              (<!? (d/future 20))))                          ;; ==> 30
