@@ -1,6 +1,6 @@
 (ns
   ^{:author "Zach Tellman"
-    :doc "This namespace contains methods for converting units of time, with milliseconds as the base representation, and for deferring execution of functions to some time in the future.  In practice, the methods here are not necessary to use Manifold effectively - `manifold.deferred/timeout` and `manifold.stream/periodically` are more directly useful - but they are available for anyone who should need them."}
+    :doc    "This namespace contains methods for converting units of time, with milliseconds as the base representation, and for deferring execution of functions to some time in the future.  In practice, the methods here are not necessary to use Manifold effectively - `manifold.deferred/timeout` and `manifold.stream/periodically` are more directly useful - but they are available for anyone who should need them."}
   manifold.time
   (:require
     [clojure.tools.logging :as log]
@@ -60,11 +60,10 @@
   [n]
   (/ 1e3 n))
 
-(let [intervals (partition 2
-                  ["d" (days 1)
-                   "h" (hours 1)
-                   "m" (minutes 1)
-                   "s" (seconds 1)])]
+(let [intervals (partition 2 ["d" (days 1)
+                              "h" (hours 1)
+                              "m" (minutes 1)
+                              "s" (seconds 1)])]
 
   (defn format-duration
     "Takes a duration in milliseconds, and returns a formatted string
@@ -83,15 +82,15 @@
               (rest intervals))
             (recur s n (rest intervals))))))))
 
-(let [sorted-units [:millisecond Calendar/MILLISECOND
-                    :second Calendar/SECOND
-                    :minute Calendar/MINUTE
-                    :hour Calendar/HOUR
-                    :day Calendar/DAY_OF_YEAR
-                    :week Calendar/WEEK_OF_MONTH
-                    :month Calendar/MONTH]
-      unit->calendar-unit (apply hash-map sorted-units)
-      units (->> sorted-units (partition 2) (map first))
+(let [sorted-units         [:millisecond Calendar/MILLISECOND
+                            :second Calendar/SECOND
+                            :minute Calendar/MINUTE
+                            :hour Calendar/HOUR
+                            :day Calendar/DAY_OF_YEAR
+                            :week Calendar/WEEK_OF_MONTH
+                            :month Calendar/MONTH]
+      unit->calendar-unit  (apply hash-map sorted-units)
+      units                (->> sorted-units (partition 2) (map first))
       unit->cleared-fields (zipmap
                              units
                              (map
@@ -163,20 +162,20 @@
   (reify IClock
     (in [_ interval-millis f]
       (let [^Future scheduled-future (.schedule e f (long (* interval-millis 1e3)) TimeUnit/MICROSECONDS)
-            cancel-fn (fn []
-                        (.cancel scheduled-future false))]
+            cancel-fn                (fn []
+                                       (.cancel scheduled-future false))]
         cancel-fn))
     (every [_ delay-millis period-millis f]
       (let [future-ref (promise)
-            cancel-fn (fn []
-                        (let [^Future future @future-ref]
-                          (.cancel future false)))]
+            cancel-fn  (fn []
+                         (let [^Future future @future-ref]
+                           (.cancel future false)))]
         (deliver future-ref
-          (.scheduleAtFixedRate e
-            ^Runnable (cancel-on-exception f cancel-fn)
-            (long (* delay-millis 1e3))
-            (long (* period-millis 1e3))
-            TimeUnit/MICROSECONDS))
+                 (.scheduleAtFixedRate e
+                                       ^Runnable (cancel-on-exception f cancel-fn)
+                                       (long (* delay-millis 1e3))
+                                       (long (* period-millis 1e3))
+                                       TimeUnit/MICROSECONDS))
         cancel-fn))))
 
 (defn mock-clock
@@ -186,7 +185,7 @@
   ([]
    (mock-clock 0))
   ([initial-time]
-   (let [now (atom initial-time)
+   (let [now    (atom initial-time)
          events (atom (sorted-map))]
      (reify
        IClock
@@ -195,7 +194,7 @@
          (advance this 0))
        (every [this delay-millis period-millis f]
          (assert (< 0 period-millis))
-         (let [period (atom period-millis)
+         (let [period    (atom period-millis)
                cancel-fn #(reset! period -1)]
            (->> (with-meta (cancel-on-exception f cancel-fn) {::period period})
                 (.in this (max 0 delay-millis)))
@@ -208,7 +207,7 @@
          (let [limit (+ @now time)]
            (loop []
              (if (or (empty? @events)
-                   (< limit (key (first @events))))
+                     (< limit (key (first @events))))
                (do
                  (reset! now limit)
                  nil)
@@ -223,20 +222,20 @@
                          (f)
                          (when period (.in this period f))
                          (catch Throwable e
-                           (log/warn e "error in mock clock"))))))
+                           (log/debug e "error in mock clock"))))))
                  (recur))))))))))
 
-(let [num-cores  (.availableProcessors (Runtime/getRuntime))
-      cnt        (atom 0)
-      clock      (delay
-                   (scheduled-executor->clock
-                     (doto (ScheduledThreadPoolExecutor.
-                             1
-                             (ex/thread-factory
-                               (fn []
-                                 (str "manifold-scheduler-pool-" (swap! cnt inc)))
-                               (deliver (promise) nil)))
-                       (.setRemoveOnCancelPolicy true))))]
+(let [num-cores (.availableProcessors (Runtime/getRuntime))
+      cnt       (atom 0)
+      clock     (delay
+                  (scheduled-executor->clock
+                    (doto (ScheduledThreadPoolExecutor.
+                            1
+                            (ex/thread-factory
+                              (fn []
+                                (str "manifold-scheduler-pool-" (swap! cnt inc)))
+                              (deliver (promise) nil)))
+                      (.setRemoveOnCancelPolicy true))))]
   (def ^:dynamic ^IClock *clock*
     (reify IClock
       (in [_ interval f] (.in ^IClock @clock interval f))
@@ -254,17 +253,17 @@
    representing the returned value of the function (unwrapped if `f` itself returns a deferred).
    If the returned deferred is completed before the interval has passed, the timeout function
    will be cancelled."
-    [^double interval f]
-    (let [d (manifold.deferred/deferred)
-          f (fn []
-              (when-not (manifold.deferred/realized? d)
-                (try
-                  (manifold.deferred/connect (f) d)
-                  (catch Throwable e
-                    (manifold.deferred/error! d e)))))
-          cancel-fn (.in *clock* interval f)]
-      (manifold.deferred/chain d (fn [_] (cancel-fn)))
-      d))
+  [^double interval f]
+  (let [d         (manifold.deferred/deferred)
+        f         (fn []
+                    (when-not (manifold.deferred/realized? d)
+                      (try
+                        (manifold.deferred/connect (f) d)
+                        (catch Throwable e
+                          (manifold.deferred/error! d e)))))
+        cancel-fn (.in *clock* interval f)]
+    (manifold.deferred/chain d (fn [_] (cancel-fn)))
+    d))
 
 (defn every
   "Schedules no-arg function `f` to be invoked every `period` milliseconds, after `initial-delay`

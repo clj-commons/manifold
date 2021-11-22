@@ -25,7 +25,7 @@
       (.close ^java.io.Closeable iterator)))
 
   (description [this]
-    {:type "iterator"
+    {:type     "iterator"
      :drained? (s/drained? this)})
 
   (take [this default-val blocking?]
@@ -56,7 +56,7 @@
     (if (nil? timeout)
       (.take this blocking? default-val)
       (let [d (-> (.take this default-val false)
-                (d/timeout! timeout timeout-val))]
+                  (d/timeout! timeout timeout-val))]
         (if blocking?
           @d
           d)))))

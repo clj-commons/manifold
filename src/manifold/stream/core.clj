@@ -1,6 +1,5 @@
 (ns manifold.stream.core
-  (:require
-   [manifold.utils :refer [defprotocol+ definterface+ deftype+]]))
+  (:require [manifold.utils :refer [defprotocol+ definterface+ deftype+]]))
 
 (defprotocol+ Sinkable
   (to-sink [_] "Provides a conversion mechanism to Manifold sinks."))
@@ -58,21 +57,21 @@
   `(.isSynchronous ~(with-meta x {:tag "manifold.stream.core.IEventStream"})))
 
 (defmethod print-method IEventStream [o ^java.io.Writer w]
-  (let [sink? (instance? IEventSink o)
+  (let [sink?   (instance? IEventSink o)
         source? (instance? IEventSource o)]
     (.write w
-      (str
-        "<< "
-        (cond
-          (and source? sink?)
-          "stream"
+            (str
+              "<< "
+              (cond
+                (and source? sink?)
+                "stream"
 
-          source?
-          "source"
+                source?
+                "source"
 
-          sink?
-          "sink")
-        ": " (pr-str (.description ^IEventStream o)) " >>"))))
+                sink?
+                "sink")
+              ": " (pr-str (.description ^IEventStream o)) " >>"))))
 
 ;;;
 
@@ -85,11 +84,11 @@
       (manifold.utils/with-lock* ~'lock
         (set! ~'__mta (apply f# ~'__mta args#))))
     (~'downstream [this#] (manifold.stream.graph/downstream this#))
-     (~'weakHandle [this# ref-queue#]
-       (manifold.utils/with-lock ~'lock
-         (or ~'__weakHandle
-           (set! ~'__weakHandle (java.lang.ref.WeakReference. this# ref-queue#)))))
-     (~'close [this#])))
+    (~'weakHandle [this# ref-queue#]
+      (manifold.utils/with-lock ~'lock
+        (or ~'__weakHandle
+            (set! ~'__weakHandle (java.lang.ref.WeakReference. this# ref-queue#)))))
+    (~'close [this#])))
 
 (def ^:private sink-params
   '[lock
@@ -135,9 +134,9 @@
 (defn- merged-body [& bodies]
   (let [bs (apply concat bodies)]
     (->> bs
-      (map #(vector [(first %) (count (second %))] %))
-      (into {})
-      vals)))
+         (map #(vector [(first %) (count (second %))] %))
+         (into {})
+         vals)))
 
 (defmacro def-source [name params & body]
   `(do

@@ -20,9 +20,9 @@
     true)
 
   (description [_]
-    {:type (.getCanonicalName (class queue))
+    {:type        (.getCanonicalName (class queue))
      :buffer-size (.size queue)
-     :source? true})
+     :source?     true})
 
   (take [this default-val blocking?]
     (if blocking?
@@ -60,10 +60,10 @@
 
                      (utils/wait-for
                        (d/success! d
-                         (let [x (.poll queue timeout TimeUnit/MILLISECONDS)]
-                           (if (nil? x)
-                             timeout-val
-                             x))))
+                                   (let [x (.poll queue timeout TimeUnit/MILLISECONDS)]
+                                     (if (nil? x)
+                                       timeout-val
+                                       x))))
 
                      (d/success! d x))))]
         (if (d/realized? d')
@@ -84,11 +84,11 @@
 
   (description [this]
     (let [size (.size queue)]
-      {:type (.getCanonicalName (class queue))
+      {:type            (.getCanonicalName (class queue))
        :buffer-capacity (+ (.remainingCapacity queue) size)
-       :buffer-size size
-       :sink? true
-       :closed? (.isClosed this)}))
+       :buffer-size     size
+       :sink?           true
+       :closed?         (.isClosed this)}))
 
   (put [this x blocking?]
 
@@ -107,16 +107,16 @@
                    (try
                      (or
                        (and (.isClosed this)
-                         (d/success! d false))
+                            (d/success! d false))
 
                        (and (.offer queue x)
-                         (d/success! d true))
+                            (d/success! d true))
 
                        (utils/wait-for
                          (d/success! d
-                           (do
-                             (.put queue x)
-                             true)))))))]
+                                     (do
+                                       (.put queue x)
+                                       true)))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
@@ -137,16 +137,16 @@
                    (try
                      (or
                        (and (.isClosed this)
-                         (d/success! d false))
+                            (d/success! d false))
 
                        (and (.offer queue x)
-                         (d/success! d true))
+                            (d/success! d true))
 
                        (utils/wait-for
                          (d/success! d
-                           (if (.offer queue x timeout TimeUnit/MILLISECONDS)
-                             true
-                             false)))))))]
+                                     (if (.offer queue x timeout TimeUnit/MILLISECONDS)
+                                       true
+                                       false)))))))]
         (if (d/realized? d')
           (f nil)
           (d/on-realized d' f f))
