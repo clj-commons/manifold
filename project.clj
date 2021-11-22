@@ -3,12 +3,12 @@
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/clj-commons/manifold"
-  :dependencies [[org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
+  :dependencies [[org.clojure/clojure "1.10.3" :scope "provided"]
+                 [org.clojure/tools.logging "0.3.1" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "0.1.6-alpha1"]
-                 [riddley "0.1.15"]]
-  :profiles {:dev {:dependencies [[org.clojure/clojure "1.8.0"]
-                                  [criterium "0.4.4"]
-                                  [org.clojure/core.async "0.4.474"]]}}
+                 [riddley "0.1.15"]
+                 [org.clojure/core.async "1.4.627" :scope "provided"]]
+  :profiles {:dev {:dependencies [[criterium "0.4.4"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
                                  (cons (:tag %) (keys %))))

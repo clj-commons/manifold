@@ -16,9 +16,9 @@
   (testing "case with go-off"
     (is (= :1
            @(go-off (case (name :1)
-                  "0" :0
-                  "1" :1
-                  :3)))))
+                      "0" :0
+                      "1" :1
+                      :3)))))
 
   (testing "nil result of go-off"
     (is (= nil
@@ -27,14 +27,14 @@
   (testing "take inside binding of loop"
     (is (= 42
            @(go-off (loop [x (<!? (d/success-deferred 42))]
-                  x)))))
+                      x)))))
 
   (testing "can get from a catch"
     (let [c (d/success-deferred 42)]
       (is (= 42
              @(go-off (try
-                    (assert false)
-                    (catch Throwable ex (<!? c)))))))))
+                        (assert false)
+                        (catch Throwable ex (<!? c)))))))))
 
 (deftest enqueued-chan-ops
   (testing "enqueued channel takes re-enter async properly"
@@ -45,9 +45,9 @@
              @async-chan)))
 
     (is (= 3
-           (let [d1 (d/deferred)
-                 d2 (d/deferred)
-                 d3 (d/deferred)
+           (let [d1         (d/deferred)
+                 d2         (d/deferred)
+                 d3         (d/deferred)
                  async-chan (go-off (+ (<!? d1) (<!? d2) (<!? d3)))]
              (d/success! d3 1)
              (d/success! d2 1)
@@ -84,7 +84,7 @@
            @(go-off (<!? (d/catch (d/future (/ 5 0)) (constantly 5))))))))
 
 (deftest non-deferred-takes
-  (testing "Can take from non-deffereds"
+  (testing "Can take from non-deferreds"
     (is (= 5 @(go-off (<!? 5))))
     (is (= "test" @(go-off (<!? "test"))))))
 
@@ -106,7 +106,7 @@
       (let [blow-up-counter (atom 0)
             blow-up-fn      (fn [& _] (is (= 1 (swap! blow-up-counter inc))))]
         @(go-off (<!? "cat")
-                  (blow-up-fn))))
+                 (blow-up-fn))))
     ;; Sleep is here to make sure that the secondary invocation of `blow-up-fn` that was happening has
     ;; had time to report it's failure before the test finishes
     (Thread/sleep 500)))
@@ -134,16 +134,16 @@
                                                   :stats-callback (constantly nil)})]
     (try (is (str/starts-with? @(go-off-executor custom-executor (.getName (Thread/currentThread))) prefix)
              "Running on custom executor, thread naming should be respected.")
-         (println @(go-off-executor custom-executor (.getName (Thread/currentThread))))
+         @(go-off-executor custom-executor (.getName (Thread/currentThread)))
          (finally (.shutdown custom-executor)))))
 
 (deftest go-off-streams
   (let [test-stream (s/stream)
         test-d      (go-off [(<!? test-stream)
-                              (<!? test-stream)
-                              (<!? test-stream)
-                              (<!? test-stream)
-                              (<!? test-stream)])]
+                             (<!? test-stream)
+                             (<!? test-stream)
+                             (<!? test-stream)
+                             (<!? test-stream)])]
     (dotimes [n 3]
       (s/put! test-stream n))
     (s/close! test-stream)

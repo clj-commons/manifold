@@ -109,9 +109,11 @@
 
 ;;;
 
-(defmacro when-core-async [& body]
+(defmacro when-core-async
+  "Suitable for altering behavior (like extending protocols), but not defs"
+  [& body]
   (when (try
-          (require '[clojure.core.async :as a])
+          (require '[clojure.core.async])
           true
           (catch Exception _
             false))
