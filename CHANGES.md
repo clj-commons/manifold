@@ -1,7 +1,8 @@
-### 0.2.0-SNAPSHOT
+### 0.2.0
 
 Contributions by Matthew Davidson, Ryan Smith
 
+* Add `go-off`, a `core-async`-style macro with a manifold flavor. Big thanks to Ryan Smith and Yummly for contributing this!
 * Switch to `bound-fn` in `let-flow` to fix bug where dynamic vars were incorrect for other threads 
 * Modernized indentation to match current Clojure styles and fix misalignments
 
