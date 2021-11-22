@@ -7,9 +7,9 @@
   :dependencies [[org.clojure/clojure "1.10.3" :scope "provided"]
                  [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "1.0.0"]
-                 [riddley "0.1.15"]]
-  :profiles {:dev {:dependencies [[criterium "0.4.6"]
-                                  [org.clojure/core.async "1.3.618"]]}}
+                 [riddley "0.1.15"]
+                 [org.clojure/core.async "1.4.627" :scope "provided"]]
+  :profiles {:dev {:dependencies [[criterium "0.4.6"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
                                  (cons (:tag %) (keys %))))
