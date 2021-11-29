@@ -7,8 +7,7 @@
             [clojure.core.async.impl
              [ioc-macros :as ioc]]
             [manifold.stream :as s])
-  (:import (java.util.concurrent Executor)
-           (manifold.stream.core IEventSource)))
+  (:import (manifold.stream.core IEventSource)))
 
 (defn return-deferred [state value]
   (let [d (ioc/aget-object state ioc/USER-START-IDX)]
@@ -75,7 +74,7 @@
 (defmacro go-off-executor
   "Implementation of go-off that allows specifying executor. See docstring of go-off for usage."
   [executor & body]
-  (let [executor     (vary-meta executor assoc :tag 'Executor)
+  (let [executor     (vary-meta executor assoc :tag 'java.util.concurrent.Executor)
         crossing-env (zipmap (keys &env) (repeatedly gensym))]
     `(let [d#                 (d/deferred)
            captured-bindings# (clojure.lang.Var/getThreadBindingFrame)]

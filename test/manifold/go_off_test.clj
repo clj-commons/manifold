@@ -6,7 +6,7 @@
             [manifold.executor :as ex]
             [clojure.string :as str]
             [manifold.stream :as s])
-  (:import (java.util.concurrent TimeoutException Executor)))
+  (:import (java.util.concurrent TimeoutException)))
 
 (deftest async-test
   (testing "values are returned correctly"
