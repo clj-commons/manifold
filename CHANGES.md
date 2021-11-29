@@ -1,3 +1,9 @@
+### 0.2.1
+
+Contributions by Matthew Davidson, Ryan Smith
+
+* Fixed bug in `go-off-executor` macro with fully-qualified class name
+
 ### 0.2.0
 
 Contributions by Matthew Davidson, Ryan Smith
