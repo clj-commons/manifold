@@ -1,3 +1,9 @@
+### 0.2.2
+
+Contributions by Matthew Davidson
+
+* Renamed `go-off-executor` to `go-off-with` to match existing `future-with` macro
+
 ### 0.2.1
 
 Contributions by Matthew Davidson, Ryan Smith
