@@ -1,6 +1,6 @@
 (ns manifold.go-off-test
   (:require [clojure.test :refer :all]
-            [manifold.go-off :refer [go-off <!? go-off-executor]]
+            [manifold.go-off :refer [go-off <!? go-off-with]]
             [manifold.deferred :as d]
             [manifold.test-utils :refer :all]
             [manifold.executor :as ex]
@@ -132,9 +132,9 @@
                                                                     #(str prefix (swap! cnt inc))
                                                                     (deliver (promise) nil))
                                                   :stats-callback (constantly nil)})]
-    (try (is (str/starts-with? @(go-off-executor custom-executor (.getName (Thread/currentThread))) prefix)
+    (try (is (str/starts-with? @(go-off-with custom-executor (.getName (Thread/currentThread))) prefix)
              "Running on custom executor, thread naming should be respected.")
-         @(go-off-executor custom-executor (.getName (Thread/currentThread)))
+         @(go-off-with custom-executor (.getName (Thread/currentThread)))
          (finally (.shutdown custom-executor)))))
 
 (deftest go-off-streams

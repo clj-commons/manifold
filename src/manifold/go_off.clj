@@ -71,7 +71,7 @@
   {'manifold.go-off/<! `manifold.go-off/take!
    :Return             `return-deferred})
 
-(defmacro go-off-executor
+(defmacro go-off-with
   "Implementation of go-off that allows specifying executor. See docstring of go-off for usage."
   [executor & body]
   (let [executor     (vary-meta executor assoc :tag 'java.util.concurrent.Executor)
@@ -118,7 +118,7 @@
    - `deferred/chain` only works with single deferreds, which means having to write code in
    unnatural ways to handle multiple deferreds."
   [& body]
-  `(go-off-executor (ex/execute-pool) ~@body))
+  `(go-off-with (ex/execute-pool) ~@body))
 
 
 (comment
