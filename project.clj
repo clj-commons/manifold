@@ -19,7 +19,7 @@
   :plugins [[lein-codox "0.10.7"]]
   :codox {:source-uri "https://github.com/clj-commons/manifold/blob/master/{filepath}#L{line}"
           :metadata {:doc/format :markdown}
-          :namespaces [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor]}
+          :namespaces [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor manifold.go-off]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"

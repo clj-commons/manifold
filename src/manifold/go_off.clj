@@ -9,7 +9,7 @@
             [manifold.stream :as s])
   (:import (manifold.stream.core IEventSource)))
 
-(defn return-deferred [state value]
+(defn ^:no-doc return-deferred [state value]
   (let [d (ioc/aget-object state ioc/USER-START-IDX)]
     (d/success! d value)
     d))
@@ -36,7 +36,7 @@
        (throw r#)
        r#)))
 
-(defn run-state-machine-wrapped [state]
+(defn ^:no-doc run-state-machine-wrapped [state]
   (try (ioc/run-state-machine state)
        (catch Throwable ex
          (d/error! (ioc/aget-object state ioc/USER-START-IDX) ex)
@@ -67,7 +67,7 @@
                   (d/catch handler))
               nil))))))
 
-(def async-custom-terminators
+(def ^:no-doc async-custom-terminators
   {'manifold.go-off/<! `manifold.go-off/take!
    :Return             `return-deferred})
 
