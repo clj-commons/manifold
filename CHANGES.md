@@ -1,3 +1,9 @@
+### 0.2.3
+
+Contributions by Matthew Davidson
+
+* Add `manifold.go-off` to generated documentation
+
 ### 0.2.2
 
 Contributions by Matthew Davidson
