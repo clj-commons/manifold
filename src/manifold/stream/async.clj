@@ -1,4 +1,5 @@
 (ns manifold.stream.async
+  {:no-doc true}
   (:require
     [manifold.deferred :as d]
     [clojure.core.async :as a]

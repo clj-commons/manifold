@@ -1,13 +1,13 @@
 [![Clojars Project](https://img.shields.io/clojars/v/manifold.svg)](https://clojars.org/manifold)
 [![cljdoc badge](https://cljdoc.org/badge/manifold/manifold)](https://cljdoc.org/d/manifold/manifold)
 [![CircleCI](https://circleci.com/gh/clj-commons/manifold.svg?style=svg)](https://circleci.com/gh/clj-commons/manifold)
-![](docs/manifold.png)
+![](doc/manifold.png)
 
-This library provides basic building blocks for asynchronous programming, and can be used as a translation layer between libraries which use similar but incompatible abstractions.
+Manifold provides basic building blocks for asynchronous programming, and can be used as a translation layer between libraries which use similar, but incompatible, abstractions.
 
 Manifold provides two core abstractions: **deferreds**, which represent a single asynchronous value, and **streams**, which represent an ordered sequence of asynchronous values.
 
-A detailed discussion of Manifold's rationale can be found [here](http://aleph.io/manifold/rationale.html).  Full documentation can be found [here](https://cljdoc.org/d/manifold/manifold).
+A detailed discussion of Manifold's rationale can be found [here](doc/rationale.md).  Full documentation can be found [here](https://cljdoc.org/d/manifold/manifold).
 
 
 ```clojure
@@ -59,7 +59,7 @@ success! :foo
 true
 ```
 
-Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, **no one should ever need to use `on-realized`**.  Manifold provides a number of operators for composing over deferred values, [which can be read about here](/docs/deferred.md).
+Callbacks are a useful building block, but they're a painful way to create asynchronous workflows.  In practice, **no one should ever need to use `on-realized`**.  Manifold provides a number of operators for composing over deferred values, [which can be read about here](/doc/deferred.md).
 
 ### Streams
 
@@ -110,7 +110,7 @@ nil
 1
 ```
 
-Manifold can use any transducer, which are applied via `transform`.  It also provides stream-specific transforms, including `zip`, `reduce`, `buffer`, `batch`, and `throttle`.  [To learn more about streams, go here](/docs/stream.md).
+Manifold can use any transducer, which are applied via `transform`.  It also provides stream-specific transforms, including `zip`, `reduce`, `buffer`, `batch`, and `throttle`.  [To learn more about streams, go here](/doc/stream.md).
 
 ### Clojurescript
 

@@ -18,7 +18,7 @@ A stream can be thought of as two separate halves: a **sink**  which consumes me
 << 1 >>
 ```
 
-Notice that both `put!` and `take!` return [deferred values](/docs/deferred.md).  The deferred returned by `put!` will yield `true` if the message was accepted by the stream, and `false` otherwise; the deferred returned by `take!` will yield the message.
+Notice that both `put!` and `take!` return [deferred values](/doc/deferred.md).  The deferred returned by `put!` will yield `true` if the message was accepted by the stream, and `false` otherwise; the deferred returned by `take!` will yield the message.
 
 Sinks can be **closed** by calling `close!`, which means they will no longer accept messages.
 

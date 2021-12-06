@@ -1,4 +1,5 @@
 (ns manifold.stream.graph
+  {:no-doc true}
   (:require
     [manifold.deferred :as d]
     [manifold.utils :as utils :refer [deftype+]]

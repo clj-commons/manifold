@@ -1,4 +1,5 @@
 (ns manifold.utils
+  {:no-doc true}
   (:refer-clojure
     :exclude [future])
   (:require

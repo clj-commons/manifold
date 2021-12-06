@@ -1,4 +1,5 @@
 (ns manifold.stream.iterator
+  {:no-doc true}
   (:require
     [clojure.tools.logging :as log]
     [manifold.deferred :as d]

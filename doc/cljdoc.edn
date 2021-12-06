@@ -1,0 +1,5 @@
+{:cljdoc.doc/tree [["Read Me" {:file "README.md"}]
+                   ["Rationale" {:file "doc/rationale.md"}]
+                   ["Deferreds" {:file "doc/deferred.md"}]
+                   ["Streams" {:file "doc/stream.md"}]
+                   ["Execution" {:file "doc/execution.md"}]]}

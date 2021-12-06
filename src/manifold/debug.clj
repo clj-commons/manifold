@@ -1,4 +1,5 @@
-(ns manifold.debug)
+(ns manifold.debug
+  {:no-doc true})
 
 (def ^:dynamic *dropped-error-logging-enabled?* true)
 

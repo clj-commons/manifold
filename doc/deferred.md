@@ -131,8 +131,8 @@ Let's say that we have two services which provide us numbers, and want to get th
   (let [a (call-service-a)
         b (call-service-b)]
     (chain (zip a b)
-      (fn [[a b]]
-        (+ a b)))))
+           (fn [[a b]]
+             (+ a b)))))
 ```
 
 However, this isn't a very direct expression of what we're doing.  For more complex relationships between deferred values, our code will become even more difficult to understand.  In these cases, it's often best to use `let-flow`.
@@ -158,7 +158,7 @@ but not this:
 ```clojure
 (let-flow [a (future 1)
            b (let [c (future 1)]
-                (+ a c))]
+               (+ a c))]
   (+ b 1))
 ```
 
@@ -166,30 +166,37 @@ In this example, `c` is declared within a normal `let` binding, and as such we c
 
 It can be helpful to think of `let-flow` as similar to Prismatic's [Graph](https://github.com/prismatic/plumbing#graph-the-functional-swiss-army-knife) library, except that the dependencies between values are inferred from the code, rather than explicitly specified.  Comparisons to core.async's goroutines are less accurate, since `let-flow` allows for concurrent execution of independent paths within the bindings, whereas operations within a goroutine are inherently sequential.
 
-### manifold.go-off
+### go-off
 
-An alternate way to write code using deferreds is the macro `manifold.go-off/go-off`. This macro is an almost exact mirror of the `go` macro from [clojure/core.async](https://github.com/clojure/core.async), to the point where it actually utilizes the state machine functionality from core.async. In order to use this macro, `core.async` must be a dependency provided by the user. The main difference between `go` and `go-off`, besides go-off working with deferrables instead of core.async channels, is the `take` function being `<!?` instead of `<!`. The difference in function names is used to indicate exceptions behave the same as a non-async clojure block (i.e. are thrown) instead of silently swallowed & returning `nil`.  
+An alternate way to write code using deferreds is the macro `manifold.go-off/go-off`. This macro is an almost-exact mirror of the `go` macro from [core.async](https://github.com/clojure/core.async), to the point where it actually utilizes the state machine functionality from core.async. In order to use this macro, `core.async` must be provided as a dependency by the user. 
 
-The benefit of this macro over `let-flow` is that it gives complete control of when deferreds should be realized to the user of the macro, removing any potential surprises (especially around timeouts).
+There are a few major differences between `go` and `go-off`. First, `go-off` (unsurprisingly) works with Manifold deferreds and streams instead of core.async channels. Second, in addition to the `<!` fn, which always returns a value, there's also the `<!?` macro, which behaves the same unless a Throwable is retrieved, in which case it's automatically rethrown for you. Finally, there's no `>!` equivalent in `go-off`, as there's no way without altering the syntax to distinguish between success and error when putting into a deferred.
 
-```clj
+The benefit of `go-off` over `let-flow` is that it gives complete control of when deferreds should be realized to the user, removing any potential surprises (especially around timeouts).
+
+```clojure
+;; basic usage
 @(go-off (+ (<!? (d/future 10))
-             (<!? (d/future 20))))                          ;; ==> 30
+            (<!? (d/future 20))))       ;; 30
 ```
 
-```clj
-(<!! (core.async/go (try (<! (go (/ 5 0)))
-                         (catch Exception e
-                           "ERROR"))))                      ; ==> nil
+```clojure
+;; <!? usage
 
+;; if you forget to catch an exception in go, it won't be returned
+(<!! (go (try (<! (go (/ 5 0)))        
+              (catch Exception e
+                "ERROR"))))             ;; nil
+
+;; d/future returns any exceptions, and <!? rethrows it for you 
 @(go-off (try (<!? (d/future (/ 5 0)))
-               (catch Exception e
-                 "ERROR")))                                 ; ==> "ERROR"
+              (catch Exception e
+                "ERROR")))              ;; "ERROR"
 ```
 
-### `manifold.deferred/loop`
+### loop
 
-Manifold also provides a `loop` macro, which allows for asynchronous loops to be defined.  Consider `manifold.stream/consume`, which allows a function to be invoked with each new message from a stream.  We can implement similar behavior like so:
+Manifold also provides a `loop` macro, which allows for asynchronous loops to be defined. Consider `manifold.stream/consume`, which allows a function to be invoked with each new message from a stream.  We can implement similar behavior like so:
 
 ```clojure
 (require
@@ -215,8 +222,7 @@ Manifold also provides a `loop` macro, which allows for asynchronous loops to be
 
 Here we define a loop which takes messages one at a time from `stream`, and passes them into `f`.  If `f` returns an unrealized value, the loop will pause until it's realized.  To recur, we make sure the value returned from the final stage is `(manifold.deferred/recur & args)`, which will cause the loop to begin again from the top.
 
-While Manifold doesn't provide anything as general purpose as core.async's `go` macro, the combination of `loop` and `let-flow` can allow for the specification of highly intricate asynchronous workflows.
 
 ### Custom execution models
 
-Both deferreds and streams allow for custom execution models to be specified.  To learn more, [go here](/docs/execution.md).
+Both deferreds and streams allow for custom execution models to be specified.  To learn more, [go here](/doc/execution.md).

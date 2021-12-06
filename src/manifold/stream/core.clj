@@ -1,4 +1,5 @@
 (ns manifold.stream.core
+  {:no-doc true}
   (:require [manifold.utils :refer [defprotocol+ definterface+ deftype+]]))
 
 (defprotocol+ Sinkable

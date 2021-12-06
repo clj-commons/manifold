@@ -1,4 +1,5 @@
 (ns manifold.stream.queue
+  {:no-doc true}
   (:require
     [manifold.stream.graph :as g]
     [manifold.deferred :as d]

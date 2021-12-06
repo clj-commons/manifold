@@ -1,4 +1,5 @@
 (ns manifold.stream.deferred
+  {:no-doc true}
   (:require
     [manifold.deferred :as d]
     [manifold.stream.core :as s]

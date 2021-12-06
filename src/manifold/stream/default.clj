@@ -1,4 +1,5 @@
 (ns manifold.stream.default
+  {:no-doc true}
   (:require
     [clojure.tools.logging :as log]
     [manifold
