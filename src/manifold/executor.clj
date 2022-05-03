@@ -32,44 +32,42 @@
        (finally
          (.set executor-thread-local executor#)))))
 
-(defn- make-thread-fn
-  [thread-class]
-  (eval `(fn ([group# target# name#]
-               (new ~thread-class group# target# name#))
-             ([group# target# name# stack-size#]
-               (new ~thread-class group# target# name# stack-size#)))))
+(defn- ^Thread new-thread
+  ([group target name]
+   (Thread. group target name))
+  ([group target name stack-size]
+   (Thread. group target name stack-size)))
 
-(defn thread-factory
-   "Returns a `java.util.concurrent.ThreadFactory`.
+(defn ^ThreadFactory thread-factory
+  "Returns a `java.util.concurrent.ThreadFactory`.
 
    |:---|:----
    | `name-generator` | a zero-argument function, which, when invoked returns the name of the `java.lang.Thread` that will be created. |
    | `executor-promise` | a promise eventually containing a `java.util.concurrent.Executor` that will be stored on `manifold.executor/executor-thread-local`. |
    | `stack-size` | the desired stack size for the new thread, or nil/zero to indicate that this parameter is to be ignored. |
    | `daemon?` | marks the created threads as either daemon or user threads. The Java Virtual Machine exits when the only threads running are all daemon threads. |
-   | `thread-class` | a `java.lang.Class` that extends `java.lang.Thread` which defines the created threads. |"
-  ^ThreadFactory
+   | `new-thread-fn` | a three/four arguments function which returns an implementation of `java.lang.Thread` when called. |"
   ([name-generator executor-promise]
-   (thread-factory name-generator executor-promise nil true Thread))
+   (thread-factory name-generator executor-promise nil true nil))
   ([name-generator executor-promise stack-size]
-   (thread-factory name-generator executor-promise stack-size true Thread))
+   (thread-factory name-generator executor-promise stack-size true nil))
   ([name-generator executor-promise stack-size daemon?]
-   (thread-factory name-generator executor-promise stack-size daemon? Thread))
-  ([name-generator executor-promise stack-size daemon? thread-class]
-   (let [make-thread (make-thread-fn thread-class)]
-    (reify ThreadFactory
-      (newThread [_ runnable]
-        (let [name        (name-generator)
-              curr-loader (.getClassLoader (class thread-factory))
-              f           #(do
-                             (.set executor-thread-local @executor-promise)
-                             (.run ^Runnable runnable))]
-          (doto
-               (if stack-size
-                ^Thread (make-thread nil f name stack-size)
-                ^Thread (make-thread nil f name))
-            (.setDaemon daemon?)
-            (.setContextClassLoader curr-loader))))))))
+   (thread-factory name-generator executor-promise stack-size daemon? nil))
+  ([name-generator executor-promise stack-size daemon? new-thread-fn]
+   (let [new-thread (or new-thread-fn new-thread)]
+     (reify ThreadFactory
+       (newThread [_ runnable]
+         (let [name        (name-generator)
+               curr-loader (.getClassLoader (class thread-factory))
+               f           #(do
+                              (.set executor-thread-local @executor-promise)
+                              (.run ^Runnable runnable))
+               thread      (if stack-size
+                             ^Thread (new-thread nil f name stack-size)
+                             ^Thread (new-thread nil f name))]
+           (doto thread
+             (.setDaemon daemon?)
+             (.setContextClassLoader curr-loader))))))))
 
 ;;;
 
