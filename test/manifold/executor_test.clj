@@ -32,8 +32,8 @@
   (let [num-threads      (atom 0)
         in-thread-loader (promise)
         tf               (e/thread-factory
-                          #(str "my-loader-prefix-" (swap! num-threads inc))
-                          (deliver (promise) nil))
+                           #(str "my-loader-prefix-" (swap! num-threads inc))
+                           (deliver (promise) nil))
         executor         (Executors/newFixedThreadPool 1 ^ThreadFactory tf)]
     (.execute ^ExecutorService executor
               (fn []
