@@ -33,6 +33,10 @@
          (.set executor-thread-local executor#)))))
 
 (defn- ^Thread new-thread
+  "Create a new `java.lang.Thread`.
+
+  It represents the default implementation on `thread-factory` when the
+  `new-thread-fn` argument is no passed."
   ([group target name]
    (Thread. group target name))
   ([group target name stack-size]
