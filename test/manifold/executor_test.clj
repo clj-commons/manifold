@@ -58,8 +58,8 @@
   (let [tf (thread-factory)]
     (.newThread tf (constantly nil)))
   (let [tf (thread-factory
-            (fn [group target _]
-              (proxy [Thread] [group target "custom-name"])))
+            (fn [group target _ stack-size]
+              (proxy [Thread] [group target "custom-name" stack-size])))
         thread (.newThread tf (constantly nil))]
     (is (= "custom-name" (.getName thread))))
   (let [tf (thread-factory

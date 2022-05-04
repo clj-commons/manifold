@@ -37,10 +37,8 @@
 
   It represents the default implementation on `thread-factory` when the
   `new-thread-fn` argument is no passed."
-  ([group target name]
-   (Thread. group target name))
-  ([group target name stack-size]
-   (Thread. group target name stack-size)))
+  [group target name stack-size]
+  (Thread. group target name stack-size))
 
 (defn ^ThreadFactory thread-factory
   "Returns a `java.util.concurrent.ThreadFactory`.
@@ -50,7 +48,7 @@
    | `executor-promise` | a promise eventually containing a `java.util.concurrent.Executor` that will be stored on `manifold.executor/executor-thread-local`. |
    | `stack-size` | the desired stack size for the new thread, or nil/zero to indicate that this parameter is to be ignored. |
    | `daemon?` | marks the created threads as either daemon or user threads. The Java Virtual Machine exits when the only threads running are all daemon threads. |
-   | `new-thread-fn` | a three/four arguments function which returns an implementation of `java.lang.Thread` when called. |"
+   | `new-thread-fn` | a four arguments function which returns an implementation of `java.lang.Thread` when called. |"
   ([name-generator executor-promise]
    (thread-factory name-generator executor-promise nil true nil))
   ([name-generator executor-promise stack-size]
@@ -66,9 +64,7 @@
                f           #(do
                               (.set executor-thread-local @executor-promise)
                               (.run ^Runnable runnable))
-               thread      (if stack-size
-                             ^Thread (new-thread nil f name stack-size)
-                             ^Thread (new-thread nil f name))]
+               thread      ^Thread (new-thread nil f name (or stack-size 0))]
            (doto thread
              (.setDaemon daemon?)
              (.setContextClassLoader curr-loader))))))))
