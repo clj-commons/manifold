@@ -56,7 +56,7 @@
 
 (deftest test-thread-factory
   (let [tf (thread-factory)]
-    (.newThread tf (constantly nil)))
+    (is (.newThread tf (constantly nil))))
   (let [tf (thread-factory
             (fn [group target _ stack-size]
               (proxy [Thread] [group target "custom-name" stack-size])))

@@ -33,10 +33,14 @@
          (.set executor-thread-local executor#)))))
 
 (defn- ^Thread new-thread
-  "Create a new `java.lang.Thread`.
+  "Creates a new `java.lang.Thread`.
 
   It represents the default implementation on `thread-factory` when the
-  `new-thread-fn` argument is not passed."
+  `new-thread-fn` argument is not passed.
+
+  Some libraries require a different implementation of a `java.lang.Thread`.
+  That's the case of Netty which behaves differently when
+  running on a `io.netty.util.concurrent.FastThreadLocalThread`."
   [group target name stack-size]
   (Thread. group target name stack-size))
 
