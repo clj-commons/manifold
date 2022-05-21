@@ -70,7 +70,7 @@ message! 1
 true
 ```
 
-However, we can also create derivative streams using operators analogous to Clojure's sequence operators, a full list of which [can be found here](http://ideolalia.com/manifold/):
+However, we can also create derivative streams using operators analogous to Clojure's sequence operators, a full list of which [can be found here](https://cljdoc.org/d/manifold/manifold).
 
 ```clojure
 > (->> [1 2 3]

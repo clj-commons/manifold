@@ -4,7 +4,7 @@
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/clj-commons/manifold"
   :scm {:name "git" :url "https://github.com/KingMob/manifold"}
-  :dependencies [[org.clojure/clojure "1.10.3" :scope "provided"]
+  :dependencies [[org.clojure/clojure "1.11.0" :scope "provided"]
                  [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "1.0.0"]
                  [riddley "0.1.15"]
