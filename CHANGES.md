@@ -1,3 +1,9 @@
+### 0.2.4
+
+Contributions by Arnaud Geiser
+
+* Support custom `Thread` classes with Manifold's executor
+
 ### 0.2.3
 
 Contributions by Matthew Davidson
