@@ -3,7 +3,7 @@
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/clj-commons/manifold"
-  :scm {:name "git" :url "https://github.com/KingMob/manifold"}
+  :scm {:name "git" :url "https://github.com/clj-commons/manifold"}
   :dependencies [[org.clojure/clojure "1.11.0" :scope "provided"]
                  [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
                  [io.aleph/dirigiste "1.0.0"]
@@ -24,4 +24,5 @@
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"
                        "-Xmx2g"
-                       "-XX:NewSize=1g"])
+                       "-XX:NewSize=1g"]
+  :javac-options ["-target" "1.8" "-source" "1.8"])
