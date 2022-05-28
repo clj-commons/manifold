@@ -25,4 +25,13 @@
                        "-XX:-OmitStackTraceInFastThrow"
                        "-Xmx2g"
                        "-XX:NewSize=1g"]
-  :javac-options ["-target" "1.8" "-source" "1.8"])
+  :javac-options ["-target" "1.8" "-source" "1.8"]
+
+  :pom-addition ([:organization
+                  [:name "CLJ Commons"]
+                  [:url "http://clj-commons.org/"]]
+                 [:developers [:developer
+                               [:id "kingmob"]
+                               [:name "Matthew Davidson"]
+                               [:url "http://modulolotus.net"]
+                               [:email "matthew@modulolotus.net"]]]))

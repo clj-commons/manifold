@@ -121,27 +121,9 @@ Manifold can use any transducer, which are applied via `transform`.  It also pro
 
 A Clojurescript implementation of Manifold can be found here: [dm3/manifold-cljs](https://github.com/dm3/manifold-cljs).
 
-### Older Java support
-
-Manifold includes support for a few classes introduced in Java 8:
-`java.util.concurrent.CompletableFuture` and `java.util.stream.BaseStream`.
-Support for Java 8+ is detected automatically at compile time; if you are
-AOT compiling Manifold on Java 8 or newer, but will be running the compiled
-jar with a Java 7 or older JRE, you will need to disable them, by
-setting the JVM option `"manifold.disable-jvm8-primitives"`, either at the
-command line with
-
-    -Dmanifold.disable-jvm8-primitives=true
-
-or by adding
-
-    :jvm-opts ["-Dmanifold.disable-jvm8-primitives=true"]
-
-to your application's project.clj.
-
 
 ### License
 
-Copyright © 2014-2021 Zach Tellman
+Copyright © 2014-2022 Zach Tellman
 
 Distributed under the MIT License.

@@ -12,7 +12,8 @@
     [java.util
      Iterator]
     [java.util.concurrent.atomic
-     AtomicReference]))
+     AtomicReference]
+    (java.util.stream BaseStream)))
 
 (s/def-source IteratorSource
   [^Iterator iterator
@@ -63,19 +64,14 @@
           d)))))
 
 (extend-protocol s/Sourceable
-
-  java.util.Iterator
+  Iterator
   (to-source [iterator]
     (->IteratorSource
       iterator
+      (AtomicReference. (d/success-deferred true))))
+
+  BaseStream
+  (to-source [stream]
+    (->IteratorSource
+      (.iterator ^BaseStream stream)
       (AtomicReference. (d/success-deferred true)))))
-
-(utils/when-class java.util.stream.BaseStream
-
-  (extend-protocol s/Sourceable
-
-    java.util.stream.BaseStream
-    (to-source [stream]
-      (->IteratorSource
-        (.iterator ^java.util.stream.BaseStream stream)
-        (AtomicReference. (d/success-deferred true))))))

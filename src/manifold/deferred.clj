@@ -22,13 +22,12 @@
      Future
      TimeoutException
      TimeUnit
-     ConcurrentHashMap
      CountDownLatch
-     Executor]
+     Executor
+     CompletableFuture]
     [java.util.concurrent.locks
      Lock]
     [java.util.concurrent.atomic
-     AtomicBoolean
      AtomicInteger
      AtomicLong]
     [clojure.lang
@@ -1259,20 +1258,18 @@
               (success! d msg))))
           d))))
 
-(utils/when-class java.util.concurrent.CompletableFuture
+(extend-protocol Deferrable
 
-  (extend-protocol Deferrable
-
-    java.util.concurrent.CompletableFuture
-    (to-deferred [f]
-      (let [d (deferred)]
-        (.handle ^java.util.concurrent.CompletableFuture f
-                 (reify java.util.function.BiFunction
-                   (apply [_ val err]
-                     (if (nil? err)
-                       (success! d val)
-                       (error! d err)))))
-        d))))
+  CompletableFuture
+  (to-deferred [f]
+    (let [d (deferred)]
+      (.handle ^CompletableFuture f
+               (reify java.util.function.BiFunction
+                 (apply [_ val err]
+                   (if (nil? err)
+                     (success! d val)
+                     (error! d err)))))
+      d)))
 
 ;;;
 
