@@ -9,9 +9,14 @@ Manifold provides two core abstractions: **deferreds**, which represent a single
 
 A detailed discussion of Manifold's rationale can be found [here](doc/rationale.md).  Full documentation can be found [here](https://cljdoc.org/d/manifold/manifold).
 
-
+Leiningen:
 ```clojure
 [manifold "0.2.4"]
+```
+
+deps.edn:
+```clojure
+manifold/manifold {:mvn/version "0.2.4"}
 ```
 
 ### Deferreds

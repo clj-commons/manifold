@@ -574,7 +574,7 @@
                              (let [d (if (closed? stream)
                                        (d/success-deferred false)
                                        (put! stream (f)))]
-                               (if (realized? d)
+                               (if (d/realized? d)
                                  (when-not @d
                                    (do
                                      (@cancel)
