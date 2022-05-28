@@ -307,19 +307,19 @@
 
     (let [a (s/put! s 9)
           b (s/put! s 2)]
-      (is (realized? a))
+      (is (d/realized? a))
       (is (= true @a))
-      (is (not (realized? b)))
+      (is (not (d/realized? b)))
       (is (= 9 @(s/take! s)))
-      (is (realized? b))
+      (is (d/realized? b))
       (is (= true @b))
       (let [c (s/put! s 12)
             d (s/put! s 1)]
-        (is (not (or (realized? c) (realized? d))))
+        (is (not (or (d/realized? c) (d/realized? d))))
         (is (= 2 @(s/take! s)))
-        (is (not (or (realized? c) (realized? d))))
+        (is (not (or (d/realized? c) (d/realized? d))))
         (is (= 12 @(s/take! s)))
-        (is (realized? d))
+        (is (d/realized? d))
         (is (= true @d))
         (is (= 1 @(s/take! s)))))))
 
