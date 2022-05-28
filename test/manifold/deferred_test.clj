@@ -6,7 +6,8 @@
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
     [manifold.deferred :as d]
-    [manifold.executor :as ex]))
+    [manifold.executor :as ex])
+  (:import (java.util.concurrent CompletableFuture)))
 
 (defmacro future' [& body]
   `(d/future
@@ -271,14 +272,13 @@
 (deftest test-coercion
   (is (= 1 (-> 1 clojure.core/future d/->deferred deref)))
 
-  (utils/when-class java.util.concurrent.CompletableFuture
-    (let [f (java.util.concurrent.CompletableFuture.)]
-      (.obtrudeValue f 1)
-      (is (= 1 (-> f d/->deferred deref))))
+  (let [f (CompletableFuture.)]
+    (.obtrudeValue f 1)
+    (is (= 1 (-> f d/->deferred deref))))
 
-    (let [f (java.util.concurrent.CompletableFuture.)]
-      (.obtrudeException f (Exception.))
-      (is (thrown? Exception (-> f d/->deferred deref))))))
+  (let [f (CompletableFuture.)]
+    (.obtrudeException f (Exception.))
+    (is (thrown? Exception (-> f d/->deferred deref)))))
 
 (deftest test-finally
   (let [target-d (d/deferred)
