@@ -302,7 +302,7 @@
   (testing "uniformly distributed"
     (let [results (atom {})
           ;; within 10%
-          n       1e4, r 10, eps (* n 0.1)
+          n       1e4, r 10, eps (* n 0.15)
           f       #(/ (% n eps) r)]
       (dotimes [_ n]
         @(d/chain (apply d/alt (range r))
