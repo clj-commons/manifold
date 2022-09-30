@@ -1,4 +1,4 @@
-(defproject manifold "0.2.4"
+(defproject manifold "0.2.5-SNAPSHOT"
   :description "A compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -6,7 +6,7 @@
   :scm {:name "git" :url "https://github.com/clj-commons/manifold"}
   :dependencies [[org.clojure/clojure "1.11.0" :scope "provided"]
                  [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
-                 [io.aleph/dirigiste "1.0.0"]
+                 [org.clj-commons/dirigiste "1.0.1"]
                  [riddley "0.1.15"]
                  [org.clojure/core.async "1.4.627" :scope "provided"]]
   :profiles {:dev {:dependencies [[criterium "0.4.6"]]}}
