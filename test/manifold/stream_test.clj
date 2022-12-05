@@ -465,6 +465,19 @@
     (is (s/closed? sink))
     (is (s/closed? src))))
 
+(deftest test-window-streams
+  (testing "dropping-stream"
+    (let [s (s/->source (range 11))
+          sliding-s (s/dropping-stream 10 s)]
+      (is (= (range 10)
+             (s/stream->seq sliding-s)))))
+
+  (testing "sliding-stream"
+    (let [s (s/->source (range 11))
+          sliding-s (s/sliding-stream 10 s)]
+      (is (= (range 1 11)
+             (s/stream->seq sliding-s)))))  )
+
 ;;;
 
 (deftest ^:stress stress-buffered-stream

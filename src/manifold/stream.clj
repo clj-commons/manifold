@@ -1105,6 +1105,60 @@
 
      (source-only s'))))
 
+(defn dropping-stream
+  "Creates a new stream with a buffer of size `n`, which will drop
+   incoming items when full.
+
+   If `source` is supplied, inserts a dropping stream after `source`
+   with the provided capacity."
+  ([n]
+   (let [in  (stream)
+         out (dropping-stream n in)]
+     (splice in out)))
+  ([n source]
+   (let [sink (stream n)]
+     (connect-via
+       source
+       (fn [val]
+         (d/let-flow [put-result (try-put! sink val 0 :timeout)]
+           (case put-result
+             true     true
+             false    false
+             :timeout true)))
+       sink
+       {:upstream?   true
+        :downstream? true})
+     sink)))
+
+(defn sliding-stream
+  "Creates a new stream with a buffer of size `n`, which will drop
+   the oldest items when full to make room for new items.
+
+   If `source` is supplied, inserts a sliding stream after `source`
+   with the provided capacity."
+  ([n]
+   (let [in  (stream)
+         out (sliding-stream n in)]
+     (splice in out)))
+  ([n source]
+   (let [sink (stream n)]
+     (connect-via
+       source
+       (fn [val]
+         (d/loop []
+           (d/chain
+             (try-put! sink val 0 :timeout)
+             (fn [put-result]
+               (case put-result
+                 true     true
+                 false    false
+                 :timeout (d/chain (take! sink)
+                                   (fn [_] (d/recur))))))))
+       sink
+       {:upstream?   true
+        :downstream? true})
+     sink)))
+
 ;;;
 
 (alter-meta! #'->Callback assoc :private true)
