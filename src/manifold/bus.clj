@@ -1,7 +1,6 @@
-(ns
-  ^{:author "Zach Tellman"
-    :doc    "An implementation of an event bus, where publishers and subscribers can interact via topics."}
-  manifold.bus
+(ns manifold.bus
+  {:author "Zach Tellman"
+   :doc    "An implementation of an event bus, where publishers and subscribers can interact via topics."}
   (:require
     [manifold
      [stream :as s]

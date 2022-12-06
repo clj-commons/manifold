@@ -1,7 +1,6 @@
-(ns
-  ^{:author "Zach Tellman"
-    :doc    "Methods for creating, transforming, and interacting with asynchronous streams of values."}
-  manifold.stream
+(ns manifold.stream
+  {:author "Zach Tellman"
+   :doc    "Methods for creating, transforming, and interacting with asynchronous streams of values."}
   (:refer-clojure
     :exclude [map filter mapcat reductions reduce concat])
   (:require
@@ -1111,6 +1110,8 @@
 
    If `source` is supplied, inserts a dropping stream after `source`
    with the provided capacity."
+  {:author "Ryan Schmukler"
+   :added "0.3.0"}
   ([n]
    (let [in  (stream)
          out (dropping-stream n in)]
@@ -1136,6 +1137,8 @@
 
    If `source` is supplied, inserts a sliding stream after `source`
    with the provided capacity."
+  {:author "Ryan Schmukler"
+   :added "0.3.0"}
   ([n]
    (let [in  (stream)
          out (sliding-stream n in)]

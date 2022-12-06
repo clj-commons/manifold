@@ -1,7 +1,6 @@
-(ns
-  ^{:author "Zach Tellman"
-    :doc    "Methods for creating, transforming, and interacting with asynchronous values."}
-  manifold.deferred
+(ns manifold.deferred
+  {:author "Zach Tellman"
+   :doc    "Methods for creating, transforming, and interacting with asynchronous values."}
   (:refer-clojure :exclude [realized? loop future])
   (:require
     [clojure.tools.logging :as log]
