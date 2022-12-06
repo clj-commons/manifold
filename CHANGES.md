@@ -1,3 +1,17 @@
+### 0.3.0
+
+Contributions by Ryan Schmukler and Matthew Davidson
+
+* Added new windowing stream fns, `sliding-stream` and `dropping-stream`
+* Java 8 is now the minimum version supported
+* Fixed accidental usage of core `realized?` in `stream->seq`
+* Fixed broken BaseStream test
+* Update CircleCI Docker image
+* Update Dirigiste, tools.logging, riddley, and core.async versions
+* Add deps.edn usage instructions
+* Removed Codox
+* Cleaned up timing tests and ns metadata
+
 ### 0.2.4
 
 Contributions by Arnaud Geiser
@@ -8,7 +22,7 @@ Contributions by Arnaud Geiser
 
 Contributions by Matthew Davidson
 
-* Add `manifold.go-off` to generated documentation
+* Added `manifold.go-off` to generated documentation
 
 ### 0.2.2
 
