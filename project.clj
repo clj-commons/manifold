@@ -5,10 +5,10 @@
   :url "https://github.com/clj-commons/manifold"
   :scm {:name "git" :url "https://github.com/clj-commons/manifold"}
   :dependencies [[org.clojure/clojure "1.11.1" :scope "provided"]
-                 [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
+                 [org.clojure/tools.logging "1.2.4" :exclusions [org.clojure/clojure]]
                  [org.clj-commons/dirigiste "1.0.1"]
-                 [riddley "0.1.15"]
-                 [org.clojure/core.async "1.4.627" :scope "provided"]]
+                 [riddley "0.2.0"]
+                 [org.clojure/core.async "1.5.648" :scope "provided"]]
   :profiles {:dev {:dependencies [[criterium "0.4.6"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
