@@ -4,7 +4,7 @@
             :url "http://opensource.org/licenses/MIT"}
   :url "https://github.com/clj-commons/manifold"
   :scm {:name "git" :url "https://github.com/clj-commons/manifold"}
-  :dependencies [[org.clojure/clojure "1.11.0" :scope "provided"]
+  :dependencies [[org.clojure/clojure "1.11.1" :scope "provided"]
                  [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/clojure]]
                  [org.clj-commons/dirigiste "1.0.1"]
                  [riddley "0.1.15"]
@@ -16,10 +16,6 @@
                    :benchmark :benchmark
                    :stress #(or (:stress %) (= :stress (:tag %)))
                    :all (constantly true)}
-  :plugins [[lein-codox "0.10.7"]]
-  :codox {:source-uri "https://github.com/clj-commons/manifold/blob/master/{filepath}#L{line}"
-          :metadata {:doc/format :markdown}
-          :namespaces [manifold.deferred manifold.stream manifold.time manifold.bus manifold.executor manifold.go-off]}
   :global-vars {*warn-on-reflection* true}
   :jvm-opts ^:replace ["-server"
                        "-XX:-OmitStackTraceInFastThrow"
