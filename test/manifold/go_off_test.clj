@@ -57,7 +57,7 @@
 (deftest go-off-nests
   (testing "return deferred will always result in a a realizable value, not another deferred"
     (is (= [23 42] @(go-off (let [let* 1 a 23] (go-off (let* [b 42] [a b]))))))
-    (is (= 5 @(go-off (go-off (go-off (go-off (go-off (go-off (go-off 5))))))))))
+    (is (= 5 @(go-off (go-off (go-off (go-off (go-off 5))))))))
   (testing "Parking unwraps nested deferreds"
     (is (= 5 @(go-off (<!? (go-off (go-off (go-off 5)))))))))
 
