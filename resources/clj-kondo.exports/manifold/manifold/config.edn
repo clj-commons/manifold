@@ -4,5 +4,6 @@
 
 
  :lint-as {manifold.deferred/let-flow clojure.core/let
+           manifold.deferred/let-flow' clojure.core/let
            manifold.deferred/loop clojure.core/let}
  }
