@@ -740,7 +740,10 @@
                                      (d/recur r))))))))))))))
 
 (defn mapcat
-  "Equivalent to Clojure's `mapcat`, but for streams instead of sequences."
+  "Equivalent to Clojure's `mapcat`, but for streams instead of sequences.
+  
+  Note that just like `clojure.core/mapcat`, the provided function `f`
+  must return a collection and not a stream."
   ([f s]
    (let [s' (stream)]
      (connect-via s
