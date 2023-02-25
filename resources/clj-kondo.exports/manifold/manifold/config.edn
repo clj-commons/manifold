@@ -1,0 +1,9 @@
+{
+ ;; aliasing loop to let is enought to get
+ ;; great linting.
+
+
+ :lint-as {manifold.deferred/let-flow clojure.core/let
+           manifold.deferred/let-flow' clojure.core/let
+           manifold.deferred/loop clojure.core/let}
+ }
