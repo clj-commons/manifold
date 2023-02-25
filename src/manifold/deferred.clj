@@ -1019,7 +1019,9 @@
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
-   no matter what the result."
+   no matter what the result.
+  
+  Returns x unless a Throwable is thrown in f, in which case it returns an error-deferred."
   [x f]
   (if-let [d (->deferred x nil)]
     (finally' d f)
