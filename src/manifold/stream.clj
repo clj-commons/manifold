@@ -1127,11 +1127,11 @@
      (connect-via
        source
        (fn [val]
-         (d/let-flow [put-result (try-put! sink val 0 :timeout)]
+         (d/let-flow [put-result (try-put! sink val 0 ::timeout)]
            (case put-result
              true     true
              false    false
-             :timeout true)))
+             ::timeout true)))
        sink
        {:upstream?   true
         :downstream? true})
@@ -1156,12 +1156,12 @@
        (fn [val]
          (d/loop []
            (d/chain
-             (try-put! sink val 0 :timeout)
+             (try-put! sink val 0 ::timeout)
              (fn [put-result]
                (case put-result
                  true     true
                  false    false
-                 :timeout (d/chain (take! sink)
+                 ::timeout (d/chain (take! sink)
                                    (fn [_] (d/recur))))))))
        sink
        {:upstream?   true
