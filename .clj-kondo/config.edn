@@ -9,7 +9,9 @@
  :hooks {:analyze-call
          {manifold.stream.core/def-source manifold.hooks/def-sink-or-source
           manifold.stream.core/def-sink manifold.hooks/def-sink-or-source
-          manifold.stream.core/def-sink+source manifold.hooks/def-sink-or-source}}
+          manifold.stream.core/def-sink+source manifold.hooks/def-sink-or-source
+          manifold.deferred/both manifold.hooks/both
+          manifold.deferred/success-error-unrealized manifold.hooks/success-error-unrealized}}
 
 
 :config-in-call {manifold.stream.core/def-sink+source

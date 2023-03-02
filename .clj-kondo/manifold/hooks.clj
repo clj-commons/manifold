@@ -28,3 +28,73 @@
          (api/token-node (symbol (str "->" (:string-value name))))
          bindings
          ))))}))
+
+(defn- seq-node? [node]
+  (or (api/vector-node? node)
+      (api/list-node? node)))
+
+(defn- nth-child [node n] (nth (:children node) n))
+
+(defn both [call]
+  (let [body (-> call :node :children second :children)]
+
+    {:node
+     (api/list-node
+      (list
+       (api/token-node 'do)
+
+       (api/list-node
+        (->> body
+             (mapcat
+              #(if (and (seq-node? %) (= 'either (:value (nth-child % 0))))
+                 (:children (nth-child % 1))
+                 [%]))))
+
+       (api/list-node
+        (->> body
+             (mapcat
+              #(if (and (seq-node? %) (= 'either (:value (nth-child % 0))))
+                 (:children (nth-child % 2))
+                 [%]))))))}))
+
+
+(def fallback-value
+  "The fallback value used for declaration of local variables whose
+  values are unknown at lint time."
+  (api/list-node
+   (list
+    (api/token-node 'new)
+    (api/token-node 'java.lang.Object))))
+
+(defn success-error-unrealized [call]
+
+  (let [[deferred
+         success-value success-clause
+         error-value error-clause
+         unrealized-clause] (-> call :node :children rest)]
+
+    (when-not (and deferred success-value success-clause error-value
+                   error-clause unrealized-clause)
+      (throw (ex-info "Missing success-error-unrealized arguments" {})))
+
+    {:node
+     (api/list-node
+      (list
+       (api/token-node 'do)
+
+       (api/list-node
+        (list
+         (api/token-node 'let)
+         (api/vector-node (vector success-value fallback-value))
+         success-clause
+         ))
+
+       (api/list-node
+        (list
+         (api/token-node 'let)
+         (api/vector-node (vector error-value fallback-value))
+         error-clause
+         ))
+
+       unrealized-clause
+       ))}))
