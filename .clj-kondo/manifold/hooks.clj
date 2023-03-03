@@ -26,8 +26,7 @@
         (list
          (api/token-node 'defn)
          (api/token-node (symbol (str "->" (:string-value name))))
-         bindings
-         ))))}))
+         bindings))))}))
 
 (defn- seq-node? [node]
   (or (api/vector-node? node)
@@ -36,7 +35,12 @@
 (defn- nth-child [node n] (nth (:children node) n))
 
 (defn both [call]
-  (let [body (-> call :node :children second :children)]
+  (let [body (-> call :node :children second :children)
+        expand-nth
+        (fn [n item]
+          (if (and (seq-node? item) (= 'either (:value (nth-child item 0))))
+            (:children (nth-child item n))
+            [item]))]
 
     {:node
      (api/list-node
@@ -44,18 +48,10 @@
        (api/token-node 'do)
 
        (api/list-node
-        (->> body
-             (mapcat
-              #(if (and (seq-node? %) (= 'either (:value (nth-child % 0))))
-                 (:children (nth-child % 1))
-                 [%]))))
+        (->> body (mapcat (partial expand-nth 1))))
 
        (api/list-node
-        (->> body
-             (mapcat
-              #(if (and (seq-node? %) (= 'either (:value (nth-child % 0))))
-                 (:children (nth-child % 2))
-                 [%]))))))}))
+        (->> body (mapcat (partial expand-nth 2))))))}))
 
 
 (def fallback-value
@@ -86,15 +82,12 @@
         (list
          (api/token-node 'let)
          (api/vector-node (vector success-value fallback-value))
-         success-clause
-         ))
+         success-clause))
 
        (api/list-node
         (list
          (api/token-node 'let)
          (api/vector-node (vector error-value fallback-value))
-         error-clause
-         ))
+         error-clause))
 
-       unrealized-clause
-       ))}))
+       unrealized-clause))}))
