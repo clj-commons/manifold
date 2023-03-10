@@ -33,8 +33,8 @@
               (fn [d op ex] (.thenApplyAsync ^CompletionStage d op ex))}
 
     :interface fn->Function
-    :inner-assertion #(is (= % "a test string"))
-    :post-assertion #(is (= % true))}
+    :inner-assertion #(is (= "a test string" %))
+    :post-assertion #(is (= true %))}
 
    #_{:methods {:raw (fn [d op _] (.thenAccept ^CompletionStage d op))
               :async (fn [d op _] (.thenAcceptAsync ^CompletionStage d op))
@@ -70,9 +70,27 @@
                (= x "a test string")))
             executor)]
 
-    (is (= @d1 "a test string"))
+    (is (= "a test string" @d1))
     (post-assertion @d2)
-    (is (= @was-called true))))
+    (is (= true @was-called))))
+
+(defn test-functor-error [method-info mode executor]
+
+  (let [was-called (atom false)
+        method (get-in method-info [:methods mode])
+        {to-java-interface :interface} method-info
+
+        d1 (d/error-deferred (RuntimeException.))
+        d2 (method
+            d1
+            (to-java-interface
+             (fn [_]
+               (reset! was-called true)))
+            executor)]
+
+    (is (thrown? RuntimeException @d1))
+    (is (thrown? RuntimeException @d2))
+    (is (= false @was-called))))
 
 (deftest test-functor-methods
 
@@ -80,4 +98,9 @@
     (testing "functor success"
       (dorun (for [method-info functor-method-info
                    mode [:raw :async :with-executor]]
-               (test-functor-success method-info mode executor))))))
+               (test-functor-success method-info mode executor))))
+
+    (testing "functor error"
+      (dorun (for [method-info functor-method-info
+                   mode [:raw :async :with-executor]]
+               (test-functor-error method-info mode executor))))))
