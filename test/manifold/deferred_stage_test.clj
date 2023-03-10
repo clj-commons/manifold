@@ -14,7 +14,7 @@
     (accept [_ x] (function x))))
 
 (defn fn->Runnable [function]
-  (reify Runnable
+  (reify java.lang.Runnable
     (run [_] (function nil))))
 
 
@@ -36,7 +36,7 @@
     :inner-assertion #(is (= "a test string" %))
     :post-assertion #(is (= true %))}
 
-   #_{:methods {:raw (fn [d op _] (.thenAccept ^CompletionStage d op))
+   {:methods {:raw (fn [d op _] (.thenAccept ^CompletionStage d op))
               :async (fn [d op _] (.thenAcceptAsync ^CompletionStage d op))
               :with-executor
               (fn [d op ex] (.thenAcceptAsync ^CompletionStage d op ex))}
@@ -44,7 +44,7 @@
     :inner-assertion #(is (= % "a test string"))
     :post-assertion #(is (= % nil))}
 
-   #_{:methods {:raw (fn [d op _] (.thenRun ^CompletionStage d op))
+   {:methods {:raw (fn [d op _] (.thenRun ^CompletionStage d op))
               :async (fn [d op _] (.thenRunAsync ^CompletionStage d op))
               :with-executor
               (fn [d op ex] (.thenRunAsync ^CompletionStage d op ex))}

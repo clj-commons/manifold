@@ -50,7 +50,9 @@
   (successValue [default])
   (errorValue [default]))
 
-(declare then-apply then-apply-async)
+(declare then-apply then-apply-async
+         then-accept then-accept-async
+         then-run then-run-async)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -61,7 +63,21 @@
   (thenApplyAsync [this operator]
     (then-apply-async this operator))
   (thenApplyAsync [this operator executor]
-    (then-apply-async this operator executor)))
+    (then-apply-async this operator executor))
+
+  (thenAccept [this operator]
+    (then-accept this operator))
+  (thenAcceptAsync [this operator]
+    (then-accept-async this operator))
+  (thenAcceptAsync [this operator executor]
+    (then-accept-async this operator executor))
+
+  (thenRun [this operator]
+    (then-run this operator))
+  (thenRunAsync [this operator]
+    (then-run-async this operator))
+  (thenRunAsync [this operator executor]
+    (then-run-async this operator executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1411,15 +1427,32 @@
   [value]
   (chain value identity))
 
+(defn- async-for
+  "Retuns a CompletionStage async version for the given function."
+  [original]
+  (fn result
+    ([this operator]
+     (result this operator (or (ex/executor) (ex/execute-pool))))
+    ([this operator executor]
+     (flatten-deferred
+      (future-with executor (original this operator))))))
+
+
 (defn- then-apply [this operator]
   (chain this #(.apply ^java.util.function.Function operator %)))
 
-(defn- then-apply-async
-  ([this operator]
-   (then-apply-async this operator (or (ex/executor) (ex/execute-pool))))
-  ([this operator executor]
-   (flatten-deferred
-    (future-with executor (then-apply this operator)))))
+(def ^:private then-apply-async (async-for then-apply))
+
+(defn- then-accept [this operator]
+  (chain this #(.accept ^java.util.function.Consumer operator %)))
+
+(def ^:private then-accept-async (async-for then-accept))
+
+(defn- then-run [this operator]
+  (chain this (fn [_] (.run ^Runnable operator))))
+
+(def ^:private then-run-async (async-for then-run))
+
 
 ;;;
 
