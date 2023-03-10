@@ -93,48 +93,48 @@
   (thenRunAsync [this operator executor]
     (then-run-async this operator executor))
 
-  (thenCombine [this operator other]
-    (then-combine this operator other))
-  (thenCombineAsync [this operator other]
-    (then-combine-async this operator other))
-  (thenCombineAsync [this operator other executor]
-    (then-combine-async this operator other executor))
+  (thenCombine [this other operator]
+    (then-combine this other operator))
+  (thenCombineAsync [this other operator]
+    (then-combine-async this other operator))
+  (thenCombineAsync [this other operator executor]
+    (then-combine-async this other operator executor))
 
-  (thenAcceptBoth [this operator other]
-    (then-accept-both this operator other))
-  (thenAcceptBothAsync [this operator other]
-    (then-accept-both-async this operator other))
-  (thenAcceptBothAsync [this operator other executor]
-    (then-accept-both-async this operator other executor))
+  (thenAcceptBoth [this other operator]
+    (then-accept-both this other operator))
+  (thenAcceptBothAsync [this other operator]
+    (then-accept-both-async this other operator))
+  (thenAcceptBothAsync [this other operator executor]
+    (then-accept-both-async this other operator executor))
 
-  (runAfterBoth [this operator other]
-    (run-after-both this operator other))
-  (runAfterBothAsync [this operator other]
-    (run-after-both-async this operator other))
-  (runAfterBothAsync [this operator other executor]
-    (run-after-both-async this operator other executor))
+  (runAfterBoth [this other operator]
+    (run-after-both this other operator))
+  (runAfterBothAsync [this other operator]
+    (run-after-both-async this other operator))
+  (runAfterBothAsync [this other operator executor]
+    (run-after-both-async this other operator executor))
 
-  (applyToEither [this operator other]
-    (apply-to-either this operator other))
-  (applyToEitherAsync [this operator other]
-    (apply-to-either-async this operator other))
-  (applyToEitherAsync [this operator other executor]
-    (apply-to-either-async this operator other executor))
+  (applyToEither [this other operator]
+    (apply-to-either this other operator))
+  (applyToEitherAsync [this other operator]
+    (apply-to-either-async this other operator))
+  (applyToEitherAsync [this other operator executor]
+    (apply-to-either-async this other operator executor))
 
 
-  (acceptEither [this operator other]
-    (accept-either this operator other))
-  (acceptEitherAsync [this operator other]
-    (accept-either-async this operator other))
-  (acceptEitherAsync [this operator other executor]
-    (accept-either-async this operator other executor))
+  (acceptEither [this other operator]
+    (accept-either this other operator))
+  (acceptEitherAsync [this other operator]
+    (accept-either-async this other operator))
+  (acceptEitherAsync [this other operator executor]
+    (accept-either-async this other operator executor))
 
-  (runAfterEither [this operator other]
-    (run-after-either this operator other))
-  (runAfterEitherAsync [this operator other]
-    (run-after-either-async this operator other))
-  (runAfterEitherAsync [this operator other executor]
-    (run-after-either-async this operator other executor))
+  (runAfterEither [this other operator]
+    (run-after-either this other operator))
+  (runAfterEitherAsync [this other operator]
+    (run-after-either-async this other operator))
+  (runAfterEitherAsync [this other operator executor]
+    (run-after-either-async this other operator executor))
 
   (thenCompose [this operator]
     (then-compose this operator))

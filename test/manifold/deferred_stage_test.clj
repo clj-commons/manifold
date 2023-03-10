@@ -43,10 +43,10 @@
               (fn [^CompletionStage this operator _]
                 (.thenApply this operator))
               :async
-              (fn [this operator _]
+              (fn [^CompletionStage this operator _]
                 (.thenApplyAsync this operator))
               :with-executor
-              (fn [this operator executor]
+              (fn [^CompletionStage this operator executor]
                 (.thenApplyAsync this operator executor))}
 
     :interface fn->Function
