@@ -64,7 +64,9 @@
 
          apply-to-either apply-to-either-async
          accept-either accept-either-async
-         run-after-either run-after-either-async)
+         run-after-either run-after-either-async
+
+         then-compose then-compose-async)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -132,7 +134,14 @@
   (runAfterEitherAsync [this operator other]
     (run-after-either-async this operator other))
   (runAfterEitherAsync [this operator other executor]
-    (run-after-either-async this operator other executor)))
+    (run-after-either-async this operator other executor))
+
+  (thenCompose [this operator]
+    (then-compose this operator))
+  (thenComposeAsync [this operator]
+    (then-compose-async this operator))
+  (thenComposeAsync [this operator executor]
+    (then-compose-async this operator executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1574,6 +1583,12 @@
   (then-run (alt this other) operator))
 
 (def ^:private run-after-either-async (async-for-dual run-after-either))
+
+(defn- then-compose [this ^java.util.function.Function operator]
+  (assert-some operator)
+  (chain this (fn [value] (.apply operator value))))
+
+(def ^:private then-compose-async (async-for then-compose))
 
 
 

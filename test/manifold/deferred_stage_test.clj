@@ -3,6 +3,7 @@
             [clojure.test :refer [deftest is testing]])
   (:import [java.util.concurrent
             CompletionStage
+            CompletableFuture
             Executors]))
 
 (defn fn->Function [function]
@@ -323,3 +324,66 @@
       (dorun (for [method-info alt-method-info
                    mode [:raw :async :with-executor]]
                (test-alt-error method-info mode executor))))))
+
+
+
+(def compose-method-info
+  {:methods {:raw
+              (fn [^CompletionStage this operator _]
+                (.thenCompose this operator))
+              :async
+              (fn [^CompletionStage this operator _]
+                (.thenComposeAsync this operator))
+              :with-executor
+              (fn [^CompletionStage this operator executor]
+                (.thenComposeAsync this operator executor))}
+    :interface fn->Function
+    :inner-assertion #(is (= 1 %))
+    :post-assertion #(is (= 2 %))})
+
+(defn- test-compose-success [method-info mode executor]
+
+  (let [was-called (atom false)
+
+        method (get-in method-info [:methods mode])
+        {:keys [inner-assertion post-assertion]
+         to-java-interface :interface} method-info
+
+        d1 (d/success-deferred 1)
+        d2 (method
+            d1
+            (to-java-interface
+             (fn [x]
+               (inner-assertion x)
+               (reset! was-called true)
+               (d/success-deferred 2)))
+            executor)]
+
+    (is (= @d1 1))
+    (post-assertion @d2)
+    (is (= true @was-called))))
+
+
+(deftest test-compose
+
+  (let [executor (Executors/newSingleThreadExecutor)]
+    (testing "compose success"
+      (dorun (for [method-info [compose-method-info]
+                   mode [:raw :async :with-executor]]
+               (test-compose-success method-info mode executor))))
+
+    (testing "compose error"
+      (dorun (for [method-info [compose-method-info]
+                   mode [:raw :async :with-executor]]
+               (test-functor-error method-info mode executor))))))
+
+(deftest test-compose-into-completable-future
+
+  (testing "deferred can compose into CompletableFuture"
+    (let [d1 ^CompletionStage (d/success-deferred 10)
+          d2 (.thenCompose
+              d1
+              (fn->Function
+               (fn [x] (CompletableFuture/completedFuture (inc x)))
+               ))]
+      (is (= @d2 11)))))
