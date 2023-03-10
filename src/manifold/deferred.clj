@@ -52,7 +52,11 @@
 
 (declare then-apply then-apply-async
          then-accept then-accept-async
-         then-run then-run-async)
+         then-run then-run-async
+
+         then-combine then-combine-async
+         then-accept-both then-accept-both-async
+         run-after-both run-after-both-async)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -77,7 +81,28 @@
   (thenRunAsync [this operator]
     (then-run-async this operator))
   (thenRunAsync [this operator executor]
-    (then-run-async this operator executor)))
+    (then-run-async this operator executor))
+
+  (thenCombine [this operator other]
+    (then-combine this operator other))
+  (thenCombineAsync [this operator other]
+    (then-combine-async this operator other))
+  (thenCombineAsync [this operator other executor]
+    (then-combine-async this operator other executor))
+
+  (thenAcceptBoth [this operator other]
+    (then-accept-both this operator other))
+  (thenAcceptBothAsync [this operator other]
+    (then-accept-both-async this operator other))
+  (thenAcceptBothAsync [this operator other executor]
+    (then-accept-both-async this operator other executor))
+
+  (runAfterBoth [this operator other]
+    (run-after-both this operator other))
+  (runAfterBothAsync [this operator other]
+    (run-after-both-async this operator other))
+  (runAfterBothAsync [this operator other executor]
+    (run-after-both-async this operator other executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1428,7 +1453,7 @@
   (chain value identity))
 
 (defn- async-for
-  "Retuns a CompletionStage async version for the given function."
+  "Retuns a CompletionStage async version of the given operator"
   [original]
   (fn result
     ([this operator]
@@ -1437,9 +1462,23 @@
      (flatten-deferred
       (future-with executor (original this operator))))))
 
+(defn- async-for-dual
+  "Retuns a CompletionStage async version for the given two deferred operator"
+  [original]
+  (fn result
+    ([this other operator]
+     (result this other operator (or (ex/executor) (ex/execute-pool))))
+    ([this other operator executor]
+     (flatten-deferred
+      (future-with executor (original this other operator))))))
 
+
+;; we do success-deferred on the result so that
+;; if the original operator returns a deferred, chain
+;; won't automatically flatten it out.
 (defn- then-apply [this operator]
-  (chain this #(.apply ^java.util.function.Function operator %)))
+  (chain this #(success-deferred
+                (.apply ^java.util.function.Function operator %))))
 
 (def ^:private then-apply-async (async-for then-apply))
 
@@ -1452,6 +1491,27 @@
   (chain this (fn [_] (.run ^Runnable operator))))
 
 (def ^:private then-run-async (async-for then-run))
+
+(defn- then-combine [this other ^java.util.function.BiFunction operator]
+  (let-flow [mine this
+             theirs other]
+    (success-deferred (.apply operator mine theirs))))
+
+(def ^:private then-combine-async (async-for-dual then-combine))
+
+(defn- then-accept-both [this other ^java.util.function.BiConsumer operator]
+  (let-flow [mine this
+             theirs other]
+    (.accept operator mine theirs)))
+
+(def ^:private then-accept-both-async (async-for-dual then-accept-both))
+
+(defn- run-after-both [this other ^java.lang.Runnable operator]
+  (let-flow [_ this
+             _ other]
+    (.run operator)))
+
+(def ^:private run-after-both-async (async-for-dual run-after-both))
 
 
 ;;;

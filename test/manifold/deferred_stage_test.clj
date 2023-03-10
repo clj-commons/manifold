@@ -17,6 +17,17 @@
   (reify java.lang.Runnable
     (run [_] (function nil))))
 
+(defn fn->BiFunction [function]
+  (reify java.util.function.BiFunction
+    (apply [_ x y] (function x y))))
+
+(defn fn->BiConsumer [function]
+  (reify java.util.function.BiConsumer
+    (accept [_ x y] (function x y))))
+
+(defn fn->Runnable' [function]
+  (reify java.lang.Runnable
+    (run [_] (function nil nil))))
 
 ;; On these tests:
 ;; CompletionStage has many methods that mimic the chain, zip and alt
@@ -104,3 +115,101 @@
       (dorun (for [method-info functor-method-info
                    mode [:raw :async :with-executor]]
                (test-functor-error method-info mode executor))))))
+
+(def zip-method-info
+  [{:methods {:raw
+              (fn [^CompletionStage this other operator _]
+                (.thenCombine this other operator))
+              :async
+              (fn [^CompletionStage this other operator _]
+                (.thenCombineAsync this other operator))
+              :with-executor
+              (fn [^CompletionStage this other operator executor]
+                (.thenCombineAsync this other operator executor))}
+    :interface fn->BiFunction
+    :inner-assertion (fn [_ _])
+    :post-assertion #(is (= 2 %))}
+   {:methods {:raw
+              (fn [^CompletionStage this other operator _]
+                (.thenAcceptBoth this other operator))
+              :async
+              (fn [^CompletionStage this other operator _]
+                (.thenAcceptBothAsync this other operator))
+              :with-executor
+              (fn [^CompletionStage this other operator executor]
+                (.thenAcceptBothAsync this other operator executor))}
+    :interface fn->BiConsumer
+    :inner-assertion (fn [x y] (is (= 1 x)) (is (= 1 y)))
+    :post-assertion (fn [_])}
+   {:methods {:raw
+              (fn [^CompletionStage this other operator _]
+                (.runAfterBoth this other operator))
+              :async
+              (fn [^CompletionStage this other operator _]
+                (.runAfterBothAsync this other operator))
+              :with-executor
+              (fn [^CompletionStage this other operator executor]
+                (.runAfterBothAsync this other operator executor))}
+    :interface fn->Runnable'
+    :inner-assertion (fn [_ _])
+    :post-assertion (fn [_])}])
+
+(defn- test-zip-success [method-info mode executor]
+
+  (let [was-called (atom false)
+
+        method (get-in method-info [:methods mode])
+        {:keys [inner-assertion post-assertion]
+         to-java-interface :interface} method-info
+
+        d1 (d/success-deferred 1)
+        d2 (d/success-deferred 1)
+        d3 (method
+            d1
+            d2
+            (to-java-interface
+             (fn [x y]
+               (inner-assertion x y)
+               (reset! was-called true)
+               (when (and x y) (+ x y))))
+            executor)]
+
+    (is (= @d1 1))
+    (is (= @d2 1))
+    (post-assertion @d3)
+    (is (= true @was-called))))
+
+(defn test-zip-error [method-info mode executor]
+
+  (let [was-called (atom false)
+        method (get-in method-info [:methods mode])
+        {to-java-interface :interface} method-info
+
+        d1 (d/error-deferred (RuntimeException.))
+        d2 (d/error-deferred (RuntimeException.))
+        d3 (method
+            d1
+            d2
+            (to-java-interface
+             (fn [_]
+               (reset! was-called true)))
+            executor)]
+
+    (is (thrown? RuntimeException @d1))
+    (is (thrown? RuntimeException @d2))
+    (is (thrown? RuntimeException @d3))
+    (is (= false @was-called))))
+
+
+(deftest test-zip-methods
+
+  (let [executor (Executors/newSingleThreadExecutor)]
+    (testing "zip success"
+      (dorun (for [method-info zip-method-info
+                   mode [:raw :async :with-executor]]
+               (test-zip-success method-info mode executor))))
+
+    (testing "zip error"
+      (dorun (for [method-info zip-method-info
+                   mode [:raw :async :with-executor]]
+               (test-zip-error method-info mode executor))))))
