@@ -56,7 +56,11 @@
 
          then-combine then-combine-async
          then-accept-both then-accept-both-async
-         run-after-both run-after-both-async)
+         run-after-both run-after-both-async
+
+         apply-to-either apply-to-either-async
+         accept-either accept-either-async
+         run-after-either run-after-either-async)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -102,7 +106,29 @@
   (runAfterBothAsync [this operator other]
     (run-after-both-async this operator other))
   (runAfterBothAsync [this operator other executor]
-    (run-after-both-async this operator other executor)))
+    (run-after-both-async this operator other executor))
+
+  (applyToEither [this operator other]
+    (apply-to-either this operator other))
+  (applyToEitherAsync [this operator other]
+    (apply-to-either-async this operator other))
+  (applyToEitherAsync [this operator other executor]
+    (apply-to-either-async this operator other executor))
+
+
+  (acceptEither [this operator other]
+    (accept-either this operator other))
+  (acceptEitherAsync [this operator other]
+    (accept-either-async this operator other))
+  (acceptEitherAsync [this operator other executor]
+    (accept-either-async this operator other executor))
+
+  (runAfterEither [this operator other]
+    (run-after-either this operator other))
+  (runAfterEitherAsync [this operator other]
+    (run-after-either-async this operator other))
+  (runAfterEitherAsync [this operator other executor]
+    (run-after-either-async this operator other executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1512,6 +1538,23 @@
     (.run operator)))
 
 (def ^:private run-after-both-async (async-for-dual run-after-both))
+
+(defn- apply-to-either [this other ^java.util.function.Function operator]
+  (then-apply (alt this other) operator))
+
+(def ^:private apply-to-either-async (async-for-dual apply-to-either))
+
+(defn- accept-either [this other ^java.util.function.Function operator]
+  (then-accept (alt this other) operator))
+
+(def ^:private accept-either-async (async-for-dual accept-either))
+
+(defn- run-after-either [this other ^java.util.function.Function operator]
+  (then-run (alt this other) operator))
+
+(def ^:private run-after-either-async (async-for-dual run-after-either))
+
+
 
 
 ;;;

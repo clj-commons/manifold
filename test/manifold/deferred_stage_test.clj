@@ -213,3 +213,102 @@
       (dorun (for [method-info zip-method-info
                    mode [:raw :async :with-executor]]
                (test-zip-error method-info mode executor))))))
+
+(def alt-method-info
+  [{:methods {:raw
+              (fn [^CompletionStage this other operator _]
+                (.applyToEither this other operator))
+              :async
+              (fn [^CompletionStage this other operator _]
+                (.applyToEitherAsync this other operator))
+              :with-executor
+              (fn [^CompletionStage this other operator executor]
+                (.applyToEitherAsync this other operator executor))}
+    :interface fn->Function
+    :inner-assertion #(is (or (= % 1) (= % 2)))
+    :post-assertion #(is (#{1 2} %))}
+
+   {:methods {:raw
+              (fn [^CompletionStage this other operator _]
+                (.acceptEither this other operator))
+              :async
+              (fn [^CompletionStage this other operator _]
+                (.acceptEitherAsync this other operator))
+              :with-executor
+              (fn [^CompletionStage this other operator executor]
+                (.acceptEitherAsync this other operator executor))}
+    :interface fn->Consumer
+    :inner-assertion #(is (or (= % 1) (= % 2)))
+    :post-assertion (fn [_])}
+
+   {:methods {:raw
+              (fn [^CompletionStage this other operator _]
+                (.runAfterEither this other operator))
+              :async
+              (fn [^CompletionStage this other operator _]
+                (.runAfterEitherAsync this other operator))
+              :with-executor
+              (fn [^CompletionStage this other operator executor]
+                (.runAfterEitherAsync this other operator executor))}
+    :interface fn->Runnable
+    :inner-assertion (fn [_])
+    :post-assertion (fn [_])}])
+
+(defn- test-alt-success [method-info mode executor]
+
+  (let [was-called (atom false)
+
+        method (get-in method-info [:methods mode])
+        {:keys [inner-assertion post-assertion]
+         to-java-interface :interface} method-info
+
+        d1 (d/success-deferred 1)
+        d2 (d/success-deferred 2)
+        d3 (method
+            d1
+            d2
+            (to-java-interface
+             (fn [x]
+               (inner-assertion x)
+               (reset! was-called true)
+               x))
+            executor)]
+
+    (is (= @d1 1))
+    (is (= @d2 2))
+    (post-assertion @d3)
+    (is (= true @was-called))))
+
+(defn test-alt-error [method-info mode executor]
+
+  (let [was-called (atom false)
+        method (get-in method-info [:methods mode])
+        {to-java-interface :interface} method-info
+
+        d1 (d/error-deferred (RuntimeException.))
+        d2 (d/error-deferred (RuntimeException.))
+        d3 (method
+            d1
+            d2
+            (to-java-interface
+             (fn [_]
+               (reset! was-called true)))
+            executor)]
+
+    (is (thrown? RuntimeException @d1))
+    (is (thrown? RuntimeException @d2))
+    (is (thrown? RuntimeException @d3))
+    (is (= false @was-called))))
+
+(deftest test-alt-methods
+
+  (let [executor (Executors/newSingleThreadExecutor)]
+    (testing "alt success"
+      (dorun (for [method-info alt-method-info
+                   mode [:raw :async :with-executor]]
+               (test-alt-success method-info mode executor))))
+
+    (testing "alt error"
+      (dorun (for [method-info alt-method-info
+                   mode [:raw :async :with-executor]]
+               (test-alt-error method-info mode executor))))))
