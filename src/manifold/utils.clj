@@ -4,7 +4,8 @@
     :exclude [future])
   (:require
     [clojure.tools.logging :as log]
-    [manifold.executor :as ex])
+    [manifold.executor :as ex]
+    [potemkin.types])
   (:import
     [java.util.concurrent
      Executors
@@ -130,16 +131,13 @@
 ;;;
 
 (defmacro defprotocol+ [name & body]
-  (when-not (resolve name)
-    `(defprotocol ~name ~@body)))
+  `(potemkin.types/defprotocol+ ~name ~@body))
 
 (defmacro deftype+ [name & body]
-  (when-not (resolve name)
-    `(deftype ~name ~@body)))
+  `(potemkin.types/deftype+ ~name ~@body))
 
 (defmacro defrecord+ [name & body]
-  (when-not (resolve name)
-    `(defrecord ~name ~@body)))
+  `(potemkin.types/defrecord+ ~name ~@body))
 
 (defmacro definterface+ [name & body]
   (when-not (resolve name)

@@ -11,7 +11,8 @@
      [utils :as utils :refer [defprotocol+ deftype+ definterface+]]
      [time :as time]
      [debug :as debug]]
-    [clojure.set :as set])
+    [clojure.set :as set]
+    [potemkin.types :refer [def-abstract-type reify+]])
   (:import
     [java.util
      LinkedList]
@@ -23,7 +24,8 @@
      TimeUnit
      CountDownLatch
      Executor
-     CompletableFuture]
+     CompletableFuture
+     CompletionStage]
     [java.util.concurrent.locks
      Lock]
     [java.util.concurrent.atomic
@@ -47,6 +49,19 @@
   (onRealized [on-success on-error])
   (successValue [default])
   (errorValue [default]))
+
+(declare then-apply then-apply-async)
+
+;; The potemkin abstract type for
+;; implementations such as CompletionStage
+(def-abstract-type ADeferred
+  CompletionStage
+  (thenApply [this operator]
+    (then-apply this operator))
+  (thenApplyAsync [this operator]
+    (then-apply-async this operator))
+  (thenApplyAsync [this operator executor]
+    (then-apply-async this operator executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -136,7 +151,7 @@
 
      (instance? Future x)
      (let [^Future x x]
-       (reify
+       (reify+
          IDeref
          (deref [_]
            (.get x))
@@ -149,6 +164,7 @@
          IPending
          (isRealized [this]
            (realized? this))
+         ADeferred
          IDeferred
          (realized [_]
            (or (.isDone x) (.isCancelled x)))
@@ -172,7 +188,7 @@
 
      (and (instance? IPending x)
           (instance? clojure.lang.IDeref x))
-     (reify
+     (reify+
        IDeref
        (deref [_]
          (.deref ^IDeref x))
@@ -182,6 +198,7 @@
        IPending
        (isRealized [_]
          (.isRealized ^IPending x))
+       ADeferred
        IDeferred
        (realized [_]
          (.isRealized ^IPending x))
@@ -408,6 +425,7 @@
         this
         nil))
 
+    ADeferred
     IDeferred
     (executor [_]
       executor)
@@ -471,6 +489,7 @@
   clojure.lang.IFn
   (invoke [this x] nil)
 
+  ADeferred
   IDeferred
   (executor [_] executor)
   (realized [this] true)
@@ -527,6 +546,7 @@
   clojure.lang.IFn
   (invoke [this x] nil)
 
+  ADeferred
   IDeferred
   (executor [_] executor)
   (realized [_] true)
@@ -1385,6 +1405,21 @@
             " >>")))
 
 (prefer-method print-method IDeferred IDeref)
+
+(defn- flatten-deferred
+  "Converts a Deferred<Deferred<T>> into a Deferred<T>"
+  [value]
+  (chain value identity))
+
+(defn- then-apply [this operator]
+  (chain this #(.apply ^java.util.function.Function operator %)))
+
+(defn- then-apply-async
+  ([this operator]
+   (then-apply-async this operator (or (ex/executor) (ex/execute-pool))))
+  ([this operator executor]
+   (flatten-deferred
+    (future-with executor (then-apply this operator)))))
 
 ;;;
 
