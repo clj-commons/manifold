@@ -420,11 +420,37 @@
     (let [ex (RuntimeException.)
           d1 ^CompletionStage (d/error-deferred ex)
           d2 (.handleAsync d1 (fn->BiFunction
-                          (fn [x error]
+                          (fn [x ^Throwable error]
                             (is (nil? x))
-                            (is (#{ex (.getCause ex)} error))
+                            (is (#{error (.getCause error)} ex))
                             2
                             )))]
+
+      (is (thrown? RuntimeException @d1))
+      (is (= 2 @d2)))))
+
+(deftest test-exceptionally
+  (testing ".exceptionally success"
+    (let [d1 ^CompletionStage (d/success-deferred 1)
+          d2 (.exceptionally
+              d1
+              (fn->Function
+               (fn [_]
+                 (throw (RuntimeException.
+                         "This should not run")))))]
+
+      (is (= 1 @d1))
+      (is (= 1 @d2))))
+
+  (testing ".exceptionally failure"
+    (let [base-error (RuntimeException.)
+          d1 ^CompletionStage (d/error-deferred base-error)
+          d2 (.exceptionally
+              d1
+              (fn->Function
+               (fn [^Throwable error]
+                 (is (#{error (.getCause error)} base-error))
+                 2)))]
 
       (is (thrown? RuntimeException @d1))
       (is (= 2 @d2)))))
