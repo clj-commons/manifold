@@ -454,3 +454,28 @@
 
       (is (thrown? RuntimeException @d1))
       (is (= 2 @d2)))))
+
+(deftest test-to-completable-future
+  (testing ".toCompletableFuture success"
+    (let [base ^CompletionStage (d/deferred)
+          target ^CompletableFuture (.toCompletableFuture base)]
+
+      (is (not (.isDone target)))
+
+      (d/success! base 10)
+
+      (is (.isDone target))
+
+      (is (= 10 (.get target)))))
+
+  (testing ".toCompletableFuture error"
+    (let [base ^CompletionStage (d/deferred)
+          target ^CompletableFuture (.toCompletableFuture base)]
+
+      (is (not (.isDone target)))
+
+      (d/error! base (RuntimeException.))
+
+      (is (.isDone target))
+
+      (is (thrown? RuntimeException (.getNow target nil))))))
