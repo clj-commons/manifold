@@ -38,27 +38,38 @@
 ;; in a given executor.
 
 (def functor-method-info
-  [{:methods {:raw (fn [d op _] (.thenApply ^CompletionStage d op))
-              :async (fn [d op _] (.thenApplyAsync ^CompletionStage d op))
+  [{:methods {:raw
+              (fn [^CompletionStage this operator _]
+                (.thenApply this operator))
+              :async
+              (fn [this operator _]
+                (.thenApplyAsync this operator))
               :with-executor
-              (fn [d op ex] (.thenApplyAsync ^CompletionStage d op ex))}
+              (fn [this operator executor]
+                (.thenApplyAsync this operator executor))}
 
     :interface fn->Function
     :inner-assertion #(is (= "a test string" %))
     :post-assertion #(is (= true %))}
 
-   {:methods {:raw (fn [d op _] (.thenAccept ^CompletionStage d op))
-              :async (fn [d op _] (.thenAcceptAsync ^CompletionStage d op))
+   {:methods {:raw (fn [^CompletionStage this operator _]
+                     (.thenAccept this operator))
+              :async (fn [^CompletionStage this operator _]
+                       (.thenAcceptAsync this operator))
               :with-executor
-              (fn [d op ex] (.thenAcceptAsync ^CompletionStage d op ex))}
+              (fn [^CompletionStage this operator executor]
+                (.thenAcceptAsync this operator executor))}
     :interface fn->Consumer
     :inner-assertion #(is (= % "a test string"))
     :post-assertion #(is (= % nil))}
 
-   {:methods {:raw (fn [d op _] (.thenRun ^CompletionStage d op))
-              :async (fn [d op _] (.thenRunAsync ^CompletionStage d op))
+   {:methods {:raw (fn [^CompletionStage this operator _]
+                     (.thenRun this operator))
+              :async (fn [^CompletionStage this operator _]
+                       (.thenRunAsync this operator))
               :with-executor
-              (fn [d op ex] (.thenRunAsync ^CompletionStage d op ex))}
+              (fn [^CompletionStage this operator executor]
+                (.thenRunAsync this operator executor))}
     :interface fn->Runnable
     :inner-assertion #(is (= % nil))
     :post-assertion #(is (= % nil))}])
@@ -191,7 +202,7 @@
             d1
             d2
             (to-java-interface
-             (fn [_]
+             (fn [_ _]
                (reset! was-called true)))
             executor)]
 

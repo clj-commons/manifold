@@ -24,8 +24,12 @@
      TimeUnit
      CountDownLatch
      Executor
-     CompletableFuture
      CompletionStage]
+    [java.util.function
+     Function
+     BiFunction
+     Consumer
+     BiConsumer]
     [java.util.concurrent.locks
      Lock]
     [java.util.concurrent.atomic
@@ -1348,11 +1352,11 @@
 
 (extend-protocol Deferrable
 
-  CompletableFuture
+  CompletionStage
   (to-deferred [f]
     (let [d (deferred)]
-      (.handle ^CompletableFuture f
-               (reify java.util.function.BiFunction
+      (.handle ^CompletionStage f
+               (reify BiFunction
                  (apply [_ val err]
                    (if (nil? err)
                      (success! d val)
@@ -1498,58 +1502,75 @@
      (flatten-deferred
       (future-with executor (original this other operator))))))
 
+(defmacro ^:no-doc assert-some
+  "Throws NullPointerException if any of the aruments is null."
+  [& values]
+  `(do ~@(for [value values]
+         `(when (nil? ~value)
+            (throw (NullPointerException. ~(str value " was null"))))
+         )))
 
 ;; we do success-deferred on the result so that
 ;; if the original operator returns a deferred, chain
 ;; won't automatically flatten it out.
-(defn- then-apply [this operator]
+(defn- then-apply [this ^Function operator]
+  (assert-some operator)
   (chain this #(success-deferred
-                (.apply ^java.util.function.Function operator %))))
+                (.apply operator %))))
 
 (def ^:private then-apply-async (async-for then-apply))
 
-(defn- then-accept [this operator]
-  (chain this #(.accept ^java.util.function.Consumer operator %)))
+(defn- then-accept [this ^Consumer operator]
+  (assert-some operator)
+  (chain this #(.accept operator %)))
 
 (def ^:private then-accept-async (async-for then-accept))
 
-(defn- then-run [this operator]
-  (chain this (fn [_] (.run ^Runnable operator))))
+(defn- then-run [this ^Runnable operator]
+  (assert-some operator)
+  (chain this (fn [_] (.run operator))))
 
 (def ^:private then-run-async (async-for then-run))
 
-(defn- then-combine [this other ^java.util.function.BiFunction operator]
+(defn- then-combine [this other ^BiFunction operator]
+  (assert-some other operator)
   (let-flow [mine this
              theirs other]
     (success-deferred (.apply operator mine theirs))))
 
 (def ^:private then-combine-async (async-for-dual then-combine))
 
-(defn- then-accept-both [this other ^java.util.function.BiConsumer operator]
+(defn- then-accept-both [this other ^BiConsumer operator]
+  (assert-some other operator)
   (let-flow [mine this
              theirs other]
     (.accept operator mine theirs)))
 
 (def ^:private then-accept-both-async (async-for-dual then-accept-both))
 
-(defn- run-after-both [this other ^java.lang.Runnable operator]
+(defn- run-after-both [this other ^Runnable operator]
+  (assert-some other operator)
   (let-flow [_ this
              _ other]
     (.run operator)))
 
+
 (def ^:private run-after-both-async (async-for-dual run-after-both))
 
 (defn- apply-to-either [this other ^java.util.function.Function operator]
+  (assert-some other operator)
   (then-apply (alt this other) operator))
 
 (def ^:private apply-to-either-async (async-for-dual apply-to-either))
 
 (defn- accept-either [this other ^java.util.function.Function operator]
+  (assert-some other operator)
   (then-accept (alt this other) operator))
 
 (def ^:private accept-either-async (async-for-dual accept-either))
 
 (defn- run-after-either [this other ^java.util.function.Function operator]
+  (assert-some other operator)
   (then-run (alt this other) operator))
 
 (def ^:private run-after-either-async (async-for-dual run-after-either))
