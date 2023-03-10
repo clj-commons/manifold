@@ -387,3 +387,44 @@
                (fn [x] (CompletableFuture/completedFuture (inc x)))
                ))]
       (is (= @d2 11)))))
+
+(deftest test-handle
+  (testing ".handle success"
+    (let [d1 ^CompletionStage (d/success-deferred 1)
+          d2 (.handle d1 (fn->BiFunction (fn [x _] (+ 1 x))))]
+
+      (is (= 1 @d1))
+      (is (= 2 @d2))))
+
+  (testing ".handle error"
+    (let [ex (RuntimeException.)
+          d1 ^CompletionStage (d/error-deferred ex)
+          d2 (.handle d1 (fn->BiFunction
+                          (fn [x error]
+                            (is (nil? x))
+                            (is (#{ex (.getCause ex)} error))
+                            2
+                            )))]
+
+      (is (thrown? RuntimeException @d1))
+      (is (= 2 @d2))))
+
+  (testing ".handleAsync success"
+    (let [d1 ^CompletionStage (d/success-deferred 1)
+          d2 (.handleAsync d1 (fn->BiFunction (fn [x _] (+ 1 x))))]
+
+      (is (= 1 @d1))
+      (is (= 2 @d2))))
+
+  (testing ".handleAsync error"
+    (let [ex (RuntimeException.)
+          d1 ^CompletionStage (d/error-deferred ex)
+          d2 (.handleAsync d1 (fn->BiFunction
+                          (fn [x error]
+                            (is (nil? x))
+                            (is (#{ex (.getCause ex)} error))
+                            2
+                            )))]
+
+      (is (thrown? RuntimeException @d1))
+      (is (= 2 @d2)))))

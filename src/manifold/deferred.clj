@@ -66,7 +66,9 @@
          accept-either accept-either-async
          run-after-either run-after-either-async
 
-         then-compose then-compose-async)
+         then-compose then-compose-async
+
+         then-handle then-handle-async)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -121,7 +123,6 @@
   (applyToEitherAsync [this other operator executor]
     (apply-to-either-async this other operator executor))
 
-
   (acceptEither [this other operator]
     (accept-either this other operator))
   (acceptEitherAsync [this other operator]
@@ -141,7 +142,14 @@
   (thenComposeAsync [this operator]
     (then-compose-async this operator))
   (thenComposeAsync [this operator executor]
-    (then-compose-async this operator executor)))
+    (then-compose-async this operator executor))
+
+  (handle [this operator]
+    (then-handle this operator))
+  (handleAsync [this operator]
+    (then-handle-async this operator))
+  (handleAsync [this operator executor]
+    (then-handle-async this operator executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1529,17 +1537,20 @@
 
 (def ^:private then-apply-async (async-for then-apply))
 
+
 (defn- then-accept [this ^Consumer operator]
   (assert-some operator)
   (chain this #(.accept operator %)))
 
 (def ^:private then-accept-async (async-for then-accept))
 
+
 (defn- then-run [this ^Runnable operator]
   (assert-some operator)
   (chain this (fn [_] (.run operator))))
 
 (def ^:private then-run-async (async-for then-run))
+
 
 (defn- then-combine [this other ^BiFunction operator]
   (assert-some other operator)
@@ -1549,6 +1560,7 @@
 
 (def ^:private then-combine-async (async-for-dual then-combine))
 
+
 (defn- then-accept-both [this other ^BiConsumer operator]
   (assert-some other operator)
   (let-flow [mine this
@@ -1556,6 +1568,7 @@
     (.accept operator mine theirs)))
 
 (def ^:private then-accept-both-async (async-for-dual then-accept-both))
+
 
 (defn- run-after-both [this other ^Runnable operator]
   (assert-some other operator)
@@ -1566,11 +1579,13 @@
 
 (def ^:private run-after-both-async (async-for-dual run-after-both))
 
+
 (defn- apply-to-either [this other ^java.util.function.Function operator]
   (assert-some other operator)
   (then-apply (alt this other) operator))
 
 (def ^:private apply-to-either-async (async-for-dual apply-to-either))
+
 
 (defn- accept-either [this other ^java.util.function.Function operator]
   (assert-some other operator)
@@ -1578,17 +1593,28 @@
 
 (def ^:private accept-either-async (async-for-dual accept-either))
 
+
 (defn- run-after-either [this other ^java.util.function.Function operator]
   (assert-some other operator)
   (then-run (alt this other) operator))
 
 (def ^:private run-after-either-async (async-for-dual run-after-either))
 
+
 (defn- then-compose [this ^java.util.function.Function operator]
   (assert-some operator)
   (chain this (fn [value] (.apply operator value))))
 
 (def ^:private then-compose-async (async-for then-compose))
+
+
+(defn- then-handle [this ^java.util.function.BiFunction operator]
+  (assert-some operator)
+  (-> this
+      (chain #(.apply operator % nil))
+      (catch #(.apply operator nil %))))
+
+(def ^:private then-handle-async (async-for then-handle))
 
 
 
