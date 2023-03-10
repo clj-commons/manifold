@@ -479,3 +479,60 @@
       (is (.isDone target))
 
       (is (thrown? RuntimeException (.getNow target nil))))))
+
+
+
+(def when-complete-methods
+  [(fn [^CompletionStage this operator _]
+     (.whenComplete this operator))
+   (fn [^CompletionStage this operator _]
+     (.whenCompleteAsync this operator))
+   (fn [^CompletionStage this operator executor]
+     (.whenCompleteAsync this operator executor))])
+
+(defn- test-when-complete-success [method executor]
+
+  (let [was-called (atom false)
+
+        d1 (d/success-deferred 1)
+        d2 (method
+            d1
+            (fn->BiConsumer
+             (fn [x t]
+               (is (= 1 x))
+               (is (nil? t))
+               (reset! was-called true)))
+            executor)]
+
+    (is (= @d1 1))
+    (is (= @d2 1))
+    (is (= true @was-called))))
+
+(defn- test-when-complete-error [method executor]
+
+  (let [was-called (atom false)
+
+        d1 (d/error-deferred (RuntimeException.))
+        d2 (method
+            d1
+            (fn->BiConsumer
+             (fn [x t]
+               (is (nil? x))
+               (is (some? t))
+               (reset! was-called true)))
+            executor)]
+
+    (is (thrown? RuntimeException @d1))
+    (is (thrown? RuntimeException @d2))
+    (is (= true @was-called))))
+
+(deftest test-when-complete
+
+  (let [executor (Executors/newSingleThreadExecutor)]
+    (testing "when complete success"
+      (dorun (for [method when-complete-methods]
+               (test-when-complete-success method executor))))
+
+    (testing "when complete error"
+      (dorun (for [method when-complete-methods]
+               (test-when-complete-error method executor))))))

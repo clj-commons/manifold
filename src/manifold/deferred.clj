@@ -71,7 +71,9 @@
          then-handle then-handle-async
          then-exceptionally
 
-         to-completable-future)
+         to-completable-future
+
+         when-complete when-complete-async)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -158,7 +160,14 @@
     (then-exceptionally this operator))
 
   (toCompletableFuture [this]
-    (to-completable-future this)))
+    (to-completable-future this))
+
+  (whenComplete [this operator]
+    (when-complete this operator))
+  (whenCompleteAsync [this operator]
+    (when-complete-async this operator))
+  (whenCompleteAsync [this operator executor]
+    (when-complete-async this operator executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1638,8 +1647,16 @@
                  #(.complete result %)
                  #(.completeExceptionally result %))
 
-    result
-    ))
+    result))
+
+(defn- when-complete [this ^java.util.function.BiConsumer operator]
+  (assert-some operator)
+  (on-realized this
+               #(.accept operator % nil)
+               #(.accept operator nil %))
+  this)
+
+(def ^:private when-complete-async (async-for when-complete))
 
 ;;;
 
