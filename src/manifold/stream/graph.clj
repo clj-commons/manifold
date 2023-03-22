@@ -76,6 +76,8 @@
 ;;;
 
 (defn- async-send
+  "Returns an AsyncPut with the result of calling a non-blocking .put() on a sink.
+   If it times out, returns the sink itself as the timeout value."
   [^Downstream dwn msg dsts]
   (let [^IEventSink sink (.sink dwn)]
     (let [x (if (== (.timeout dwn) -1)
@@ -101,13 +103,16 @@
     (when (and (identical? ::timeout x) (.downstream? dwn))
       (s/close! sink))))
 
-(defn- handle-async-put [^AsyncPut x val source]
+(defn- handle-async-put
+  "Handle a successful async put"
+  [^AsyncPut x val source]
   (let [d   (.deferred x)
-        val (if (instance? IEventSink val)
+        val (if (instance? IEventSink val) ; it timed out, in which case the val is set to the sink
               (do
                 (s/close! val)
                 false)
               val)]
+    ;; if sink failed or timed out, remove and maybe close source
     (when (false? val)
       (let [^CopyOnWriteArrayList l (.dsts x)]
         (.remove l (.dst x))
@@ -125,11 +130,15 @@
       (.remove handle->downstreams (s/weak-handle source)))))
 
 (defn- async-connect
+  "Connects downstreams to an async source.
+
+   Puts to sync sinks are delayed until all async sinks have been successfully put to"
   [^IEventSource source
    ^CopyOnWriteArrayList dsts]
   (let [sync-sinks      (LinkedList.)
-        deferreds       (LinkedList.)
+        put-deferreds   (LinkedList.)
 
+        ;; asynchronously .put to all synchronous sinks, using callbacks and trampolines as needed
         sync-propagate  (fn this [recur-point msg]
                           (loop []
                             (let [^Downstream dwn (.poll sync-sinks)]
@@ -140,8 +149,8 @@
                                       val         (d/success-value d ::none)]
                                   (if (identical? val ::none)
                                     (d/on-realized d
-                                                   (fn [v]
-                                                     (handle-async-put x v source)
+                                                   (fn [val]
+                                                     (handle-async-put x val source)
                                                      (trampoline #(this recur-point msg)))
                                                    (fn [e]
                                                      (handle-async-error x e source)
@@ -150,12 +159,14 @@
                                       (handle-async-put x val source)
                                       (recur))))))))
 
+        ;; handle all the async puts, using callbacks and trampolines as needed
+        ;; then handle all sync puts once asyncs are done
         async-propagate (fn this [recur-point msg]
                           (loop []
-                            (let [^AsyncPut x (.poll deferreds)]
+                            (let [^AsyncPut x (.poll put-deferreds)]
                               (if (nil? x)
 
-                                ;; iterator over sync-sinks
+                                ;; iterator over sync-sinks when deferreds list is empty
                                 (if (.isEmpty sync-sinks)
                                   recur-point
                                   #(sync-propagate recur-point msg))
@@ -226,23 +237,28 @@
            :else
            (let [i (.iterator dsts)]
              (if (not (.hasNext i))
-
+               ;; close source if no downstreams
                (do
                  (s/close! source)
                  (.remove handle->downstreams (s/weak-handle source)))
 
+               ;; otherwise:
+               ;;  1. add all sync downstreams into a list
+               ;;  2. attempt to .put() all async downstreams and collect AsyncPuts in a list
+               ;;  3. call async-propagate
                (do
                  (loop []
                    (when (.hasNext i)
                      (let [^Downstream dwn (.next i)]
                        (if (s/synchronous? (.sink dwn))
                          (.add sync-sinks dwn)
-                         (.add deferreds (async-send dwn msg dsts)))
+                         (.add put-deferreds (async-send dwn msg dsts)))
                        (recur))))
 
                  (async-propagate this msg))))))))))
 
 (defn- sync-connect
+  "Connects downstreams to a sync source"
   [^IEventSource source
    ^CopyOnWriteArrayList dsts]
   (utils/future-with (ex/wait-pool)
