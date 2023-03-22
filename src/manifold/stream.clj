@@ -305,10 +305,10 @@
    Optionally takes a map of parameters:
 
    |:---|:---
-   | `upstream?` | if closing the sink should always close the source, even if there are other sinks downstream of the source.  Defaults to `false`.  Note that if the sink is the only thing downstream of the source, the source will always be closed, unless it is permanent.
-   | `downstream?` | if closing the source will close the sink.  Defaults to `true`.
-   | `timeout` | if defined, the maximum time, in milliseconds, that will be spent trying to put a message into the sink before closing it.  Useful when there are multiple sinks downstream of a source, and you want to avoid a single backed up sink from blocking all the others.
-   | `description` | describes the connection, useful for traversing the stream topology via `downstream`."
+   | `upstream?` | Whether closing the sink should always close the source, even if there are other sinks downstream of the source.  Defaults to `false`.  Note that if the sink is the only thing downstream of the source, the source will eventually be closed, unless it is permanent.
+   | `downstream?` | Whether closing the source will close the sink.  Defaults to `true`.
+   | `timeout` | If defined, the maximum time, in milliseconds, that will be spent trying to put a message into the sink before closing it.  Useful when there are multiple sinks downstream of a source, and you want to avoid a single backed-up sink from blocking all the others.
+   | `description` | Describes the connection, useful for traversing the stream topology via `downstream`."
   {:arglists
    '[[source sink]
      [source
@@ -336,7 +336,7 @@
 
 (defn stream
   "Returns a Manifold stream with a configurable `buffer-size`.  If a capacity is specified,
-   `put!` will yield `true` when the message is in the buffer.  Otherwise it will only yield
+   `put!` will yield `true` when the message is in the buffer.  Otherwise, it will only yield
    `true` once it has been consumed.
 
    `xform` is an optional transducer, which will transform all messages that are enqueued

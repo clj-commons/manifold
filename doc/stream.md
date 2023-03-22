@@ -118,7 +118,7 @@ true
 
 Here, we create a source stream `s`, and map `inc` and `dec` over it.  When we put our message into `s` it immediately is accepted, since `a` and `b` are downstream.  All messages put into `s` will be propagated into *both* `a` and `b`.
 
-If `s` is closed, both `a` and `b` will be closed, as will any other downstream sources we've created.  Likewise, if everything downstream of `s` is closed, `s` will also be closed.  This is almost always desirable, as failing to do this will simply cause `s` to exert backpressure on everything upstream of it.  However, If we wish to avoid this behavior, we can create a `(permanent-stream)`, which cannot be closed.
+If `s` is closed, both `a` and `b` will be closed, as will any other downstream sources we've created.  Likewise, if everything downstream of `s` is closed, `s` will also be closed, once it's unable to `put!` anywhere.  This is almost always desirable, as failing to do this will simply cause `s` to exert backpressure on everything upstream of it.  However, if we wish to avoid this behavior, we can create a stream using `stream*` and `:permanent? true`, which cannot be closed.
 
 For any Clojure operation that doesn't have an equivalent in `manifold.stream`, we can use `manifold.stream/transform` with a transducer:
 
