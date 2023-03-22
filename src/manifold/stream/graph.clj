@@ -58,8 +58,8 @@
            .iterator
            iterator-seq
            (map
-             (fn [^Downstream d]
-               [(.description d) (.sink d)]))))))
+             (fn [^Downstream dwn]
+               [(.description dwn) (.sink dwn)]))))))
 
 (defn pop-connected! [stream]
   (when-let [handle (s/weak-handle stream)]
@@ -76,29 +76,29 @@
 ;;;
 
 (defn- async-send
-  [^Downstream d msg dsts]
-  (let [^IEventSink sink (.sink d)]
-    (let [x (if (== (.timeout d) -1)
+  [^Downstream dwn msg dsts]
+  (let [^IEventSink sink (.sink dwn)]
+    (let [x (if (== (.timeout dwn) -1)
               (.put sink msg false)
-              (.put sink msg false (.timeout d) (if (.downstream? d) sink false)))]
-      (AsyncPut. x dsts d (.upstream? d)))))
+              (.put sink msg false (.timeout dwn) (if (.downstream? dwn) sink false)))]
+      (AsyncPut. x dsts dwn (.upstream? dwn)))))
 
 (defn- sync-send
-  [^Downstream d msg ^CopyOnWriteArrayList dsts ^IEventSink upstream]
-  (let [^IEventSink sink (.sink d)
+  [^Downstream dwn msg ^CopyOnWriteArrayList dsts ^IEventSink upstream]
+  (let [^IEventSink sink (.sink dwn)
         x                (try
-                           (if (== (.timeout d) -1)
+                           (if (== (.timeout dwn) -1)
                              (.put sink msg true)
-                             (.put sink msg true (.timeout d) ::timeout))
+                             (.put sink msg true (.timeout dwn) ::timeout))
                            (catch Throwable e
                              (log/error e "error in message propagation")
                              (s/close! sink)
                              false))]
     (when (false? x)
-      (.remove dsts d)
+      (.remove dsts dwn)
       (when upstream
         (s/close! upstream)))
-    (when (and (identical? ::timeout x) (.downstream? d))
+    (when (and (identical? ::timeout x) (.downstream? dwn))
       (s/close! sink))))
 
 (defn- handle-async-put [^AsyncPut x val source]
@@ -132,10 +132,10 @@
 
         sync-propagate  (fn this [recur-point msg]
                           (loop []
-                            (let [^Downstream d (.poll sync-sinks)]
-                              (if (nil? d)
+                            (let [^Downstream dwn (.poll sync-sinks)]
+                              (if (nil? dwn)
                                 recur-point
-                                (let [^AsyncPut x (async-send d msg dsts)
+                                (let [^AsyncPut x (async-send dwn msg dsts)
                                       d           (.deferred x)
                                       val         (d/success-value d ::none)]
                                   (if (identical? val ::none)
@@ -197,9 +197,9 @@
              (let [i (.iterator dsts)]
                (loop []
                  (when (.hasNext i)
-                   (let [^Downstream d (.next i)]
-                     (when (.downstream? d)
-                       (s/close! (.sink d)))
+                   (let [^Downstream dwn (.next i)]
+                     (when (.downstream? dwn)
+                       (s/close! (.sink dwn)))
                      (recur))))))
 
            (== 1 (.size dsts))
@@ -234,10 +234,10 @@
                (do
                  (loop []
                    (when (.hasNext i)
-                     (let [^Downstream d (.next i)]
-                       (if (s/synchronous? (.sink d))
-                         (.add sync-sinks d)
-                         (.add deferreds (async-send d msg dsts)))
+                     (let [^Downstream dwn (.next i)]
+                       (if (s/synchronous? (.sink dwn))
+                         (.add sync-sinks dwn)
+                         (.add deferreds (async-send dwn msg dsts)))
                        (recur))))
 
                  (async-propagate this msg))))))))))
@@ -259,17 +259,17 @@
                   (.remove handle->downstreams (s/weak-handle source))
                   (loop []
                     (when (.hasNext i)
-                      (let [^Downstream d (.next i)]
-                        (when (.downstream? d)
-                          (s/close! (.sink d)))))))
+                      (let [^Downstream dwn (.next i)]
+                        (when (.downstream? dwn)
+                          (s/close! (.sink dwn)))))))
 
                 (do
                   (loop []
                     (when (.hasNext i)
-                      (let [^Downstream d (.next i)]
-                        (if (s/synchronous? (.sink d))
-                          (.add sync-sinks d)
-                          (.add deferreds (async-send d msg dsts)))
+                      (let [^Downstream dwn (.next i)]
+                        (if (s/synchronous? (.sink dwn))
+                          (.add sync-sinks dwn)
+                          (.add deferreds (async-send dwn msg dsts)))
                         (recur))))
 
                   (loop []
@@ -284,11 +284,11 @@
                           (recur)))))
 
                   (loop []
-                    (let [^Downstream d (.poll sync-sinks)]
-                      (if (nil? d)
+                    (let [^Downstream dwn (.poll sync-sinks)]
+                      (if (nil? dwn)
                         nil
                         (do
-                          (sync-send d msg dsts (when (.upstream? d) source))
+                          (sync-send dwn msg dsts (when (.upstream? dwn) source))
                           (recur)))))
 
                   (recur))))
@@ -309,20 +309,20 @@
             downstream? true}
      :as   opts}]
    (locking src
-     (let [d (Downstream.
-               timeout
-               (boolean (and upstream? (instance? IEventSink src)))
-               downstream?
-               dst
-               description)
+     (let [dwn (Downstream.
+                 timeout
+                 (boolean (and upstream? (instance? IEventSink src)))
+                 downstream?
+                 dst
+                 description)
            k (.weakHandle ^IEventStream src ref-queue)]
        (if-let [dsts (.get handle->downstreams k)]
-         (.add ^CopyOnWriteArrayList dsts d)
+         (.add ^CopyOnWriteArrayList dsts dwn)
          (let [dsts (CopyOnWriteArrayList.)]
            (if-let [dsts' (.putIfAbsent handle->downstreams k dsts)]
-             (.add ^CopyOnWriteArrayList dsts' d)
+             (.add ^CopyOnWriteArrayList dsts' dwn)
              (do
-               (.add ^CopyOnWriteArrayList dsts d)
+               (.add ^CopyOnWriteArrayList dsts dwn)
                (if (s/synchronous? src)
                  (sync-connect src dsts)
                  (async-connect src dsts))))))))))
