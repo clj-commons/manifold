@@ -10,6 +10,7 @@
 
 (definterface+ IEventStream
   (description [])
+  ; Is the underlying class synchronous by default? NB: async usage is still possible, but requires wrapping
   (isSynchronous [])
   (downstream [])
   (weakHandle [reference-queue])

@@ -289,22 +289,21 @@
        (doto acc
          (.add
            (or
-
-             ;; see if there are any unclaimed consumers left
+             ;; send to all unclaimed consumers, if any
              (loop [^Consumer c (.poll consumers)]
                (when c
                  (if-let [token (d/claim! (.deferred c))]
                    (Production. (.deferred c) msg token)
                    (recur (.poll consumers)))))
 
-             ;; see if we can enqueue into the buffer
+             ;; otherwise, see if we can enqueue into the buffer
              (and
                messages
                (when (< (.size messages) capacity)
                  (.offer messages (de-nil msg)))
                t-d)
 
-             ;; add to the producers queue
+             ;; otherwise, add to the producers queue
              (do
                (when (> (.getAndIncrement dirty-puts) max-dirty-puts)
                  (cleanup-expired-deferreds producers)
