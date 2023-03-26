@@ -79,95 +79,95 @@
 ;; implementations such as CompletionStage
 (def-abstract-type ADeferred
   CompletionStage
-  (thenApply [this operator]
-    (then-apply this operator))
-  (thenApplyAsync [this operator]
-    (then-apply-async this operator))
-  (thenApplyAsync [this operator executor]
-    (then-apply-async this operator executor))
+  (thenApply [d f]
+    (then-apply d f))
+  (thenApplyAsync [d f]
+    (then-apply-async d f))
+  (thenApplyAsync [d f executor]
+    (then-apply-async d f executor))
 
-  (thenAccept [this operator]
-    (then-accept this operator))
-  (thenAcceptAsync [this operator]
-    (then-accept-async this operator))
-  (thenAcceptAsync [this operator executor]
-    (then-accept-async this operator executor))
+  (thenAccept [d f]
+    (then-accept d f))
+  (thenAcceptAsync [d f]
+    (then-accept-async d f))
+  (thenAcceptAsync [d f executor]
+    (then-accept-async d f executor))
 
-  (thenRun [this operator]
-    (then-run this operator))
-  (thenRunAsync [this operator]
-    (then-run-async this operator))
-  (thenRunAsync [this operator executor]
-    (then-run-async this operator executor))
+  (thenRun [d f]
+    (then-run d f))
+  (thenRunAsync [d f]
+    (then-run-async d f))
+  (thenRunAsync [d f executor]
+    (then-run-async d f executor))
 
-  (thenCombine [this other operator]
-    (then-combine this other operator))
-  (thenCombineAsync [this other operator]
-    (then-combine-async this other operator))
-  (thenCombineAsync [this other operator executor]
-    (then-combine-async this other operator executor))
+  (thenCombine [d other f]
+    (then-combine d other f))
+  (thenCombineAsync [d other f]
+    (then-combine-async d other f))
+  (thenCombineAsync [d other f executor]
+    (then-combine-async d other f executor))
 
-  (thenAcceptBoth [this other operator]
-    (then-accept-both this other operator))
-  (thenAcceptBothAsync [this other operator]
-    (then-accept-both-async this other operator))
-  (thenAcceptBothAsync [this other operator executor]
-    (then-accept-both-async this other operator executor))
+  (thenAcceptBoth [d other f]
+    (then-accept-both d other f))
+  (thenAcceptBothAsync [d other f]
+    (then-accept-both-async d other f))
+  (thenAcceptBothAsync [d other f executor]
+    (then-accept-both-async d other f executor))
 
-  (runAfterBoth [this other operator]
-    (run-after-both this other operator))
-  (runAfterBothAsync [this other operator]
-    (run-after-both-async this other operator))
-  (runAfterBothAsync [this other operator executor]
-    (run-after-both-async this other operator executor))
+  (runAfterBoth [d other f]
+    (run-after-both d other f))
+  (runAfterBothAsync [d other f]
+    (run-after-both-async d other f))
+  (runAfterBothAsync [d other f executor]
+    (run-after-both-async d other f executor))
 
-  (applyToEither [this other operator]
-    (apply-to-either this other operator))
-  (applyToEitherAsync [this other operator]
-    (apply-to-either-async this other operator))
-  (applyToEitherAsync [this other operator executor]
-    (apply-to-either-async this other operator executor))
+  (applyToEither [d other f]
+    (apply-to-either d other f))
+  (applyToEitherAsync [d other f]
+    (apply-to-either-async d other f))
+  (applyToEitherAsync [d other f executor]
+    (apply-to-either-async d other f executor))
 
-  (acceptEither [this other operator]
-    (accept-either this other operator))
-  (acceptEitherAsync [this other operator]
-    (accept-either-async this other operator))
-  (acceptEitherAsync [this other operator executor]
-    (accept-either-async this other operator executor))
+  (acceptEither [d other f]
+    (accept-either d other f))
+  (acceptEitherAsync [d other f]
+    (accept-either-async d other f))
+  (acceptEitherAsync [d other f executor]
+    (accept-either-async d other f executor))
 
-  (runAfterEither [this other operator]
-    (run-after-either this other operator))
-  (runAfterEitherAsync [this other operator]
-    (run-after-either-async this other operator))
-  (runAfterEitherAsync [this other operator executor]
-    (run-after-either-async this other operator executor))
+  (runAfterEither [d other f]
+    (run-after-either d other f))
+  (runAfterEitherAsync [d other f]
+    (run-after-either-async d other f))
+  (runAfterEitherAsync [d other f executor]
+    (run-after-either-async d other f executor))
 
-  (thenCompose [this operator]
-    (then-compose this operator))
-  (thenComposeAsync [this operator]
-    (then-compose-async this operator))
-  (thenComposeAsync [this operator executor]
-    (then-compose-async this operator executor))
+  (thenCompose [d f]
+    (then-compose d f))
+  (thenComposeAsync [d f]
+    (then-compose-async d f))
+  (thenComposeAsync [d f executor]
+    (then-compose-async d f executor))
 
-  (handle [this operator]
-    (then-handle this operator))
-  (handleAsync [this operator]
-    (then-handle-async this operator))
-  (handleAsync [this operator executor]
-    (then-handle-async this operator executor))
+  (handle [d f]
+    (then-handle d f))
+  (handleAsync [d f]
+    (then-handle-async d f))
+  (handleAsync [d f executor]
+    (then-handle-async d f executor))
 
-  (exceptionally [this operator]
-    (then-exceptionally this operator))
+  (exceptionally [d f]
+    (then-exceptionally d f))
 
-  (toCompletableFuture [this]
-    (to-completable-future this))
+  (toCompletableFuture [d]
+    (to-completable-future d))
 
-  (whenComplete [this operator]
-    (when-complete this operator))
-  (whenCompleteAsync [this operator]
-    (when-complete-async this operator))
-  (whenCompleteAsync [this operator executor]
-    (when-complete-async this operator executor)))
+  (whenComplete [d f]
+    (when-complete d f))
+  (whenCompleteAsync [d f]
+    (when-complete-async d f))
+  (whenCompleteAsync [d f executor]
+    (when-complete-async d f executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -1512,138 +1512,155 @@
 
 (prefer-method print-method IDeferred IDeref)
 
-(defn- flatten-deferred
-  "Converts a Deferred<Deferred<T>> into a Deferred<T>"
-  [value]
-  (chain value identity))
 
 (defn- async-for
-  "Retuns a CompletionStage async version of the given operator"
+  "Retuns a CompletionStage async version of the given java function"
   [original]
   (fn result
-    ([this operator]
-     (result this operator (or (ex/executor) (ex/execute-pool))))
-    ([this operator executor]
-     (flatten-deferred
-      (future-with executor (original this operator))))))
+    ([d f]
+     (result d f (or (ex/executor) (ex/execute-pool))))
+    ([d f executor]
+     (original (onto d executor) f))))
 
 (defn- async-for-dual
-  "Retuns a CompletionStage async version for the given two deferred operator"
+  "Retuns a CompletionStage async version for the given two 2-deferred
+    java function"
   [original]
   (fn result
-    ([this other operator]
-     (result this other operator (or (ex/executor) (ex/execute-pool))))
-    ([this other operator executor]
-     (flatten-deferred
-      (future-with executor (original this other operator))))))
+    ([d other f]
+     (result d other f (or (ex/executor) (ex/execute-pool))))
+    ([d other f executor]
+     (original (onto d executor) other f))))
 
 (defmacro ^:no-doc assert-some
-  "Throws NullPointerException if any of the aruments is null."
+  "Throws NullPointerException if any of the arguments is null."
   [& values]
   `(do ~@(for [value values]
-         `(when (nil? ~value)
-            (throw (NullPointerException. ~(str value " was null"))))
-         )))
+           `(let [value# ~value]
+              (when (nil? value#)
+                (throw (NullPointerException. ~(str value " was null"))))))))
 
-;; we do success-deferred on the result so that
-;; if the original operator returns a deferred, chain
-;; won't automatically flatten it out.
-(defn- then-apply [this ^Function operator]
-  (assert-some operator)
-  (chain this #(success-deferred
-                (.apply operator %))))
+(defn- map-deferred
+  "Like map/fmap but for deferreds.
+
+   This function does not unwrap the result of f"
+  [d f]
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val] (success! d' (f val)))
+                 (fn [error] (error! d' error)))
+    d'))
+
+(defn- mapcat-deferred
+  "Like map-deferred but it unwraps exactly one level from the result of f"
+  [d f]
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val]
+                   (on-realized (->deferred (f val))
+                                #(success! d' %)
+                                #(error! d' %)))
+                 (fn [error] (error! d' error)))
+    d'))
+
+(defn- then-apply [d ^Function f]
+  (assert-some f)
+  (map-deferred d #(.apply f %)))
 
 (def ^:private then-apply-async (async-for then-apply))
 
-
-(defn- then-accept [this ^Consumer operator]
-  (assert-some operator)
-  (chain this #(.accept operator %)))
+(defn- then-accept [d ^Consumer c]
+  (assert-some c)
+  (map-deferred d #(.accept c %)))
 
 (def ^:private then-accept-async (async-for then-accept))
 
-
-(defn- then-run [this ^Runnable operator]
-  (assert-some operator)
-  (chain this (fn [_] (.run operator))))
+(defn- then-run [d ^Runnable f]
+  (assert-some f)
+  (map-deferred d (fn [_] (.run f))))
 
 (def ^:private then-run-async (async-for then-run))
 
 
-(defn- then-combine [this other ^BiFunction operator]
-  (assert-some other operator)
-  (let-flow [mine this
-             theirs other]
-    (success-deferred (.apply operator mine theirs))))
+(defn- then-combine [d other ^BiFunction f]
+  (assert-some other f)
+  (map-deferred (zip d other)
+                (fn [[x y]] (.apply f x y))))
 
 (def ^:private then-combine-async (async-for-dual then-combine))
 
 
-(defn- then-accept-both [this other ^BiConsumer operator]
-  (assert-some other operator)
-  (let-flow [mine this
-             theirs other]
-    (.accept operator mine theirs)))
+(defn- then-accept-both [d other ^BiConsumer f]
+  (assert-some other f)
+  (map-deferred (zip d other)
+                (fn [[x y]] (.accept f x y))))
 
 (def ^:private then-accept-both-async (async-for-dual then-accept-both))
 
 
-(defn- run-after-both [this other ^Runnable operator]
-  (assert-some other operator)
-  (let-flow [_ this
-             _ other]
-    (.run operator)))
+(defn- run-after-both [d other ^Runnable f]
+  (assert-some other f)
+  (map-deferred (zip d other)
+                (fn [[_ _]] (.run f))))
 
 
 (def ^:private run-after-both-async (async-for-dual run-after-both))
 
 
-(defn- apply-to-either [this other ^java.util.function.Function operator]
-  (assert-some other operator)
-  (then-apply (alt this other) operator))
+(defn- apply-to-either [d other ^java.util.function.Function f]
+  (assert-some other f)
+  (then-apply (alt d other) f))
 
 (def ^:private apply-to-either-async (async-for-dual apply-to-either))
 
 
-(defn- accept-either [this other ^java.util.function.Function operator]
-  (assert-some other operator)
-  (then-accept (alt this other) operator))
+(defn- accept-either [d other ^java.util.function.Function f]
+  (assert-some other f)
+  (then-accept (alt d other) f))
 
 (def ^:private accept-either-async (async-for-dual accept-either))
 
 
-(defn- run-after-either [this other ^java.util.function.Function operator]
-  (assert-some other operator)
-  (then-run (alt this other) operator))
+(defn- run-after-either [d other ^java.util.function.Function f]
+  (assert-some other f)
+  (then-run (alt d other) f))
 
 (def ^:private run-after-either-async (async-for-dual run-after-either))
 
 
-(defn- then-compose [this ^java.util.function.Function operator]
-  (assert-some operator)
-  (chain this (fn [value] (.apply operator value))))
+(defn- then-compose [d ^java.util.function.Function f]
+  (assert-some f)
+  (mapcat-deferred d (fn [value] (.apply f value))))
 
 (def ^:private then-compose-async (async-for then-compose))
 
 
-(defn- then-handle [this ^java.util.function.BiFunction operator]
-  (assert-some operator)
-  (-> this
-      (chain #(.apply operator % nil))
-      (catch #(.apply operator nil %))))
+(defn- then-handle [d ^java.util.function.BiFunction f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized
+     d
+     (fn [val] (success! d' (.apply f val nil)))
+     (fn [error] (success! d' (.apply f nil error))))
+    d'))
 
 (def ^:private then-handle-async (async-for then-handle))
 
 
-(defn- then-exceptionally [this ^java.util.function.Function operator]
-  (assert-some operator)
-  (catch this #(.apply operator %)))
+(defn- then-exceptionally [d ^java.util.function.Function f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized
+      d
+      (fn [val] (success! d' val))
+      (fn [error] (success! d' (.apply f error))))
+    d'))
 
-(defn- to-completable-future [this]
+(defn- to-completable-future [d]
 
   (let [result (java.util.concurrent.CompletableFuture.)]
 
-    (on-realized this
+    (on-realized d
                  #(.complete result %)
                  #(.completeExceptionally result %))
 

@@ -384,8 +384,7 @@
           d2 (.thenCompose
               d1
               (fn->Function
-               (fn [x] (CompletableFuture/completedFuture (inc x)))
-               ))]
+               (fn [x] (CompletableFuture/completedFuture (inc x)))))]
       (is (= @d2 11)))))
 
 (deftest test-handle
@@ -403,8 +402,7 @@
                           (fn [x error]
                             (is (nil? x))
                             (is (#{ex (.getCause ex)} error))
-                            2
-                            )))]
+                            2)))]
 
       (is (thrown? RuntimeException @d1))
       (is (= 2 @d2))))
@@ -423,8 +421,7 @@
                           (fn [x ^Throwable error]
                             (is (nil? x))
                             (is (#{error (.getCause error)} ex))
-                            2
-                            )))]
+                            2)))]
 
       (is (thrown? RuntimeException @d1))
       (is (= 2 @d2)))))
@@ -554,3 +551,64 @@
     (testing "when complete error"
       (dorun (for [method when-complete-methods]
                (test-when-complete-error method executor))))))
+
+(deftest test-unwrapping
+  (testing ".thenApply unwrapping"
+    (let [d1 ^CompletionStage (d/success-deferred 10)
+          d2 (.thenApply
+              d1
+              (fn->Function
+               (fn [x]
+                 (d/success-deferred x))))]
+      (is (d/deferred? @d2))))
+
+  (testing ".thenCombine unwrapping"
+    (let [d1 ^CompletionStage (d/success-deferred 10)
+          d2 (d/success-deferred 20)
+          d3 (.thenCombine
+              d1
+              d2
+              (fn->BiFunction
+               (fn [x y]
+                 (d/success-deferred (+ x y)))))]
+      (is (d/deferred? @d3))))
+
+  (testing "applyToEither unwrapping"
+    (let [d1 ^CompletionStage (d/success-deferred 10)
+          d2 (d/success-deferred 20)
+          d3 (.applyToEither
+              d1
+              d2
+              (fn->Function
+               (fn [x]
+                 (d/success-deferred x))))]
+      (is (d/deferred? @d3))))
+
+  (testing ".thenCompose unwrapping"
+    (let [d1 ^CompletionStage (d/success-deferred 10)
+          d2 (.thenCompose
+              d1
+              (fn->Function
+               (fn [x]
+                 (d/success-deferred (d/success-deferred x)))))]
+      (is (d/deferred? @d2))))
+
+  (testing ".handle unwrapping"
+    (let [d1 ^CompletionStage (d/success-deferred 10)
+          d2 (.handle
+              d1
+              (fn->BiFunction
+               (fn [x _]
+                 (d/success-deferred (d/success-deferred x)))))]
+
+      (is (d/deferred? @d2))))
+
+  (testing ".exceptionally unwrapping"
+    (let [d1 ^CompletionStage (d/error-deferred 10)
+          d2 (.exceptionally
+              d1
+              (fn->Function
+               (fn [x]
+                 (d/success-deferred (d/success-deferred x)))))]
+
+      (is (d/deferred? @d2)))))
