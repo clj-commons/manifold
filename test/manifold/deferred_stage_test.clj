@@ -524,7 +524,25 @@
 
     (is (thrown? RuntimeException @d1))
     (is (thrown? RuntimeException @d2))
-    (is (= true @was-called))))
+    (is (= true @was-called)))
+
+  (let [d1 (d/success-deferred 1)
+        d2 (method
+            d1
+            (fn->BiConsumer (fn [_ _] (throw (RuntimeException.))))
+            executor)]
+
+    (is (thrown? RuntimeException @d2)))
+
+(let [error (RuntimeException. "d1 error")
+      d1 (d/error-deferred error)
+        d2 (method
+            d1
+            (fn->BiConsumer (fn [_ _]
+                              (throw (RuntimeException. "d2 error"))))
+            executor)]
+
+    (is (thrown-with-msg? RuntimeException #"d1 error" @d2))))
 
 (deftest test-when-complete
 

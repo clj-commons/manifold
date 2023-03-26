@@ -1649,12 +1649,21 @@
 
     result))
 
-(defn- when-complete [this ^java.util.function.BiConsumer operator]
-  (assert-some operator)
-  (on-realized this
-               #(.accept operator % nil)
-               #(.accept operator nil %))
-  this)
+(defn- when-complete [d ^BiConsumer f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val]
+                   (try (.accept f val nil)
+                        (success! d' val)
+                        (catch Throwable err
+                          (error! d' err))))
+                 (fn [err]
+                   (try (.accept f nil err)
+                        (error! d' err)
+                        (catch Throwable _
+                          (error! d' err)))))
+    d'))
 
 (def ^:private when-complete-async (async-for when-complete))
 
