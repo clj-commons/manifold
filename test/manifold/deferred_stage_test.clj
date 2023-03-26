@@ -1,32 +1,18 @@
 (ns manifold.deferred-stage-test
   (:require [manifold.deferred :as d]
+            [manifold.utils :refer
+             [fn->Function fn->Consumer fn->BiFunction fn->BiConsumer]]
             [clojure.test :refer [deftest is testing]])
   (:import [java.util.concurrent
             CompletionStage
             CompletableFuture
             Executors]))
 
-(defn fn->Function [function]
-  (reify java.util.function.Function
-    (apply [_ x] (function x))))
-
-(defn fn->Consumer [function]
-  (reify java.util.function.Consumer
-    (accept [_ x] (function x))))
-
-(defn fn->Runnable [function]
+(defn fn1->Runnable [function]
   (reify java.lang.Runnable
     (run [_] (function nil))))
 
-(defn fn->BiFunction [function]
-  (reify java.util.function.BiFunction
-    (apply [_ x y] (function x y))))
-
-(defn fn->BiConsumer [function]
-  (reify java.util.function.BiConsumer
-    (accept [_ x y] (function x y))))
-
-(defn fn->Runnable' [function]
+(defn fn2->Runnable [function]
   (reify java.lang.Runnable
     (run [_] (function nil nil))))
 
@@ -71,7 +57,7 @@
               :with-executor
               (fn [^CompletionStage this operator executor]
                 (.thenRunAsync this operator executor))}
-    :interface fn->Runnable
+    :interface fn1->Runnable
     :inner-assertion #(is (= % nil))
     :post-assertion #(is (= % nil))}])
 
@@ -162,7 +148,7 @@
               :with-executor
               (fn [^CompletionStage this other operator executor]
                 (.runAfterBothAsync this other operator executor))}
-    :interface fn->Runnable'
+    :interface fn2->Runnable
     :inner-assertion (fn [_ _])
     :post-assertion (fn [_])}])
 
@@ -262,7 +248,7 @@
               :with-executor
               (fn [^CompletionStage this other operator executor]
                 (.runAfterEitherAsync this other operator executor))}
-    :interface fn->Runnable
+    :interface fn1->Runnable
     :inner-assertion (fn [_])
     :post-assertion (fn [_])}])
 

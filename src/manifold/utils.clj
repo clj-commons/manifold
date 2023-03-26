@@ -133,3 +133,22 @@
 (defmacro definterface+ [name & body]
   (when-not (resolve name)
     `(definterface ~name ~@body)))
+
+;;;
+
+(defn fn->Function [function]
+  (reify java.util.function.Function
+    (apply [_ x] (function x))))
+
+(defn fn->Consumer [function]
+  (reify java.util.function.Consumer
+    (accept [_ x] (function x))))
+
+
+(defn fn->BiFunction [function]
+  (reify java.util.function.BiFunction
+    (apply [_ x y] (function x y))))
+
+(defn fn->BiConsumer [function]
+  (reify java.util.function.BiConsumer
+    (accept [_ x y] (function x y))))
