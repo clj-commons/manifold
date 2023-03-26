@@ -1610,35 +1610,35 @@
 (def-async-for-dual run-after-both)
 
 
-(defn- apply-to-either [d other ^java.util.function.Function f]
+(defn- apply-to-either [d other ^Function f]
   (assert-some other f)
   (then-apply (alt d other) f))
 
 (def-async-for-dual apply-to-either)
 
 
-(defn- accept-either [d other ^java.util.function.Function f]
+(defn- accept-either [d other ^Function f]
   (assert-some other f)
   (then-accept (alt d other) f))
 
 (def-async-for-dual accept-either)
 
 
-(defn- run-after-either [d other ^java.util.function.Function f]
+(defn- run-after-either [d other ^Function f]
   (assert-some other f)
   (then-run (alt d other) f))
 
 (def-async-for-dual run-after-either)
 
 
-(defn- then-compose [d ^java.util.function.Function f]
+(defn- then-compose [d ^Function f]
   (assert-some f)
   (mapcat-deferred d (fn [value] (.apply f value))))
 
 (def-async-for then-compose)
 
 
-(defn- then-handle [d ^java.util.function.BiFunction f]
+(defn- then-handle [d ^BiFunction f]
   (assert-some f)
   (let [d' (deferred)]
     (on-realized
@@ -1651,7 +1651,7 @@
 (def-async-for then-handle)
 
 
-(defn- then-exceptionally [d ^java.util.function.Function f]
+(defn- then-exceptionally [d ^Function f]
   (assert-some f)
   (let [d' (deferred)]
     (on-realized
