@@ -130,15 +130,6 @@
 
 ;;;
 
-(defmacro defprotocol+ [name & body]
-  `(potemkin.types/defprotocol+ ~name ~@body))
-
-(defmacro deftype+ [name & body]
-  `(potemkin.types/deftype+ ~name ~@body))
-
-(defmacro defrecord+ [name & body]
-  `(potemkin.types/defrecord+ ~name ~@body))
-
 (defmacro definterface+ [name & body]
   (when-not (resolve name)
     `(definterface ~name ~@body)))

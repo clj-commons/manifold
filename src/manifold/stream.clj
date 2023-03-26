@@ -6,7 +6,8 @@
   (:require
     [clojure.core :as clj]
     [manifold.deferred :as d]
-    [manifold.utils :as utils :refer [deftype+]]
+    [potemkin.types :refer [deftype+]]
+    [manifold.utils :as utils]
     [manifold.time :as time]
     [manifold.stream
      [core :as core]

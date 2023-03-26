@@ -2,7 +2,8 @@
   {:no-doc true}
   (:require
     [manifold.deferred :as d]
-    [manifold.utils :as utils :refer [deftype+]]
+    [manifold.utils :as utils]
+    [potemkin.types :refer [deftype+]]
     [manifold.stream.core :as s]
     [manifold.executor :as ex]
     [clojure.tools.logging :as log])

@@ -1,6 +1,7 @@
 (ns manifold.stream.core
   {:no-doc true}
-  (:require [manifold.utils :refer [defprotocol+ definterface+ deftype+]]))
+  (:require [manifold.utils :refer [definterface+]]
+            [potemkin.types :refer [deftype+ defprotocol+]]))
 
 (defprotocol+ Sinkable
   (to-sink [_] "Provides a conversion mechanism to Manifold sinks."))

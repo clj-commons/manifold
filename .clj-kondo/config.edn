@@ -1,7 +1,4 @@
-{:lint-as {manifold.utils/definterface+ clojure.core/definterface
-           manifold.utils/deftype+ clojure.core/deftype
-           manifold.utils/defrecord+ clojure.core/defrecord
-           manifold.utils/defprotocol+ clojure.core/defprotocol}
+{:lint-as {manifold.utils/definterface+ clojure.core/definterface}
 
  :hooks {:analyze-call
          {manifold.stream.core/def-source manifold.hooks/def-sink-or-source

@@ -5,7 +5,8 @@
     [clojure.tools.logging :as log]
     [manifold.executor :as ex]
     [clojure.string :as str]
-    [manifold.utils :refer [definterface+ defprotocol+]])
+    [manifold.utils :refer [definterface+]]
+    [potemkin.types :refer [defprotocol+]])
   (:import
     [java.util
      Calendar

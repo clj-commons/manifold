@@ -8,11 +8,11 @@
     [riddley.compiler :as compiler]
     [manifold
      [executor :as ex]
-     [utils :as utils :refer [defprotocol+ deftype+ definterface+]]
+     [utils :as utils :refer [definterface+]]
      [time :as time]
      [debug :as debug]]
     [clojure.set :as set]
-    [potemkin.types :refer [def-abstract-type reify+]])
+    [potemkin.types :refer [def-abstract-type reify+ defprotocol+ deftype+]])
   (:import
     [java.util
      LinkedList]
@@ -1388,9 +1388,9 @@
 (extend-protocol Deferrable
 
   CompletionStage
-  (to-deferred [f]
+  (to-deferred [cs]
     (let [d (deferred)]
-      (.handle ^CompletionStage f
+      (.handle ^CompletionStage cs
                (reify BiFunction
                  (apply [_ val err]
                    (if (nil? err)

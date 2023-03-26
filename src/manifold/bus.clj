@@ -5,7 +5,8 @@
     [manifold
      [stream :as s]
      [deferred :as d]
-     [utils :refer [deftype+ definterface+]]])
+     [utils :refer [definterface+]]]
+    [potemkin.types :refer [deftype+]])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]
