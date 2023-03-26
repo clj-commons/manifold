@@ -136,19 +136,19 @@
 
 ;;;
 
-(defn fn->Function [function]
+(defn fn->Function [f]
   (reify java.util.function.Function
-    (apply [_ x] (function x))))
+    (apply [_ x] (f x))))
 
-(defn fn->Consumer [function]
+(defn fn->Consumer [f]
   (reify java.util.function.Consumer
-    (accept [_ x] (function x))))
+    (accept [_ x] (f x))))
 
 
-(defn fn->BiFunction [function]
+(defn fn->BiFunction [f]
   (reify java.util.function.BiFunction
-    (apply [_ x y] (function x y))))
+    (apply [_ x y] (f x y))))
 
-(defn fn->BiConsumer [function]
+(defn fn->BiConsumer [f]
   (reify java.util.function.BiConsumer
-    (accept [_ x y] (function x y))))
+    (accept [_ x y] (f x y))))

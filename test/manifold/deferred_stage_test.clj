@@ -8,13 +8,13 @@
             CompletableFuture
             Executors]))
 
-(defn fn1->Runnable [function]
+(defn fn1->Runnable [f]
   (reify java.lang.Runnable
-    (run [_] (function nil))))
+    (run [_] (f nil))))
 
-(defn fn2->Runnable [function]
+(defn fn2->Runnable [f]
   (reify java.lang.Runnable
-    (run [_] (function nil nil))))
+    (run [_] (f nil nil))))
 
 ;; On these tests:
 ;; CompletionStage has many methods that mimic the chain, zip and alt
