@@ -1513,24 +1513,27 @@
 (prefer-method print-method IDeferred IDeref)
 
 
-(defn- async-for
-  "Retuns a CompletionStage async version of the given java function"
-  [original]
-  (fn result
-    ([d f]
-     (result d f (or (ex/executor) (ex/execute-pool))))
-    ([d f executor]
-     (original (onto d executor) f))))
+(defmacro ^:no-doc def-async-for
+  "Defines a CompletionStage async version of the function associated with
+   the given symbol."
+  [fn-name]
+  (let [async-name (symbol (str (name fn-name) "-async"))]
+    `(defn ~async-name
+       ([d# f#]
+        (~async-name d# f# (or (ex/executor) (ex/execute-pool))))
+       ([d# f# executor#]
+        (~fn-name (onto d# executor#) f#)))))
 
-(defn- async-for-dual
-  "Retuns a CompletionStage async version for the given two 2-deferred
-    java function"
-  [original]
-  (fn result
-    ([d other f]
-     (result d other f (or (ex/executor) (ex/execute-pool))))
-    ([d other f executor]
-     (original (onto d executor) other f))))
+(defmacro ^:no-doc def-async-for-dual
+  "Defines a CompletionStage async version of the two-deferred
+   function associated with the given symbol."
+  [fn-name]
+  (let [async-name (symbol (str (name fn-name) "-async"))]
+    `(defn ~async-name
+       ([d# d2# f#]
+        (~async-name d# d2# f# (or (ex/executor) (ex/execute-pool))))
+       ([d# d2# f# executor#]
+        (~fn-name (onto d# executor#) d2# f#)))))
 
 (defmacro ^:no-doc assert-some
   "Throws NullPointerException if any of the arguments is null."
@@ -1567,19 +1570,19 @@
   (assert-some f)
   (map-deferred d #(.apply f %)))
 
-(def ^:private then-apply-async (async-for then-apply))
+(def-async-for then-apply)
 
 (defn- then-accept [d ^Consumer c]
   (assert-some c)
   (map-deferred d #(.accept c %)))
 
-(def ^:private then-accept-async (async-for then-accept))
+(def-async-for then-accept)
 
 (defn- then-run [d ^Runnable f]
   (assert-some f)
   (map-deferred d (fn [_] (.run f))))
 
-(def ^:private then-run-async (async-for then-run))
+(def-async-for then-run)
 
 
 (defn- then-combine [d other ^BiFunction f]
@@ -1587,7 +1590,7 @@
   (map-deferred (zip d other)
                 (fn [[x y]] (.apply f x y))))
 
-(def ^:private then-combine-async (async-for-dual then-combine))
+(def-async-for-dual then-combine)
 
 
 (defn- then-accept-both [d other ^BiConsumer f]
@@ -1595,7 +1598,7 @@
   (map-deferred (zip d other)
                 (fn [[x y]] (.accept f x y))))
 
-(def ^:private then-accept-both-async (async-for-dual then-accept-both))
+(def-async-for-dual then-accept-both)
 
 
 (defn- run-after-both [d other ^Runnable f]
@@ -1604,35 +1607,35 @@
                 (fn [[_ _]] (.run f))))
 
 
-(def ^:private run-after-both-async (async-for-dual run-after-both))
+(def-async-for-dual run-after-both)
 
 
 (defn- apply-to-either [d other ^java.util.function.Function f]
   (assert-some other f)
   (then-apply (alt d other) f))
 
-(def ^:private apply-to-either-async (async-for-dual apply-to-either))
+(def-async-for-dual apply-to-either)
 
 
 (defn- accept-either [d other ^java.util.function.Function f]
   (assert-some other f)
   (then-accept (alt d other) f))
 
-(def ^:private accept-either-async (async-for-dual accept-either))
+(def-async-for-dual accept-either)
 
 
 (defn- run-after-either [d other ^java.util.function.Function f]
   (assert-some other f)
   (then-run (alt d other) f))
 
-(def ^:private run-after-either-async (async-for-dual run-after-either))
+(def-async-for-dual run-after-either)
 
 
 (defn- then-compose [d ^java.util.function.Function f]
   (assert-some f)
   (mapcat-deferred d (fn [value] (.apply f value))))
 
-(def ^:private then-compose-async (async-for then-compose))
+(def-async-for then-compose)
 
 
 (defn- then-handle [d ^java.util.function.BiFunction f]
@@ -1644,7 +1647,8 @@
      (fn [error] (success! d' (.apply f nil error))))
     d'))
 
-(def ^:private then-handle-async (async-for then-handle))
+
+(def-async-for then-handle)
 
 
 (defn- then-exceptionally [d ^java.util.function.Function f]
@@ -1682,7 +1686,7 @@
                           (error! d' err)))))
     d'))
 
-(def ^:private when-complete-async (async-for when-complete))
+(def-async-for when-complete)
 
 ;;;
 
