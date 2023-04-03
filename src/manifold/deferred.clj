@@ -24,7 +24,8 @@
      TimeUnit
      CountDownLatch
      Executor
-     CompletionStage]
+     CompletionStage
+     CompletableFuture]
     [java.util.function
      Function
      BiFunction
@@ -1658,7 +1659,7 @@
 
 (defn- to-completable-future [d]
 
-  (let [result (java.util.concurrent.CompletableFuture.)]
+  (let [result (CompletableFuture.)]
 
     (on-realized d
                  #(.complete result %)
