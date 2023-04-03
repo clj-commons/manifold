@@ -1543,7 +1543,7 @@
               (when (nil? value#)
                 (throw (NullPointerException. ~(str value " was null"))))))))
 
-(defn- map-deferred
+(defn- fmap-deferred
   "Like map/fmap but for deferreds.
 
    This function does not unwrap the result of f"
@@ -1554,40 +1554,29 @@
                  (fn [error] (error! d' error)))
     d'))
 
-(defn- mapcat-deferred
-  "Like map-deferred but it unwraps exactly one level from the result of f"
-  [d f]
-  (let [d' (deferred)]
-    (on-realized d
-                 (fn [val]
-                   (on-realized (->deferred (f val))
-                                #(success! d' %)
-                                #(error! d' %)))
-                 (fn [error] (error! d' error)))
-    d'))
 
 (defn- then-apply [d ^Function f]
   (assert-some f)
-  (map-deferred d #(.apply f %)))
+  (fmap-deferred d #(.apply f %)))
 
 (def-async-for then-apply)
 
 (defn- then-accept [d ^Consumer c]
   (assert-some c)
-  (map-deferred d #(.accept c %)))
+  (fmap-deferred d #(.accept c %)))
 
 (def-async-for then-accept)
 
 (defn- then-run [d ^Runnable f]
   (assert-some f)
-  (map-deferred d (fn [_] (.run f))))
+  (fmap-deferred d (fn [_] (.run f))))
 
 (def-async-for then-run)
 
 
 (defn- then-combine [d other ^BiFunction f]
   (assert-some other f)
-  (map-deferred (zip d other)
+  (fmap-deferred (zip d other)
                 (fn [[x y]] (.apply f x y))))
 
 (def-async-for-dual then-combine)
@@ -1595,7 +1584,7 @@
 
 (defn- then-accept-both [d other ^BiConsumer f]
   (assert-some other f)
-  (map-deferred (zip d other)
+  (fmap-deferred (zip d other)
                 (fn [[x y]] (.accept f x y))))
 
 (def-async-for-dual then-accept-both)
@@ -1603,7 +1592,7 @@
 
 (defn- run-after-both [d other ^Runnable f]
   (assert-some other f)
-  (map-deferred (zip d other)
+  (fmap-deferred (zip d other)
                 (fn [[_ _]] (.run f))))
 
 
@@ -1633,7 +1622,14 @@
 
 (defn- then-compose [d ^Function f]
   (assert-some f)
-  (mapcat-deferred d (fn [value] (.apply f value))))
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val]
+                   (on-realized (->deferred (.apply f val))
+                                #(success! d' %)
+                                #(error! d' %)))
+                 (fn [error] (error! d' error)))
+    d'))
 
 (def-async-for then-compose)
 
