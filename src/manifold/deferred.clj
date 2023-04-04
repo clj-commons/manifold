@@ -1519,7 +1519,7 @@
    the given symbol."
   [fn-name]
   (let [async-name (symbol (str (name fn-name) "-async"))]
-    `(defn ~async-name
+    `(defn- ~async-name
        ([d# f#]
         (~async-name d# f# (or (ex/executor) (ex/execute-pool))))
        ([d# f# executor#]
@@ -1530,7 +1530,7 @@
    function associated with the given symbol."
   [fn-name]
   (let [async-name (symbol (str (name fn-name) "-async"))]
-    `(defn ~async-name
+    `(defn- ~async-name
        ([d# d2# f#]
         (~async-name d# d2# f# (or (ex/executor) (ex/execute-pool))))
        ([d# d2# f# executor#]
