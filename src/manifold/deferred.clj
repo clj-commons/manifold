@@ -3,43 +3,42 @@
    :doc    "Methods for creating, transforming, and interacting with asynchronous values."}
   (:refer-clojure :exclude [realized? loop future])
   (:require
-    [clojure.tools.logging :as log]
-    [riddley.walk :as walk]
-    [riddley.compiler :as compiler]
-    [manifold
-     [executor :as ex]
-     [utils :as utils :refer [assert-some definterface+]]
-     [time :as time]
-     [debug :as debug]]
     [clojure.set :as set]
-    [potemkin.types :refer [def-abstract-type reify+ defprotocol+ deftype+]])
+    [clojure.tools.logging :as log]
+    [manifold.debug :as debug]
+    [manifold.executor :as ex]
+    [manifold.time :as time]
+    [manifold.utils :as utils :refer [assert-some definterface+]]
+    [potemkin.types :refer [def-abstract-type reify+ defprotocol+ deftype+]]
+    [riddley.compiler :as compiler]
+    [riddley.walk :as walk])
   (:import
-    [java.util
-     LinkedList]
-    [java.io
-     Writer]
-    [java.util.concurrent
-     Future
-     TimeoutException
-     TimeUnit
-     CountDownLatch
-     Executor
-     CompletionStage
-     CompletableFuture]
-    [java.util.function
-     Function
-     BiFunction
-     Consumer
-     BiConsumer]
-    [java.util.concurrent.locks
-     Lock]
-    [java.util.concurrent.atomic
-     AtomicInteger
-     AtomicLong]
-    [clojure.lang
-     IPending
-     IBlockingDeref
-     IDeref]))
+    (clojure.lang
+      IPending
+      IBlockingDeref
+      IDeref)
+    (java.io
+      Writer)
+    (java.util
+      LinkedList)
+    (java.util.concurrent
+      Future
+      TimeoutException
+      TimeUnit
+      CountDownLatch
+      Executor
+      CompletionStage
+      CompletableFuture)
+    (java.util.concurrent.atomic
+      AtomicInteger
+      AtomicLong)
+    (java.util.concurrent.locks
+      Lock)
+    (java.util.function
+      Function
+      BiFunction
+      Consumer
+      BiConsumer)))
 
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
