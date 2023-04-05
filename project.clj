@@ -8,7 +8,7 @@
                  [org.clojure/tools.logging "1.2.4" :exclusions [org.clojure/clojure]]
                  [org.clj-commons/dirigiste "1.0.3"]
                  [riddley "0.2.0"]
-                 [org.clojure/core.async "1.5.648" :scope "provided"]
+                 [org.clojure/core.async "1.6.673" :scope "provided"]
                  [potemkin "0.4.6"]]
   :profiles {:dev {:dependencies [[criterium "0.4.6"]]}}
   :test-selectors {:default #(not

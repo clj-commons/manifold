@@ -6,12 +6,13 @@
              [executor :as ex]
              [deferred :as d]]
             [clojure.core.async.impl
+             [runtime :as async-runtime]
              [ioc-macros :as ioc]]
             [manifold.stream :as s])
   (:import (manifold.stream.core IEventSource)))
 
 (defn ^:no-doc return-deferred [state value]
-  (let [d (ioc/aget-object state ioc/USER-START-IDX)]
+  (let [d (async-runtime/aget-object state async-runtime/USER-START-IDX)]
     (d/success! d value)
     d))
 
@@ -38,14 +39,14 @@
        r#)))
 
 (defn ^:no-doc run-state-machine-wrapped [state]
-  (try (ioc/run-state-machine state)
+  (try (async-runtime/run-state-machine state)
        (catch Throwable ex
-         (d/error! (ioc/aget-object state ioc/USER-START-IDX) ex)
+         (d/error! (async-runtime/aget-object state async-runtime/USER-START-IDX) ex)
          (throw ex))))
 
 (defn ^:no-doc take! [state blk d]
   (let [handler          (fn [x]
-                           (ioc/aset-all! state ioc/VALUE-IDX x ioc/STATE-IDX blk)
+                           (async-runtime/aset-all! state async-runtime/VALUE-IDX x async-runtime/STATE-IDX blk)
                            (run-state-machine-wrapped state))
         ;; if `d` is a stream, use `take` to get a deferrable that we can wait on
         d                (if (instance? IEventSource d) (s/take! d) d)
@@ -53,13 +54,13 @@
     (if
       ;; if d is not deferrable immediately resume processing state machine
       (not d-is-deferrable?)
-      (do (ioc/aset-all! state ioc/VALUE-IDX d ioc/STATE-IDX blk)
+      (do (async-runtime/aset-all! state async-runtime/VALUE-IDX d async-runtime/STATE-IDX blk)
           :recur)
       (let [d (d/->deferred d)]
         (if
           ;; if already realized, deref value and immediately resume processing state machine
           (d/realized? d)
-          (do (ioc/aset-all! state ioc/VALUE-IDX @d ioc/STATE-IDX blk)
+          (do (async-runtime/aset-all! state async-runtime/VALUE-IDX @d async-runtime/STATE-IDX blk)
               :recur)
 
           ;; resume processing state machine once d has been realized
@@ -84,8 +85,8 @@
                    (let [~@(mapcat (fn [[l sym]] [sym `(^:once fn* [] ~(vary-meta l dissoc :tag))]) crossing-env)
                          f# ~(ioc/state-machine `(do ~@body) 1 [crossing-env &env] async-custom-terminators)
                          state# (-> (f#)
-                                    (ioc/aset-all! ioc/USER-START-IDX d#
-                                                   ioc/BINDINGS-IDX captured-bindings#))]
+                                    (async-runtime/aset-all! async-runtime/USER-START-IDX d#
+                                                             async-runtime/BINDINGS-IDX captured-bindings#))]
                      (run-state-machine-wrapped state#))))
        ;; chain is8 being used to apply unwrap chain
        (d/chain d#)))
