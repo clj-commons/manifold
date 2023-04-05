@@ -152,3 +152,12 @@
 (defn fn->BiConsumer [f]
   (reify java.util.function.BiConsumer
     (accept [_ x y] (f x y))))
+
+
+(defmacro ^:no-doc assert-some
+  "Throws NullPointerException if any of the arguments is null."
+  [& values]
+  `(do ~@(for [value values]
+           `(let [value# ~value]
+              (when (nil? value#)
+                (throw (NullPointerException. ~(str value " was null"))))))))

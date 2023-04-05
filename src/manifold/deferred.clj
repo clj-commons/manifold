@@ -8,7 +8,7 @@
     [riddley.compiler :as compiler]
     [manifold
      [executor :as ex]
-     [utils :as utils :refer [definterface+]]
+     [utils :as utils :refer [assert-some definterface+]]
      [time :as time]
      [debug :as debug]]
     [clojure.set :as set]
@@ -1535,14 +1535,6 @@
         (~async-name d# d2# f# (or (ex/executor) (ex/execute-pool))))
        ([d# d2# f# executor#]
         (~fn-name (onto d# executor#) d2# f#)))))
-
-(defmacro ^:no-doc assert-some
-  "Throws NullPointerException if any of the arguments is null."
-  [& values]
-  `(do ~@(for [value values]
-           `(let [value# ~value]
-              (when (nil? value#)
-                (throw (NullPointerException. ~(str value " was null"))))))))
 
 (defn- fmap-deferred
   "Like map/fmap but for deferreds.
