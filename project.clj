@@ -6,7 +6,7 @@
   :scm {:name "git" :url "https://github.com/clj-commons/manifold"}
   :dependencies [[org.clojure/clojure "1.11.1" :scope "provided"]
                  [org.clojure/tools.logging "1.2.4" :exclusions [org.clojure/clojure]]
-                 [org.clj-commons/dirigiste "1.0.1"]
+                 [org.clj-commons/dirigiste "1.0.3"]
                  [riddley "0.2.0"]
                  [org.clojure/core.async "1.5.648" :scope "provided"]
                  [potemkin "0.4.6"]]
