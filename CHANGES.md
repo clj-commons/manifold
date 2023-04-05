@@ -1,3 +1,15 @@
+### 0.4.0
+
+Contributions by Renan Ribeiro, Matthew Davidson, and Arnaud Geiser
+
+* Manifold deferreds now implement CompletionStage
+* Add clj-kondo support to many macros
+* Clarify how/when upstreams are automatically closed
+* Many docstring improvements
+* Fixed bug in `go-off` test
+
+Special thanks to newcomer Renan Ribeiro for his major contributions to this release!
+
 ### 0.3.0
 
 Contributions by Ryan Schmukler and Matthew Davidson

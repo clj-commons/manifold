@@ -77,7 +77,10 @@
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
-(def-abstract-type ADeferred
+^{:author "Renan Ribeiro"
+  :added "0.4.0"}
+(def-abstract-type
+  ADeferred
   CompletionStage
   (thenApply [d f]
     (then-apply d f))
