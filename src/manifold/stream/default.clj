@@ -4,12 +4,13 @@
     [clojure.tools.logging :as log]
     [manifold
      [deferred :as d]
-     [utils :as utils :refer [deftype+ defrecord+]]
+     [utils :as utils]
      [executor :as ex]]
     [manifold.stream
      [graph :as g]
      [core :as s]]
-    [manifold.time :as time])
+    [manifold.time :as time]
+    [potemkin.types :refer [deftype+ defrecord+]])
   (:import
     [java.util
      LinkedList

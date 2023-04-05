@@ -10,3 +10,5 @@ pom.xml.asc
 *DS_Store
 push
 /.clj-kondo/.cache
+/.clj-kondo/manifold/manifold
+/.clj-kondo/potemkin

@@ -4,7 +4,8 @@
     :exclude [future])
   (:require
     [clojure.tools.logging :as log]
-    [manifold.executor :as ex])
+    [manifold.executor :as ex]
+    [potemkin.types])
   (:import
     [java.util.concurrent
      Executors
@@ -129,18 +130,25 @@
 
 ;;;
 
-(defmacro defprotocol+ [name & body]
-  (when-not (resolve name)
-    `(defprotocol ~name ~@body)))
-
-(defmacro deftype+ [name & body]
-  (when-not (resolve name)
-    `(deftype ~name ~@body)))
-
-(defmacro defrecord+ [name & body]
-  (when-not (resolve name)
-    `(defrecord ~name ~@body)))
-
 (defmacro definterface+ [name & body]
   (when-not (resolve name)
     `(definterface ~name ~@body)))
+
+;;;
+
+(defn fn->Function [f]
+  (reify java.util.function.Function
+    (apply [_ x] (f x))))
+
+(defn fn->Consumer [f]
+  (reify java.util.function.Consumer
+    (accept [_ x] (f x))))
+
+
+(defn fn->BiFunction [f]
+  (reify java.util.function.BiFunction
+    (apply [_ x y] (f x y))))
+
+(defn fn->BiConsumer [f]
+  (reify java.util.function.BiConsumer
+    (accept [_ x y] (f x y))))

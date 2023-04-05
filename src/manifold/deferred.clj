@@ -8,10 +8,11 @@
     [riddley.compiler :as compiler]
     [manifold
      [executor :as ex]
-     [utils :as utils :refer [defprotocol+ deftype+ definterface+]]
+     [utils :as utils :refer [definterface+]]
      [time :as time]
      [debug :as debug]]
-    [clojure.set :as set])
+    [clojure.set :as set]
+    [potemkin.types :refer [def-abstract-type reify+ defprotocol+ deftype+]])
   (:import
     [java.util
      LinkedList]
@@ -23,7 +24,13 @@
      TimeUnit
      CountDownLatch
      Executor
+     CompletionStage
      CompletableFuture]
+    [java.util.function
+     Function
+     BiFunction
+     Consumer
+     BiConsumer]
     [java.util.concurrent.locks
      Lock]
     [java.util.concurrent.atomic
@@ -47,6 +54,121 @@
   (onRealized [on-success on-error])
   (successValue [default])
   (errorValue [default]))
+
+(declare then-apply then-apply-async
+         then-accept then-accept-async
+         then-run then-run-async
+
+         then-combine then-combine-async
+         then-accept-both then-accept-both-async
+         run-after-both run-after-both-async
+
+         apply-to-either apply-to-either-async
+         accept-either accept-either-async
+         run-after-either run-after-either-async
+
+         then-compose then-compose-async
+
+         then-handle then-handle-async
+         then-exceptionally
+
+         to-completable-future
+
+         when-complete when-complete-async)
+
+;; The potemkin abstract type for
+;; implementations such as CompletionStage
+(def-abstract-type ADeferred
+  CompletionStage
+  (thenApply [d f]
+    (then-apply d f))
+  (thenApplyAsync [d f]
+    (then-apply-async d f))
+  (thenApplyAsync [d f executor]
+    (then-apply-async d f executor))
+
+  (thenAccept [d f]
+    (then-accept d f))
+  (thenAcceptAsync [d f]
+    (then-accept-async d f))
+  (thenAcceptAsync [d f executor]
+    (then-accept-async d f executor))
+
+  (thenRun [d f]
+    (then-run d f))
+  (thenRunAsync [d f]
+    (then-run-async d f))
+  (thenRunAsync [d f executor]
+    (then-run-async d f executor))
+
+  (thenCombine [d other f]
+    (then-combine d other f))
+  (thenCombineAsync [d other f]
+    (then-combine-async d other f))
+  (thenCombineAsync [d other f executor]
+    (then-combine-async d other f executor))
+
+  (thenAcceptBoth [d other f]
+    (then-accept-both d other f))
+  (thenAcceptBothAsync [d other f]
+    (then-accept-both-async d other f))
+  (thenAcceptBothAsync [d other f executor]
+    (then-accept-both-async d other f executor))
+
+  (runAfterBoth [d other f]
+    (run-after-both d other f))
+  (runAfterBothAsync [d other f]
+    (run-after-both-async d other f))
+  (runAfterBothAsync [d other f executor]
+    (run-after-both-async d other f executor))
+
+  (applyToEither [d other f]
+    (apply-to-either d other f))
+  (applyToEitherAsync [d other f]
+    (apply-to-either-async d other f))
+  (applyToEitherAsync [d other f executor]
+    (apply-to-either-async d other f executor))
+
+  (acceptEither [d other f]
+    (accept-either d other f))
+  (acceptEitherAsync [d other f]
+    (accept-either-async d other f))
+  (acceptEitherAsync [d other f executor]
+    (accept-either-async d other f executor))
+
+  (runAfterEither [d other f]
+    (run-after-either d other f))
+  (runAfterEitherAsync [d other f]
+    (run-after-either-async d other f))
+  (runAfterEitherAsync [d other f executor]
+    (run-after-either-async d other f executor))
+
+  (thenCompose [d f]
+    (then-compose d f))
+  (thenComposeAsync [d f]
+    (then-compose-async d f))
+  (thenComposeAsync [d f executor]
+    (then-compose-async d f executor))
+
+  (handle [d f]
+    (then-handle d f))
+  (handleAsync [d f]
+    (then-handle-async d f))
+  (handleAsync [d f executor]
+    (then-handle-async d f executor))
+
+  (exceptionally [d f]
+    (then-exceptionally d f))
+
+  (toCompletableFuture [d]
+    (to-completable-future d))
+
+  (whenComplete [d f]
+    (when-complete d f))
+  (whenCompleteAsync [d f]
+    (when-complete-async d f))
+  (whenCompleteAsync [d f executor]
+    (when-complete-async d f executor)))
 
 (definline realized?
   "Returns true if the manifold deferred is realized."
@@ -136,7 +258,7 @@
 
      (instance? Future x)
      (let [^Future x x]
-       (reify
+       (reify+
          IDeref
          (deref [_]
            (.get x))
@@ -149,6 +271,7 @@
          IPending
          (isRealized [this]
            (realized? this))
+         ADeferred
          IDeferred
          (realized [_]
            (or (.isDone x) (.isCancelled x)))
@@ -172,7 +295,7 @@
 
      (and (instance? IPending x)
           (instance? clojure.lang.IDeref x))
-     (reify
+     (reify+
        IDeref
        (deref [_]
          (.deref ^IDeref x))
@@ -182,6 +305,7 @@
        IPending
        (isRealized [_]
          (.isRealized ^IPending x))
+       ADeferred
        IDeferred
        (realized [_]
          (.isRealized ^IPending x))
@@ -408,6 +532,7 @@
         this
         nil))
 
+    ADeferred
     IDeferred
     (executor [_]
       executor)
@@ -471,6 +596,7 @@
   clojure.lang.IFn
   (invoke [this x] nil)
 
+  ADeferred
   IDeferred
   (executor [_] executor)
   (realized [this] true)
@@ -527,6 +653,7 @@
   clojure.lang.IFn
   (invoke [this x] nil)
 
+  ADeferred
   IDeferred
   (executor [_] executor)
   (realized [_] true)
@@ -1261,11 +1388,11 @@
 
 (extend-protocol Deferrable
 
-  CompletableFuture
-  (to-deferred [f]
+  CompletionStage
+  (to-deferred [cs]
     (let [d (deferred)]
-      (.handle ^CompletableFuture f
-               (reify java.util.function.BiFunction
+      (.handle ^CompletionStage cs
+               (reify BiFunction
                  (apply [_ val err]
                    (if (nil? err)
                      (success! d val)
@@ -1385,6 +1512,178 @@
             " >>")))
 
 (prefer-method print-method IDeferred IDeref)
+
+
+(defmacro ^:no-doc def-async-for
+  "Defines a CompletionStage async version of the function associated with
+   the given symbol."
+  [fn-name]
+  (let [async-name (symbol (str (name fn-name) "-async"))]
+    `(defn- ~async-name
+       ([d# f#]
+        (~async-name d# f# (or (ex/executor) (ex/execute-pool))))
+       ([d# f# executor#]
+        (~fn-name (onto d# executor#) f#)))))
+
+(defmacro ^:no-doc def-async-for-dual
+  "Defines a CompletionStage async version of the two-deferred
+   function associated with the given symbol."
+  [fn-name]
+  (let [async-name (symbol (str (name fn-name) "-async"))]
+    `(defn- ~async-name
+       ([d# d2# f#]
+        (~async-name d# d2# f# (or (ex/executor) (ex/execute-pool))))
+       ([d# d2# f# executor#]
+        (~fn-name (onto d# executor#) d2# f#)))))
+
+(defmacro ^:no-doc assert-some
+  "Throws NullPointerException if any of the arguments is null."
+  [& values]
+  `(do ~@(for [value values]
+           `(let [value# ~value]
+              (when (nil? value#)
+                (throw (NullPointerException. ~(str value " was null"))))))))
+
+(defn- fmap-deferred
+  "Like map/fmap but for deferreds.
+
+   This function does not unwrap the result of f"
+  [d f]
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val] (success! d' (f val)))
+                 (fn [error] (error! d' error)))
+    d'))
+
+
+(defn- then-apply [d ^Function f]
+  (assert-some f)
+  (fmap-deferred d #(.apply f %)))
+
+(def-async-for then-apply)
+
+(defn- then-accept [d ^Consumer c]
+  (assert-some c)
+  (fmap-deferred d #(.accept c %)))
+
+(def-async-for then-accept)
+
+(defn- then-run [d ^Runnable f]
+  (assert-some f)
+  (fmap-deferred d (fn [_] (.run f))))
+
+(def-async-for then-run)
+
+
+(defn- then-combine [d other ^BiFunction f]
+  (assert-some other f)
+  (fmap-deferred (zip d other)
+                (fn [[x y]] (.apply f x y))))
+
+(def-async-for-dual then-combine)
+
+
+(defn- then-accept-both [d other ^BiConsumer f]
+  (assert-some other f)
+  (fmap-deferred (zip d other)
+                (fn [[x y]] (.accept f x y))))
+
+(def-async-for-dual then-accept-both)
+
+
+(defn- run-after-both [d other ^Runnable f]
+  (assert-some other f)
+  (fmap-deferred (zip d other)
+                (fn [[_ _]] (.run f))))
+
+
+(def-async-for-dual run-after-both)
+
+
+(defn- apply-to-either [d other ^Function f]
+  (assert-some other f)
+  (then-apply (alt d other) f))
+
+(def-async-for-dual apply-to-either)
+
+
+(defn- accept-either [d other ^Function f]
+  (assert-some other f)
+  (then-accept (alt d other) f))
+
+(def-async-for-dual accept-either)
+
+
+(defn- run-after-either [d other ^Function f]
+  (assert-some other f)
+  (then-run (alt d other) f))
+
+(def-async-for-dual run-after-either)
+
+
+(defn- then-compose [d ^Function f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val]
+                   (on-realized (->deferred (.apply f val))
+                                #(success! d' %)
+                                #(error! d' %)))
+                 (fn [error] (error! d' error)))
+    d'))
+
+(def-async-for then-compose)
+
+
+(defn- then-handle [d ^BiFunction f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized
+     d
+     (fn [val] (success! d' (.apply f val nil)))
+     (fn [error] (success! d' (.apply f nil error))))
+    d'))
+
+
+(def-async-for then-handle)
+
+
+(defn- then-exceptionally [d ^Function f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized
+      d
+      (fn [val] (success! d' val))
+      (fn [error] (success! d' (.apply f error))))
+    d'))
+
+(defn- to-completable-future [d]
+
+  (let [result (CompletableFuture.)]
+
+    (on-realized d
+                 #(.complete result %)
+                 #(.completeExceptionally result %))
+
+    result))
+
+(defn- when-complete [d ^BiConsumer f]
+  (assert-some f)
+  (let [d' (deferred)]
+    (on-realized d
+                 (fn [val]
+                   (try (.accept f val nil)
+                        (success! d' val)
+                        (catch Throwable err
+                          (error! d' err))))
+                 (fn [err]
+                   (try (.accept f nil err)
+                        (error! d' err)
+                        (catch Throwable _
+                          (error! d' err)))))
+    d'))
+
+(def-async-for when-complete)
 
 ;;;
 
