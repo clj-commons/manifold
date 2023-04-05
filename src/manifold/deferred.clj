@@ -725,7 +725,9 @@
 
 (declare chain)
 
-(defn unwrap' [x]
+(defn unwrap'
+  "Like unwrap, but does not coerce deferrable values."
+  [x]
   (if (deferred? x)
     (let [val (success-value x ::none)]
       (if (identical? val ::none)
@@ -733,7 +735,10 @@
         (recur val)))
     x))
 
-(defn unwrap [x]
+(defn unwrap
+  "Recursively unwraps a deferred or deferrable until either 1) a non-deferred
+   value is reached, or 2) an unrealized deferrable is reached."
+  [x]
   (let [d (->deferred x nil)]
     (if (nil? d)
       x
@@ -1041,7 +1046,6 @@
        @(chain 1 inc #(future (inc %))) => 3
 
        @(chain (future 1) inc inc) => 3
-
    "
   {:inline (fn [& args]
              (if false #_(< 3 (count args))
@@ -1207,7 +1211,6 @@
 
         @(zip 1 2 3) => [1 2 3]
         @(zip (future 1) 2 3) => [1 2 3]
-
   "
   {:inline         (fn [x] `(chain ~x vector))
    :inline-arities #{1}}
@@ -1313,7 +1316,8 @@
 
 (defmacro loop
   "A version of Clojure's loop which allows for asynchronous loops, via `manifold.deferred/recur`.
-  `loop` will always return a deferred value, even if the body is synchronous.  Note that `loop` does **not** coerce values to deferreds, actual Manifold deferreds must be used.
+  `loop` will always return a deferred value, even if the body is synchronous.  Note that `loop`
+   does **not** coerce values to deferreds, actual Manifold deferreds must be used.
 
    (loop [i 1e6]
      (chain (future i)
@@ -1497,6 +1501,8 @@
     bindings
     body))
 
+
+
 (defmethod print-method IDeferred [o ^Writer w]
   (.write w
           (str
@@ -1513,9 +1519,14 @@
 (prefer-method print-method IDeferred IDeref)
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; CompletionStage helper fns
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defmacro ^:no-doc def-async-for
   "Defines a CompletionStage async version of the function associated with
-   the given symbol."
+   the given symbol, with '-async' appended."
   [fn-name]
   (let [async-name (symbol (str (name fn-name) "-async"))]
     `(defn- ~async-name
@@ -1526,7 +1537,7 @@
 
 (defmacro ^:no-doc def-async-for-dual
   "Defines a CompletionStage async version of the two-deferred
-   function associated with the given symbol."
+   function associated with the given symbol, with '-async' appended."
   [fn-name]
   (let [async-name (symbol (str (name fn-name) "-async"))]
     `(defn- ~async-name
@@ -1536,16 +1547,18 @@
         (~fn-name (onto d# executor#) d2# f#)))))
 
 (defn- fmap-deferred
-  "Like map/fmap but for deferreds.
+  "Returns a new deferred with function `f` applies to realized value of `d`.
+   (Like fmap but for deferreds.)
 
-   This function does not unwrap the result of f"
+   This function does not unwrap the result of f; it will only be applied to
+   the immediate value of `d`. This is for mimicking CompletionStage's
+   behavior."
   [d f]
   (let [d' (deferred)]
     (on-realized d
                  (fn [val] (success! d' (f val)))
                  (fn [error] (error! d' error)))
     d'))
-
 
 (defn- then-apply [d ^Function f]
   (assert-some f)
