@@ -6,10 +6,15 @@
              [executor :as ex]
              [deferred :as d]]
             [clojure.core.async.impl
-             [runtime :as async-runtime]
              [ioc-macros :as ioc]]
             [manifold.stream :as s])
   (:import (manifold.stream.core IEventSource)))
+
+;; a number of functions from `ioc-macros` moved to `runtime` in org.clojure/core.async "1.6.673"
+;; since they were just moved without functionality changes, continue to support both via dynamic import
+(if (find-ns 'clojure.core.async.impl.runtime)
+  (require '[clojure.core.async.impl.runtime :as async-runtime])
+  (require '[clojure.core.async.impl.ioc-macros :as async-runtime]))
 
 (defn ^:no-doc return-deferred [state value]
   (let [d (async-runtime/aget-object state async-runtime/USER-START-IDX)]

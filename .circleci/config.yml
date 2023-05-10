@@ -40,3 +40,4 @@ jobs:
 
       # run tests!
       - run: lein do clean, test
+      - run: lein with-profile +older-core-async do clean, test manifold.go-off-test
