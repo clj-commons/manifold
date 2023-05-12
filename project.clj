@@ -8,9 +8,12 @@
                  [org.clojure/tools.logging "1.2.4" :exclusions [org.clojure/clojure]]
                  [org.clj-commons/dirigiste "1.0.3"]
                  [riddley "0.2.0"]
-                 [org.clojure/core.async "1.5.648" :scope "provided"]
+                 [org.clojure/core.async "1.6.673" :scope "provided"]
                  [potemkin "0.4.6"]]
-  :profiles {:dev {:dependencies [[criterium "0.4.6"]]}}
+  :profiles {:dev {:dependencies [[criterium "0.4.6"]]}
+             ;; core.async moved around some internal functions go-off relies on; this profile
+             ;; helps test that go-off still works both with the new namespaces and the old
+             :older-core-async {:dependencies [[org.clojure/core.async "1.5.648" :scope "provided"]]}}
   :test-selectors {:default #(not
                                (some #{:benchmark :stress}
                                  (cons (:tag %) (keys %))))
