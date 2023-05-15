@@ -1,3 +1,9 @@
+### 0.4.1
+
+Contributions by Ryan Smith
+
+* Fixes a bug in `go-off` when using newer versions of core.async.
+
 ### 0.4.0
 
 Contributions by Renan Ribeiro, Matthew Davidson, and Arnaud Geiser

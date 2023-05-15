@@ -12,3 +12,5 @@ push
 /.clj-kondo/.cache
 /.clj-kondo/manifold/manifold
 /.clj-kondo/potemkin
+/.lsp
+/.portal

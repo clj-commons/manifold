@@ -958,7 +958,9 @@
 
 (defn buffered-stream
   "A stream which will buffer at most `limit` data, where the size of each message
-   is defined by `(metric message)`."
+   is defined by `(metric message)`.
+
+   `description` is a fn that takes the existing description map and returns a new one."
   ([buffer-size]
    (buffered-stream (constantly 1) buffer-size))
   ([metric limit]
