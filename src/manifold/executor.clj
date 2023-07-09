@@ -115,7 +115,7 @@
    | `initial-thread-count` | the number of threads that the pool should begin with.
    | `onto?` | if true, all streams and deferred generated in the scope of this executor will also be 'on' this executor."
   [{:keys [thread-factory
-           queue-length
+           ^long queue-length
            stats-callback
            sample-period
            control-period
@@ -169,7 +169,7 @@
   "Returns an executor which has a fixed number of threads."
   ([num-threads]
    (fixed-thread-executor num-threads nil))
-  ([num-threads options]
+  ([^long num-threads options]
    (instrumented-executor
      (-> options
          (update-in [:queue-length] #(or % Integer/MAX_VALUE))
