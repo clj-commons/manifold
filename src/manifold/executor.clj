@@ -1,6 +1,7 @@
 (ns manifold.executor
   (:require
-    [clojure.tools.logging :as log])
+    [clojure.tools.logging :as log]
+    [clj-commons.primitive-math :as p])
   (:import
     [io.aleph.dirigiste
      Executors
@@ -147,7 +148,7 @@
               (Executor.
                 thread-factory
                 (if (and queue-length (pos? queue-length))
-                  (if (<= queue-length 1024)
+                  (if (p/<= queue-length 1024)
                     (ArrayBlockingQueue. queue-length false)
                     (LinkedBlockingQueue. (int queue-length)))
                   (SynchronousQueue. false))
@@ -177,9 +178,9 @@
            :max-threads num-threads
            :controller (reify Executor$Controller
                          (shouldIncrement [_ n]
-                           (< n num-threads))
+                           (p/< n num-threads))
                          (adjustment [_ s]
-                           (- num-threads (.getNumWorkers s)))))))))
+                           (p/- num-threads (.getNumWorkers s)))))))))
 
 (defn utilization-executor
   "Returns an executor which sizes the thread pool according to target utilization, within
