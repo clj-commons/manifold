@@ -1,6 +1,7 @@
 (ns manifold.stream.queue
   {:no-doc true}
   (:require
+    [clj-commons.primitive-math :as p]
     [manifold.stream.graph :as g]
     [manifold.deferred :as d]
     [manifold.stream.core :as s]
@@ -86,7 +87,7 @@
   (description [this]
     (let [size (.size queue)]
       {:type            (.getCanonicalName (class queue))
-       :buffer-capacity (+ (.remainingCapacity queue) size)
+       :buffer-capacity (p/+ (.remainingCapacity queue) size)
        :buffer-size     size
        :sink?           true
        :closed?         (.isClosed this)}))

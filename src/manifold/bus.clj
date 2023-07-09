@@ -6,7 +6,8 @@
      [stream :as s]
      [deferred :as d]
      [utils :refer [definterface+]]]
-    [potemkin.types :refer [deftype+]])
+    [potemkin.types :refer [deftype+]]
+    [clj-commons.primitive-math :as p])
   (:import
     [java.util.concurrent
      ConcurrentHashMap]
@@ -53,7 +54,7 @@
   (if (nil? ary)
     (object-array [x])
     (let [len  (Array/getLength ary)
-          ary' (object-array (inc len))]
+          ary' (object-array (p/inc len))]
       (System/arraycopy ary 0 ary' 0 len)
       (aset ^objects ary' len x)
       ary')))
@@ -61,17 +62,17 @@
 (defn- disj' [^objects ary x]
   (let [len (Array/getLength ary)]
     (if-let [idx (loop [i 0]
-                   (if (<= len i)
+                   (if (p/<= len i)
                      nil
                      (if (identical? x (aget ary i))
                        i
-                       (recur (inc i)))))]
-      (let [idx (long idx)]
-        (if (== 1 len)
+                       (recur (p/inc i)))))]
+      (let [idx (p/long idx)]
+        (if (p/== 1 len)
           nil
-          (let [ary' (object-array (dec len))]
+          (let [ary' (object-array (p/dec len))]
             (System/arraycopy ary 0 ary' 0 idx)
-            (System/arraycopy ary (inc idx) ary' idx (- len idx 1))
+            (System/arraycopy ary (p/inc idx) ary' idx (p/- len idx 1))
             ary')))
       ary)))
 

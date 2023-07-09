@@ -7,6 +7,7 @@
     [clojure.core :as clj]
     [manifold.deferred :as d]
     [potemkin.types :refer [deftype+]]
+    [clj-commons.primitive-math :as p]
     [manifold.utils :as utils]
     [manifold.time :as time]
     [manifold.stream
@@ -494,7 +495,7 @@
         callback #(d/chain %
                            callback
                            (fn [result]
-                             (when (false? result)
+                             (when (p/false? result)
                                (d/success! complete true))
                              result))]
     (connect source (Callback. callback #(d/success! complete true) nil nil) nil)
@@ -567,7 +568,7 @@
          (cons x (stream->seq s timeout-interval)))))))
 
 (defn- periodically-
-  [stream period initial-delay f]
+  [stream ^long period initial-delay f]
   (let [cancel (promise)]
     (deliver cancel
              (time/every period
@@ -588,7 +589,7 @@
                                              (fn [x]
                                                (if-not x
                                                  (close! stream)
-                                                 (periodically- stream period (- period (rem (System/currentTimeMillis) period)) f)))))))
+                                                 (periodically- stream period (p/- period (rem (System/currentTimeMillis) period)) f)))))))
                              (catch Throwable e
                                (@cancel)
                                (close! stream)
@@ -600,8 +601,8 @@
    (let [s (stream 1)]
      (periodically- s period initial-delay f)
      (source-only s)))
-  ([period f]
-   (periodically period (- period (rem (System/currentTimeMillis) period)) f)))
+  ([^long period f]
+   (periodically period (p/- period (rem (System/currentTimeMillis) period)) f)))
 
 (declare zip)
 
@@ -745,7 +746,7 @@
 
 (defn mapcat
   "Equivalent to Clojure's `mapcat`, but for streams instead of sequences.
-  
+
   Note that just like `clojure.core/mapcat`, the provided function `f`
   must return a collection and not a stream."
   ([f s]
@@ -904,7 +905,7 @@
                               (identical? result ::timeout)
                               timeout-val
 
-                              (false? result)
+                              (p/false? result)
                               false
 
                               :else
@@ -926,7 +927,7 @@
                           (if (identical? default-val x)
                             x
                             (let [[size msg] x]
-                              (buf+ (- size))
+                              (buf+ (p/- ^long size))
                               msg))))]
       (if blocking?
         @val
@@ -944,7 +945,7 @@
 
                             :else
                             (let [[size msg] x]
-                              (buf+ (- size))
+                              (buf+ (p/- ^long size))
                               msg))))]
       (if blocking?
         @val
@@ -965,7 +966,7 @@
    (buffered-stream (constantly 1) buffer-size))
   ([metric limit]
    (buffered-stream metric limit identity))
-  ([metric limit description]
+  ([metric ^long limit description]
    (let [buf         (stream Integer/MAX_VALUE)
          buffer-size (AtomicLong. 0)
          last-put    (AtomicReference. (d/success-deferred true))
@@ -974,10 +975,10 @@
                          (let [buf' (.addAndGet buffer-size n)
                                buf  (unchecked-subtract buf' n)]
                            (cond
-                             (and (<= buf' limit) (< limit buf))
+                             (and (p/<= buf' limit) (p/< limit buf))
                              (-> last-put .get (d/success! true))
 
-                             (and (<= buf limit) (< limit buf'))
+                             (and (p/<= buf limit) (p/< limit buf'))
                              (-> last-put (.getAndSet (d/deferred)) (d/success! true))))))]
 
      (BufferedStream.
@@ -1013,7 +1014,7 @@
    (batch (constantly 1) batch-size nil s))
   ([max-size max-latency s]
    (batch (constantly 1) max-size max-latency s))
-  ([metric max-size max-latency s]
+  ([metric ^long max-size ^long max-latency s]
    (assert (pos? max-size))
 
    (let [buf (stream)
@@ -1022,16 +1023,16 @@
      (connect-via-proxy s buf s' {:description {:op "batch"}})
      (on-closed s' #(close! buf))
 
-     (d/loop [msgs [], size 0, earliest-message -1, last-message -1]
+     (d/loop [msgs [], ^long size 0, ^long earliest-message -1, ^long last-message -1]
        (cond
          (or
-           (== size max-size)
-           (and (< max-size size) (== (count msgs) 1)))
+           (p/== size max-size)
+           (and (p/< max-size size) (p/== (count msgs) 1)))
          (d/chain' (put! s' msgs)
                    (fn [_]
                      (d/recur [] 0 -1 -1)))
 
-         (> size max-size)
+         (p/> size max-size)
          (let [msg (peek msgs)]
            (d/chain' (put! s' (pop msgs))
                      (fn [_]
@@ -1045,7 +1046,7 @@
                      (take! buf ::empty)
                      (try-take! buf
                                 ::empty
-                                (- max-latency (- (System/currentTimeMillis) earliest-message))
+                                (p/- max-latency (p/- (System/currentTimeMillis) earliest-message))
                                 ::timeout))
                    (fn [msg]
                      (condp identical? msg
@@ -1064,8 +1065,8 @@
                        (let [time (System/currentTimeMillis)]
                          (d/recur
                            (conj msgs msg)
-                           (+ size (metric msg))
-                           (if (neg? earliest-message)
+                           (p/+ size ^long (metric msg))
+                           (if (p/< earliest-message 0)
                              time
                              earliest-message)
                            time)))))))
@@ -1080,15 +1081,15 @@
    this is set to one second's worth."
   ([max-rate s]
    (throttle max-rate max-rate s))
-  ([max-rate max-backlog s]
+  ([^long max-rate ^double max-backlog s]
    (let [buf    (stream)
          s'     (stream)
-         period (double (/ 1000 max-rate))]
+         period (p/double (p// 1000 max-rate))]
 
      (connect-via-proxy s buf s' {:description {:op "throttle"}})
      (on-closed s' #(close! buf))
 
-     (d/loop [backlog 0.0, read-start (System/currentTimeMillis)]
+     (d/loop [^double backlog 0.0, ^long read-start (System/currentTimeMillis)]
        (d/chain (take! buf ::none)
 
                 (fn [msg]
@@ -1100,11 +1101,11 @@
 
                 (fn [result]
                   (when result
-                    (let [elapsed  (double (- (System/currentTimeMillis) read-start))
-                          backlog' (min (+ backlog (- (/ elapsed period) 1)) max-backlog)]
-                      (if (<= 1 backlog')
-                        (- backlog' 1.0)
-                        (d/timeout! (d/deferred) (- period elapsed) 0.0)))))
+                    (let [elapsed  (p/double (p/- (System/currentTimeMillis) read-start))
+                          backlog' (p/min (p/+ backlog (p/- (p// elapsed period) 1.0)) max-backlog)]
+                      (if (p/<= 1.0 backlog')
+                        (p/- backlog' 1.0)
+                        (d/timeout! (d/deferred) (p/- period elapsed) 0.0)))))
 
                 (fn [backlog]
                   (if backlog

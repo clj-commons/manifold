@@ -5,7 +5,8 @@
   (:require
     [clojure.tools.logging :as log]
     [manifold.executor :as ex]
-    [potemkin.types])
+    [potemkin.types]
+    [clj-commons.primitive-math :as p])
   (:import
     [java.util.concurrent
      Executors
@@ -53,7 +54,7 @@
   `(let [depth#  (.get stack-depth)
          depth'# (if (nil? depth#) 0 depth#)
          f#      (fn [] ~@body)]
-     (if (> depth'# max-depth)
+     (if (p/> depth'# max-depth)
        (future-with ~executor (f#))
        (try
          (.set stack-depth (unchecked-inc (unchecked-long depth'#)))

@@ -162,7 +162,7 @@
 (defn scheduled-executor->clock [^ScheduledExecutorService e]
   (reify IClock
     (in [_ interval-millis f]
-      (let [^Future scheduled-future (.schedule e f (long (p/* interval-millis 1e3)) TimeUnit/MICROSECONDS)
+      (let [^Future scheduled-future (.schedule e f (p/long (p/* interval-millis 1e3)) TimeUnit/MICROSECONDS)
             cancel-fn                (fn []
                                        (.cancel scheduled-future false))]
         cancel-fn))
@@ -174,8 +174,8 @@
         (deliver future-ref
                  (.scheduleAtFixedRate e
                                        ^Runnable (cancel-on-exception f cancel-fn)
-                                       (long (p/* delay-millis 1e3))
-                                       (long (p/* period-millis 1e3))
+                                       (p/long (p/* delay-millis 1e3))
+                                       (p/long (p/* period-millis 1e3))
                                        TimeUnit/MICROSECONDS))
         cancel-fn))))
 
