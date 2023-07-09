@@ -22,42 +22,42 @@
 
 (defn nanoseconds
   "Converts nanoseconds -> milliseconds"
-  [n]
+  [^double n]
   (/ n 1e6))
 
 (defn microseconds
   "Converts microseconds -> milliseconds"
-  [n]
+  [^double n]
   (/ n 1e3))
 
 (defn milliseconds
   "Converts milliseconds -> milliseconds"
-  [n]
+  [^double n]
   n)
 
 (defn seconds
   "Converts seconds -> milliseconds"
-  [n]
+  [^double n]
   (* n 1e3))
 
 (defn minutes
   "Converts minutes -> milliseconds"
-  [n]
+  [^double n]
   (* n 6e4))
 
 (defn hours
   "Converts hours -> milliseconds"
-  [n]
+  [^double n]
   (* n 36e5))
 
 (defn days
   "Converts days -> milliseconds"
-  [n]
+  [^double n]
   (* n 864e5))
 
 (defn hz
   "Converts frequency -> period in milliseconds"
-  [n]
+  [^double n]
   (/ 1e3 n))
 
 (let [intervals (partition 2 ["d" (days 1)
@@ -68,13 +68,13 @@
   (defn format-duration
     "Takes a duration in milliseconds, and returns a formatted string
      describing the interval, i.e. '5d 3h 1m'"
-    [n]
+    [^double n]
     (loop [s "", n n, intervals intervals]
       (if (empty? intervals)
         (if (empty? s)
           "0s"
           (str/trim s))
-        (let [[desc val] (first intervals)]
+        (let [[desc ^double val] (first intervals)]
           (if (>= n val)
             (recur
               (str s (int (/ n val)) desc " ")
@@ -184,13 +184,13 @@
    default, the initial time is `0`."
   ([]
    (mock-clock 0))
-  ([initial-time]
+  ([^double initial-time]
    (let [now    (atom initial-time)
          events (atom (sorted-map))]
      (reify
        IClock
        (in [this interval-millis f]
-         (swap! events update-in [(+ @now interval-millis)] #(conj (or % []) f))
+         (swap! events update-in [(+ ^double @now interval-millis)] #(conj (or % []) f))
          (advance this 0))
        (every [this delay-millis period-millis f]
          (assert (< 0 period-millis))
@@ -204,10 +204,10 @@
        (now [_] @now)
        (advance
          [this time]
-         (let [limit (+ @now time)]
+         (let [limit (+ ^double @now ^double time)]
            (loop []
              (if (or (empty? @events)
-                     (< limit (key (first @events))))
+                     (< limit ^double (key (first @events))))
                (do
                  (reset! now limit)
                  nil)
@@ -217,7 +217,7 @@
                  (reset! now t)
                  (doseq [f fs]
                    (let [period (some-> f meta ::period deref)]
-                     (when (or (nil? period) (pos? period))
+                     (when (or (nil? period) (pos? ^double period))
                        (try
                          (f)
                          (when period (.in this period f))
@@ -281,5 +281,5 @@
   "Schedules no-arg function `f` to be invoked at `timestamp`, which is the milliseconds
    since the epoch.  Returns a deferred representing the returned value of the function
    (unwrapped if `f` itself returns a deferred)."
-  [timestamp f]
+  [^double timestamp f]
   (in (max 0 (- timestamp (System/currentTimeMillis))) f))
