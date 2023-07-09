@@ -10,7 +10,9 @@
                  [riddley "0.2.0"]
                  [org.clojure/core.async "1.6.673" :scope "provided"]
                  [potemkin "0.4.6"]]
-  :profiles {:dev {:dependencies [[criterium "0.4.6"]]}
+  :profiles {:dev {:dependencies [[criterium "0.4.6"]]
+                   :global-vars {*warn-on-reflection* true
+                                 *unchecked-math* :warn-on-boxed}}
              ;; core.async moved around some internal functions go-off relies on; this profile
              ;; helps test that go-off still works both with the new namespaces and the old
              :older-core-async {:dependencies [[org.clojure/core.async "1.5.648" :scope "provided"]]}}
