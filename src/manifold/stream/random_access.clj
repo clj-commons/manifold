@@ -2,6 +2,7 @@
   {:no-doc true}
   (:require
     [clojure.tools.logging :as log]
+    [clj-commons.primitive-math :as p]
     [manifold.deferred :as d]
     [manifold.utils :as utils]
     [manifold.stream
@@ -35,7 +36,7 @@
   (take [this default-val blocking?]
 
     (let [idx' (.getAndIncrement idx)]
-      (if (< idx' size)
+      (if (p/< idx' size)
         (let [val (.get list idx')]
           (if blocking?
             val

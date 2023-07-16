@@ -7,10 +7,13 @@
   :dependencies [[org.clojure/clojure "1.11.1" :scope "provided"]
                  [org.clojure/tools.logging "1.2.4" :exclusions [org.clojure/clojure]]
                  [org.clj-commons/dirigiste "1.0.3"]
+                 [org.clj-commons/primitive-math "1.0.0"]
                  [riddley "0.2.0"]
                  [org.clojure/core.async "1.6.673" :scope "provided"]
                  [potemkin "0.4.6"]]
-  :profiles {:dev {:dependencies [[criterium "0.4.6"]]}
+  :profiles {:dev {:dependencies [[criterium "0.4.6"]]
+                   :global-vars {*warn-on-reflection* true
+                                 *unchecked-math* :warn-on-boxed}}
              ;; core.async moved around some internal functions go-off relies on; this profile
              ;; helps test that go-off still works both with the new namespaces and the old
              :older-core-async {:dependencies [[org.clojure/core.async "1.5.648" :scope "provided"]]}}

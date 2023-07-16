@@ -10,6 +10,7 @@
     [manifold.time :as time]
     [manifold.utils :as utils :refer [assert-some definterface+]]
     [potemkin.types :refer [def-abstract-type reify+ defprotocol+ deftype+]]
+    [clj-commons.primitive-math :as p]
     [riddley.compiler :as compiler]
     [riddley.walk :as walk])
   (:import
@@ -689,7 +690,7 @@
     ([]
      (deferred (ex/executor)))
     ([executor]
-     (if (and (zero? (rem (.incrementAndGet created) 1024))
+     (if (and (p/zero? (rem (.incrementAndGet created) 1024))
               debug/*dropped-error-logging-enabled?*)
        (LeakAwareDeferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)
        (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)))))
@@ -703,8 +704,8 @@
   #_{:inline
      (fn [val]
        (cond
-         (true? val)   'manifold.deferred/true-deferred-
-         (false? val)  'manifold.deferred/false-deferred-
+         (p/true? val)   'manifold.deferred/true-deferred-
+         (p/false? val)  'manifold.deferred/false-deferred-
          (nil? val)    'manifold.deferred/nil-deferred-
          :else         `(SuccessDeferred. ~val nil nil)))
    :inline-arities #{1}}
@@ -1026,7 +1027,7 @@
   "Like `chain`, but does not coerce deferrable values.  This is useful both when coercion
    is undesired, or for 2-4x better performance than `chain`."
   {:inline (fn [& args]
-             (if false #_(< 3 (count args))
+             (if false #_(p/< 3 (count args))
                (apply unroll-chain 'manifold.deferred/unwrap' args)
                `(chain'- nil ~@args)))}
   ([x]
@@ -1046,12 +1047,12 @@
    The returned deferred will only be realized once all functions have been applied and their
    return values realized.
 
-       @(chain 1 inc #(future (inc %))) => 3
+       @(chain 1 inc #(future (p/inc %))) => 3
 
        @(chain (future 1) inc inc) => 3
    "
   {:inline (fn [& args]
-             (if false #_(< 3 (count args))
+             (if false #_(p/< 3 (count args))
                (apply unroll-chain 'manifold.deferred/unwrap args)
                `(chain- nil ~@args)))}
   ([x]
@@ -1153,7 +1154,7 @@
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
    no matter what the result.
-  
+
   Returns x unless a Throwable is thrown in f, in which case it returns an error-deferred."
   [x f]
   (if-let [d (->deferred x nil)]
@@ -1174,7 +1175,7 @@
 
         ;; no further results, decrement the counter one last time
         ;; and return the result if everything else has been realized
-        (if (zero? (.get counter))
+        (if (p/zero? (.get counter))
           (success-deferred (or (seq ary) (list)))
           d)
 
@@ -1196,7 +1197,7 @@
                 (on-realized (chain' x)
                              (fn [val]
                                (aset ary idx val)
-                               (when (zero? (.decrementAndGet counter))
+                               (when (p/zero? (.decrementAndGet counter))
                                  (success! d (seq ary))))
                              (fn [err]
                                (error! d err)))
@@ -1228,10 +1229,10 @@
     (clojure.core/loop [i 1]
       (if (= i n)
         a
-        (let [j (rand-int (inc i))]
+        (let [j (rand-int (p/inc i))]
           (aset a i (aget a j))
           (aset a j i)
-          (recur (inc i)))))))
+          (recur (p/inc i)))))))
 
 (defn alt'
   "Like `alt`, but only unwraps Manifold deferreds."
@@ -1240,7 +1241,7 @@
         cnt        (count vals)
         ^ints idxs (random-array cnt)]
     (clojure.core/loop [i 0]
-      (when (< i cnt)
+      (when (p/< i cnt)
         (let [i' (aget idxs i)
               x  (nth vals i')]
           (if (deferred? x)
@@ -1250,7 +1251,7 @@
               (do (on-realized (chain' x)
                                #(success! d %)
                                #(error! d %))
-                  (recur (inc i))))
+                  (recur (p/inc i))))
             (success! d x)))))
     d))
 
@@ -1324,9 +1325,9 @@
 
    (loop [i 1e6]
      (chain (future i)
-       #(if (zero? %)
+       #(if (p/zero? %)
           %
-          (recur (dec %)))))"
+          (recur (p/dec %)))))"
   [bindings & body]
   (let [vars     (->> bindings (partition 2) (map first))
         vals     (->> bindings (partition 2) (map second))
@@ -1479,15 +1480,15 @@
    Returns a deferred value, representing the value returned by the body.
 
       (let-flow [x (future 1)]
-        (+ x 1))
+        (p/+ x 1))
 
       (let-flow [x (future 1)
-                 y (future (+ x 1))]
-        (+ y 1))
+                 y (future (p/+ x 1))]
+        (p/+ y 1))
 
       (let [x (future 1)]
-        (let-flow [y (future (+ x 1))]
-          (+ y 1)))"
+        (let-flow [y (future (p/+ x 1))]
+          (p/+ y 1)))"
   [bindings & body]
   (expand-let-flow
     'manifold.deferred/chain

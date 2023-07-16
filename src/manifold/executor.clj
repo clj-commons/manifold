@@ -1,6 +1,7 @@
 (ns manifold.executor
   (:require
-    [clojure.tools.logging :as log])
+    [clojure.tools.logging :as log]
+    [clj-commons.primitive-math :as p])
   (:import
     [io.aleph.dirigiste
      Executors
@@ -87,9 +88,9 @@
        (when (contains? stats Stats$Metric/QUEUE_LENGTH)
          {:queue-length (q #(.getQueueLength s %))})
        (when (contains? stats Stats$Metric/QUEUE_LATENCY)
-         {:queue-latency (q #(double (/ (.getQueueLatency s %) 1e6)))})
+         {:queue-latency (q #(p/double (p// (.getQueueLatency s %) 1e6)))})
        (when (contains? stats Stats$Metric/TASK_LATENCY)
-         {:task-latency (q #(double (/ (.getTaskLatency s %) 1e6)))})
+         {:task-latency (q #(p/double (p// (.getTaskLatency s %) 1e6)))})
        (when (contains? stats Stats$Metric/TASK_ARRIVAL_RATE)
          {:task-arrival-rate (q #(.getTaskArrivalRate s %))})
        (when (contains? stats Stats$Metric/TASK_COMPLETION_RATE)
@@ -115,7 +116,7 @@
    | `initial-thread-count` | the number of threads that the pool should begin with.
    | `onto?` | if true, all streams and deferred generated in the scope of this executor will also be 'on' this executor."
   [{:keys [thread-factory
-           queue-length
+           ^long queue-length
            stats-callback
            sample-period
            control-period
@@ -147,7 +148,7 @@
               (Executor.
                 thread-factory
                 (if (and queue-length (pos? queue-length))
-                  (if (<= queue-length 1024)
+                  (if (p/<= queue-length 1024)
                     (ArrayBlockingQueue. queue-length false)
                     (LinkedBlockingQueue. (int queue-length)))
                   (SynchronousQueue. false))
@@ -169,7 +170,7 @@
   "Returns an executor which has a fixed number of threads."
   ([num-threads]
    (fixed-thread-executor num-threads nil))
-  ([num-threads options]
+  ([^long num-threads options]
    (instrumented-executor
      (-> options
          (update-in [:queue-length] #(or % Integer/MAX_VALUE))
@@ -177,9 +178,9 @@
            :max-threads num-threads
            :controller (reify Executor$Controller
                          (shouldIncrement [_ n]
-                           (< n num-threads))
+                           (p/< n num-threads))
                          (adjustment [_ s]
-                           (- num-threads (.getNumWorkers s)))))))))
+                           (p/- num-threads (.getNumWorkers s)))))))))
 
 (defn utilization-executor
   "Returns an executor which sizes the thread pool according to target utilization, within

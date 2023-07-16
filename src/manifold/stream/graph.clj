@@ -4,6 +4,7 @@
     [manifold.deferred :as d]
     [manifold.utils :as utils]
     [potemkin.types :refer [deftype+]]
+    [clj-commons.primitive-math :as p]
     [manifold.stream.core :as s]
     [manifold.executor :as ex]
     [clojure.tools.logging :as log])
@@ -81,7 +82,7 @@
    If it times out, returns the sink itself as the timeout value."
   [^Downstream dwn msg dsts]
   (let [^IEventSink sink (.sink dwn)]
-    (let [x (if (== (.timeout dwn) -1)
+    (let [x (if (p/== (.timeout dwn) -1)
               (.put sink msg false)
               (.put sink msg false (.timeout dwn) (if (.downstream? dwn) sink false)))]
       (AsyncPut. x dsts dwn (.upstream? dwn)))))
@@ -90,14 +91,14 @@
   [^Downstream dwn msg ^CopyOnWriteArrayList dsts ^IEventSink upstream]
   (let [^IEventSink sink (.sink dwn)
         x                (try
-                           (if (== (.timeout dwn) -1)
+                           (if (p/== (.timeout dwn) -1)
                              (.put sink msg true)
                              (.put sink msg true (.timeout dwn) ::timeout))
                            (catch Throwable e
                              (log/error e "error in message propagation")
                              (s/close! sink)
                              false))]
-    (when (false? x)
+    (when (p/false? x)
       (.remove dsts dwn)
       (when upstream
         (s/close! upstream)))
@@ -117,7 +118,7 @@
     (when (false? val)
       (let [^CopyOnWriteArrayList l (.dsts x)]
         (.remove l (.dst x))
-        (when (or (.upstream? x) (== 0 (.size l)))
+        (when (or (.upstream? x) (p/== 0 (.size l)))
           (s/close! source)
           (.remove handle->downstreams (s/weak-handle source)))))))
 
@@ -126,7 +127,7 @@
   (log/error err "error in message propagation")
   (let [^CopyOnWriteArrayList l (.dsts x)]
     (.remove l (.dst x))
-    (when (or (.upstream? x) (== 0 (.size l)))
+    (when (or (.upstream? x) (p/== 0 (.size l)))
       (s/close! source)
       (.remove handle->downstreams (s/weak-handle source)))))
 
@@ -214,7 +215,7 @@
                        (s/close! (.sink dwn)))
                      (recur))))))
 
-           (== 1 (.size dsts))
+           (p/== 1 (.size dsts))
            (try
              (let [dst         (.get dsts 0)
                    ^AsyncPut x (async-send dst msg dsts)

@@ -10,7 +10,8 @@
      [graph :as g]
      [core :as s]]
     [manifold.time :as time]
-    [potemkin.types :refer [deftype+ defrecord+]])
+    [potemkin.types :refer [deftype+ defrecord+]]
+    [clj-commons.primitive-math :as p])
   (:import
     [java.util
      LinkedList
@@ -234,16 +235,16 @@
                    (d/success-deferred default-val executor))
 
               ;; add to the consumers queue
-              (if (and timeout (<= timeout 0))
+              (if (and timeout (p/<= ^long timeout 0))
                 (d/success-deferred timeout-val executor)
                 (do
-                  (when (> (.getAndIncrement dirty-takes) max-dirty-takes)
+                  (when (p/> (.getAndIncrement dirty-takes) ^long max-dirty-takes)
                     (cleanup-expired-deferreds consumers)
                     (.set dirty-takes 0))
                   (let [d (d/deferred executor)]
                     (d/timeout! d timeout timeout-val)
                     (let [c (Consumer. d default-val)]
-                      (if (and (< (.size consumers) max-consumers) (.offer consumers c))
+                      (if (and (p/< (.size consumers) ^long max-consumers) (.offer consumers c))
                         d
                         c)))))))]
 
@@ -281,7 +282,7 @@
    capacity
    executor
    ^AtomicLong dirty-puts]
-  (let [capacity (long capacity)
+  (let [capacity (p/long capacity)
         t-d      (d/success-deferred true executor)]
     (fn
       ([])
@@ -300,18 +301,18 @@
              ;; otherwise, see if we can enqueue into the buffer
              (and
                messages
-               (when (< (.size messages) capacity)
+               (when (p/< (.size messages) capacity)
                  (.offer messages (de-nil msg)))
                t-d)
 
              ;; otherwise, add to the producers queue
              (do
-               (when (> (.getAndIncrement dirty-puts) max-dirty-puts)
+               (when (p/> (.getAndIncrement dirty-puts) ^long max-dirty-puts)
                  (cleanup-expired-deferreds producers)
                  (.set dirty-puts 0))
                (let [d (d/deferred executor)]
                  (let [pr (Producer. msg d)]
-                   (if (and (< (.size producers) max-producers) (.offer producers pr))
+                   (if (and (p/< (.size producers) ^long max-producers) (.offer producers pr))
                      d
                      pr)))))))))))
 
@@ -327,8 +328,8 @@
          producers   (LinkedList.)
          dirty-takes (AtomicLong.)
          dirty-puts  (AtomicLong.)
-         buffer-size (long (Math/max 0 (long buffer-size)))
-         messages    (when (pos? buffer-size) (ArrayDeque.))
+         buffer-size (p/long (p/max 0 (p/long buffer-size)))
+         messages    (when (p/< 0 buffer-size) (ArrayDeque.))
          add!        (add! producers consumers messages buffer-size executor dirty-puts)
          add!        (if xform (xform add!) add!)]
      (->Stream
@@ -361,9 +362,9 @@
         producers   (LinkedList.)
         dirty-takes (AtomicLong.)
         dirty-puts  (AtomicLong.)
-        buffer-size (long (or buffer-size 0))
+        buffer-size (p/long (or buffer-size 0))
         messages    (when buffer-size (ArrayDeque.))
-        buffer-size (if buffer-size (long (Math/max 0 buffer-size)) 0)
+        buffer-size (if buffer-size (p/long (Math/max 0 buffer-size)) 0)
         add!        (add! producers consumers messages buffer-size executor dirty-puts)
         add!        (if xform (xform add!) add!)]
     (->Stream
