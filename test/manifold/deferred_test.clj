@@ -1,13 +1,15 @@
 (ns manifold.deferred-test
-  (:refer-clojure
-    :exclude (realized? future loop))
+  (:refer-clojure :exclude (realized? future loop))
   (:require
-    [manifold.utils :as utils]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
     [manifold.deferred :as d]
     [manifold.executor :as ex])
-  (:import (java.util.concurrent CompletableFuture)))
+  (:import
+    (java.util.concurrent
+      CompletableFuture
+      CompletionStage)
+    (manifold.deferred IDeferred)))
 
 (defmacro future' [& body]
   `(d/future
@@ -403,3 +405,29 @@
       (d/success! d 1)
       (is (= 1 @@result)))))
 
+;; Promesa adds CompletionStage to the print-method hierarchy, which can cause
+;; problems if neither is preferred over the other
+(deftest promesa-print-method-test
+  (testing "print-method hierarchy compatibility with promesa")
+  (try
+    (let [print-method-dispatch-vals (-> print-method methods keys set)]
+      (is (= IDeferred
+             (get print-method-dispatch-vals IDeferred ::missing)))
+      (is (= ::missing
+             (get print-method-dispatch-vals CompletionStage ::missing)))
+
+      (let [d (d/deferred)]
+        (is (instance? IDeferred d))
+        (is (instance? CompletionStage d))
+
+        (testing "no conflicts - CompletionStage not dispatchable"
+          (pr-str d))
+
+        (testing "no conflicts - preferred hierarchy established"
+          (defmethod print-method CompletionStage [o ^java.io.Writer w]
+            :noop)
+
+          (pr-str d))))
+
+    (finally
+      (remove-method print-method CompletionStage))))

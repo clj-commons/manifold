@@ -1521,6 +1521,7 @@
             " >>")))
 
 (prefer-method print-method IDeferred IDeref)
+(prefer-method print-method IDeferred CompletionStage)
 
 
 
