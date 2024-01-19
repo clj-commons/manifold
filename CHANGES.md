@@ -1,3 +1,9 @@
+### 0.4.2
+
+Contributions by Matthew Davidson, Eric Dvorsak, and Arnaud Geiser
+
+* Fixes a `print-method` dispatch hierarchy bug when also using Promesa.
+
 ### 0.4.1
 
 Contributions by Ryan Smith
