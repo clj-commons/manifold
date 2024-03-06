@@ -124,6 +124,14 @@ A Clojurescript implementation of Manifold can be found here: [dm3/manifold-cljs
 
 ### License
 
-Copyright © 2014-2022 Zach Tellman
+Copyright © 2014-2024 Zach Tellman.
 
 Distributed under the MIT License.
+
+### Support
+
+Many thanks to YourKit for supporting Manifold. YourKit supports open source projects with innovative and intelligent tools for monitoring and profiling Java and .NET applications.
+
+YourKit is the creator of <a href="https://www.yourkit.com/java/profiler/">YourKit Java Profiler</a>, <a href="https://www.yourkit.com/dotnet-profiler/">YourKit .NET Profiler</a>, and <a href="https://www.yourkit.com/youmonitor/">YourKit YouMonitor</a>.
+
+![](https://www.yourkit.com/images/yklogo.png)
