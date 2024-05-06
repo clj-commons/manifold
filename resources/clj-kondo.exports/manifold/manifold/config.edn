@@ -1,9 +1,22 @@
-{
- ;; aliasing loop to let is enought to get
- ;; great linting.
-
-
- :lint-as {manifold.deferred/let-flow clojure.core/let
+{:lint-as {manifold.deferred/let-flow clojure.core/let
            manifold.deferred/let-flow' clojure.core/let
-           manifold.deferred/loop clojure.core/let}
- }
+           ;; aliasing loop to let is enough to get
+           ;; great linting.
+           manifold.deferred/loop clojure.core/let
+           manifold.utils/definterface+ clojure.core/definterface}
+
+ :hooks {:analyze-call
+         {manifold.stream.core/def-source manifold.hooks/def-sink-or-source
+          manifold.stream.core/def-sink manifold.hooks/def-sink-or-source
+          manifold.stream.core/def-sink+source manifold.hooks/def-sink-or-source
+          manifold.deferred/both manifold.hooks/both
+          manifold.deferred/success-error-unrealized manifold.hooks/success-error-unrealized}}
+
+ :config-in-call {manifold.stream.core/def-sink+source
+                  {:linters {:redefined-var {:level :off}}}
+
+                  manifold.stream.core/def-sink
+                  {:linters {:redefined-var {:level :off}}}
+
+                  manifold.stream.core/def-source
+                  {:linters {:redefined-var {:level :off}}}}}
