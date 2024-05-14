@@ -1,3 +1,9 @@
+### 0.4.3
+
+* Improved clj-kondo exports
+
+Contributions by Jacob Maine and Ferdinand Beyer
+
 ### 0.4.2
 
 Contributions by Matthew Davidson, Eric Dvorsak, and Arnaud Geiser
