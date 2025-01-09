@@ -86,7 +86,7 @@
     (alterMeta [_ f# args#]
       (manifold.utils/with-lock* ~'lock
         (set! ~'__mta (apply f# ~'__mta args#))))
-    (~'downstream [this#] (manifold.stream.graph/downstream this#))
+    (~'downstream [this#] ((requiring-resolve 'manifold.stream.graph/downstream) this#))
     (~'weakHandle [this# ref-queue#]
       (manifold.utils/with-lock ~'lock
         (or ~'__weakHandle
