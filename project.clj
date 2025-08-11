@@ -1,4 +1,4 @@
-(defproject manifold "0.4.3"
+(defproject griffinbank/manifold "0.4.4-20250811"
   :description "A compatibility layer for event-driven abstractions"
   :license {:name "MIT License"
             :url "http://opensource.org/licenses/MIT"}
@@ -10,7 +10,7 @@
                  [org.clj-commons/primitive-math "1.0.0"]
                  [riddley "0.2.0"]
                  [org.clojure/core.async "1.6.673" :scope "provided"]
-                 [potemkin "0.4.6"]]
+                 [griffinbank/potemkin "0.4.9-20250811"]]
   :profiles {:dev {:dependencies [[criterium "0.4.6"]]
                    :global-vars {*warn-on-reflection* true
                                  *unchecked-math* :warn-on-boxed}}

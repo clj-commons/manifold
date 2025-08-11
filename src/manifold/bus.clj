@@ -4,8 +4,7 @@
   (:require
     [manifold
      [stream :as s]
-     [deferred :as d]
-     [utils :refer [definterface+]]]
+     [deferred :as d]]
     [potemkin.types :refer [deftype+]]
     [clj-commons.primitive-math :as p])
   (:import
@@ -16,7 +15,7 @@
 
 (set! *unchecked-math* true)
 
-(definterface+ IEventBus
+(definterface IEventBus
   (snapshot [])
   (subscribe [topic])
   (downstream [topic])

@@ -10,7 +10,7 @@
      [graph :as g]
      [core :as s]]
     [manifold.time :as time]
-    [potemkin.types :refer [deftype+ defrecord+]]
+    [potemkin.types :refer [deftype+]]
     [clj-commons.primitive-math :as p])
   (:import
     [java.util
@@ -35,8 +35,8 @@
 
 (deftype+ Production [deferred message token])
 (deftype+ Consumption [message deferred token])
-(defrecord+ Producer [message deferred])
-(defrecord+ Consumer [deferred default-val])
+(defrecord Producer [message deferred])
+(defrecord Consumer [deferred default-val])
 
 (defn de-nil [x]
   (if (nil? x)

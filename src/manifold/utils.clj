@@ -131,12 +131,6 @@
 
 ;;;
 
-(defmacro definterface+ [name & body]
-  (when-not (resolve name)
-    `(definterface ~name ~@body)))
-
-;;;
-
 (defn fn->Function [f]
   (reify java.util.function.Function
     (apply [_ x] (f x))))
