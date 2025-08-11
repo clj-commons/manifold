@@ -5,8 +5,6 @@
     [clojure.tools.logging :as log]
     [manifold.executor :as ex]
     [clojure.string :as str]
-    [manifold.utils :refer [definterface+]]
-    [potemkin.types :refer [defprotocol+]]
     [clj-commons.primitive-math :as p])
   (:import
     [java.util
@@ -130,11 +128,11 @@
 
 ;;;
 
-(definterface+ IClock
+(definterface IClock
   (in [^double interval-millis ^Runnable f])
   (every [^double delay-millis ^double period-millis ^Runnable f]))
 
-(defprotocol+ IMockClock
+(defprotocol IMockClock
   (now [clock] "Returns the current time for the clock")
   (advance [clock time]
     "Advances the mock clock by the specified interval of `time`.

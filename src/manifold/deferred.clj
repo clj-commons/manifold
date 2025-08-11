@@ -8,8 +8,8 @@
     [manifold.debug :as debug]
     [manifold.executor :as ex]
     [manifold.time :as time]
-    [manifold.utils :as utils :refer [assert-some definterface+]]
-    [potemkin.types :refer [def-abstract-type reify+ defprotocol+ deftype+]]
+    [manifold.utils :as utils :refer [assert-some]]
+    [potemkin.types :refer [def-abstract-type reify+ deftype+]]
     [clj-commons.primitive-math :as p]
     [riddley.compiler :as compiler]
     [riddley.walk :as walk])
@@ -44,11 +44,11 @@
 (set! *warn-on-reflection* true)
 (set! *unchecked-math* true)
 
-(defprotocol+ Deferrable
+(defprotocol Deferrable
   (^:private to-deferred [_] "Provides a conversion mechanism to manifold deferreds."))
 
 ;; implies IDeref, IBlockingDeref, IPending
-(definterface+ IDeferred
+(definterface IDeferred
   (executor [])
   (^boolean realized [])
   (onRealized [on-success on-error])
@@ -336,7 +336,7 @@
 
 ;;;
 
-(definterface+ IDeferredListener
+(definterface IDeferredListener
   (onSuccess [x])
   (onError [err]))
 
@@ -354,7 +354,7 @@
   ([on-success on-error]
    (Listener. on-success on-error)))
 
-(definterface+ IMutableDeferred
+(definterface IMutableDeferred
   (success [x])
   (success [x claim-token])
   (error [x])
