@@ -149,7 +149,7 @@
     (s/close! test-stream)
     (is (= @test-d [0 1 2 nil nil]))))
 
-(deftest ^:benchmark benchmark-go-off
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-go-off
   (bench "invoke comp x1"
          ((comp inc) 0))
   (bench "go-off x1"
@@ -174,3 +174,5 @@
          @(go-off (inc (<!? (inc (<!? (inc (<!? (inc (<!? (inc (<!? (d/success-deferred 0))))))))))))
          (bench "go-off future 200 x5"
                 @(go-off (inc (<!? (inc (<!? (inc (<!? (inc (<!? (inc (<!? (d/future (Thread/sleep 200) 0)))))))))))))))
+
+(instrument-tests-with-dropped-error-detection!)

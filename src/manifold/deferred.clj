@@ -481,8 +481,10 @@
       [Object
        (finalize [_]
          (utils/with-lock lock
-           (when (and (identical? ::error state) (not consumed?))
-             (log/warn val "unconsumed deferred in error state, make sure you're using `catch`."))))]
+           (when (and (identical? ::error state)
+                      (not consumed?)
+                      debug/*dropped-error-logging-enabled?*)
+             (debug/log-dropped-error! val))))]
       nil)
 
     clojure.lang.IReference
@@ -631,7 +633,7 @@
     (when (and
             (not consumed?)
             debug/*dropped-error-logging-enabled?*)
-      (log/warn error "unconsumed deferred in error state, make sure you're using `catch`.")))
+      (debug/log-dropped-error! error)))
 
   clojure.lang.IReference
   (meta [_] mta)
@@ -690,8 +692,9 @@
     ([]
      (deferred (ex/executor)))
     ([executor]
-     (if (and (p/zero? (rem (.incrementAndGet created) 1024))
-              debug/*dropped-error-logging-enabled?*)
+     (if (and debug/*dropped-error-logging-enabled?*
+              (p/zero? (rem (.incrementAndGet created)
+                            ^long debug/*leak-aware-deferred-rate*)))
        (LeakAwareDeferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)
        (Deferred. nil ::unset nil (utils/mutex) (LinkedList.) nil false executor)))))
 

@@ -3,12 +3,14 @@
   (:require
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
+    [manifold.debug :as debug]
     [manifold.deferred :as d]
     [manifold.executor :as ex])
   (:import
     (java.util.concurrent
       CompletableFuture
-      CompletionStage)
+      CompletionStage
+      TimeoutException)
     (manifold.deferred IDeferred)))
 
 (defmacro future' [& body]
@@ -314,7 +316,7 @@
 
 ;;;
 
-(deftest ^:benchmark benchmark-chain
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-chain
   (bench "invoke comp x1"
     ((comp inc) 0))
   (bench "chain x1"
@@ -334,7 +336,7 @@
   (bench "chain' x5"
     @(d/chain' 0 inc inc inc inc inc)))
 
-(deftest ^:benchmark benchmark-deferred
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-deferred
   (bench "create deferred"
     (d/deferred))
   (bench "add-listener and success"
@@ -381,16 +383,19 @@
       (deliver d 1)
       @d)))
 
-(deftest ^:stress test-error-leak-detection
+(deftest ^:ignore-dropped-errors ^:stress test-error-leak-detection
+  (testing "error-deferred always detects dropped errors"
+    (expect-dropped-errors 1
+      (d/error-deferred (Throwable.))))
 
-  (d/error-deferred (Throwable.))
-  (System/gc)
+  (testing "regular deferreds detect errors on every debug/*leak-aware-deferred-rate*'th instance (1024 by default)"
+    (expect-dropped-errors 2
+      ;; Explicitly restating the (current) default here for clarity
+      (binding [debug/*leak-aware-deferred-rate* 1024]
+        (dotimes [_ 2048]
+          (d/error! (d/deferred) (Throwable.)))))))
 
-  (dotimes [_ 2e3]
-    (d/error! (d/deferred) (Throwable.)))
-  (System/gc))
-
-(deftest ^:stress test-deferred-chain
+(deftest ^:ignore-dropped-errors ^:stress test-deferred-chain
   (dotimes [_ 1e4]
     (let [d      (d/deferred)
           result (d/future
@@ -401,7 +406,7 @@
                                 (d/connect % d')
                                 d')
                              d))))]
-      (Thread/sleep (rand-int 10))
+      (Thread/sleep ^long (rand-int 10))
       (d/success! d 1)
       (is (= 1 @@result)))))
 
@@ -431,3 +436,5 @@
 
     (finally
       (remove-method print-method CompletionStage))))
+
+(instrument-tests-with-dropped-error-detection!)

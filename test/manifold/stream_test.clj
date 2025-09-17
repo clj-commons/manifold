@@ -480,7 +480,7 @@
 
 ;;;
 
-(deftest ^:stress stress-buffered-stream
+(deftest ^:ignore-dropped-errors ^:stress stress-buffered-stream
   (let [s (s/buffered-stream identity 100)]
     (future
       (dotimes [_ 1e6]
@@ -518,7 +518,7 @@
   (dotimes [_ 1e3]
     @(s/take! s)))
 
-(deftest ^:benchmark benchmark-conveyance
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-conveyance
   (let [s  (s/stream)
         s' (reduce
              (fn [s _]
@@ -542,7 +542,7 @@
       (async/go (async/>! c 1))
       (async/<!! c'))))
 
-(deftest ^:benchmark benchmark-map
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-map
   (let [s  (s/stream)
         s' (reduce
              (fn [s _] (s/map inc s))
@@ -560,7 +560,7 @@
       (async/go (async/>! c 1))
       (async/<!! c'))))
 
-(deftest ^:benchmark benchmark-alternatives
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-alternatives
   (let [q (ArrayBlockingQueue. 1024)]
     (bench "blocking queue throughput w/ 1024 buffer"
       (blocking-queue-benchmark q)))
@@ -589,7 +589,7 @@
     (bench "core.async blocking channel throughput w/ no buffer"
       (core-async-blocking-benchmark ch))))
 
-(deftest ^:benchmark benchmark-streams
+(deftest ^:ignore-dropped-errors ^:benchmark benchmark-streams
   (let [s (s/stream 1024)]
     (bench "stream throughput w/ 1024 buffer"
       (stream-benchmark s)))
@@ -611,3 +611,5 @@
     (s/consume (fn [_]) s)
     (bench "put! with consume"
       (s/put! s 1))))
+
+(instrument-tests-with-dropped-error-detection!)
