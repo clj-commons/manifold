@@ -23,3 +23,5 @@
         d (b/publish! b (long 1) 42)]
     (is (= 42 @(s/take! s)))
     (is (= true @d))))
+
+(instrument-tests-with-dropped-error-detection!)

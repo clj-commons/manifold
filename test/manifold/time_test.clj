@@ -81,3 +81,5 @@
     (is (= 1 @counter))
     (t/advance c 1)
     (is (= 1 @counter))))
+
+(instrument-tests-with-dropped-error-detection!)
