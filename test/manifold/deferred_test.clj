@@ -239,6 +239,28 @@
     (is (= 1 @d))
     (is (= 1 (deref d 10 :foo)))))
 
+(deftest test-timeout
+  (testing "exception by default"
+    (let [d (d/deferred)
+          t (d/timeout! d 1)]
+      (is (identical? d t))
+      (is (thrown-with-msg? TimeoutException
+                            #"^timed out after 1 milliseconds$"
+                            (deref d 100 ::error)))))
+
+  (testing "custom default value"
+    (let [d (d/deferred)
+          t (d/timeout! d 1 ::timeout)]
+      (is (identical? d t))
+      (is (deref (capture-success d ::timeout) 100 ::error))))
+
+  (testing "error before timeout"
+    (let [ex (Exception.)
+          d (d/deferred)
+          t (d/timeout! d 1000)]
+      (d/error! d ex)
+      (is (= ex (deref (capture-error t) 10 ::error))))))
+
 (deftest test-loop
   ;; body produces a non-deferred value
   (is @(capture-success
