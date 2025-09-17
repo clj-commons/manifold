@@ -1,7 +1,8 @@
 (ns manifold.executor-test
   (:require
     [clojure.test :refer :all]
-    [manifold.executor :as e])
+    [manifold.executor :as e]
+    [manifold.test-utils :refer :all])
   (:import
     [io.aleph.dirigiste
      Executor
@@ -68,3 +69,5 @@
             500)
         thread (.newThread tf (constantly nil))]
     (is (= "custom-name" (.getName thread)))))
+
+(instrument-tests-with-dropped-error-detection!)
