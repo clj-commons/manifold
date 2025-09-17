@@ -1293,9 +1293,12 @@
      (let [timeout-d (time/in interval
                               #(error! d
                                        (TimeoutException.
-                                         (str "timed out after " interval " milliseconds"))))]
-       (chain d (fn [_]
-                  (success! timeout-d true)))))
+                                        (str "timed out after " interval " milliseconds"))))]
+       (on-realized d
+                    (fn [_]
+                      (success! timeout-d true))
+                    (fn [_]
+                      (success! timeout-d false)))))
    d)
   ([d interval timeout-value]
    (cond
@@ -1308,8 +1311,11 @@
      :else
      (let [timeout-d (time/in interval
                               #(success! d timeout-value))]
-       (chain d (fn [_]
-                  (success! timeout-d true)))))
+       (on-realized d
+                    (fn [_]
+                      (success! timeout-d true))
+                    (fn [_]
+                      (success! timeout-d false)))))
    d))
 
 (deftype+ Recur [s]
