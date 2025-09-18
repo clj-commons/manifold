@@ -287,21 +287,27 @@
 (deftest test-finally
   (let [target-d (d/deferred)
         d        (d/deferred)
-        fd       (d/finally
-                   d
-                   (fn []
-                     (d/success! target-d ::delivered)))]
+        fd       (-> d
+                     (d/finally
+                       (fn []
+                         (d/success! target-d ::delivered)))
+                     ;; to silence dropped error detection
+                     (d/catch identity))]
     (d/error! d (Exception.))
     (is (= ::delivered (deref target-d 0 ::not-delivered)))))
 
 (deftest test-alt
   (is (#{1 2 3} @(d/alt 1 2 3)))
-  (is (= 2 @(d/alt (d/future (Thread/sleep 10) 1) 2)))
+  (is (= 2 @(d/alt (d/future (Thread/sleep 100) 1) 2)))
 
-  (is (= 2 @(d/alt (d/future (Thread/sleep 10) (throw (Exception. "boom"))) 2)))
+  (let [ef (d/future (Thread/sleep 100) (throw (Exception. "boom 1")))]
+    ;; to silence dropped error detection
+    (d/catch ef identity)
+    (is (= 2 @(d/alt ef 2))))
 
   (is (thrown-with-msg? Exception #"boom"
-                        @(d/alt (d/future (throw (Exception. "boom"))) (d/future (Thread/sleep 10)))))
+                        @(d/alt (d/future (throw (Exception. "boom 2")))
+                                (d/future (Thread/sleep 100)))))
 
   (testing "uniformly distributed"
     (let [results (atom {})
