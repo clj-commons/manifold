@@ -46,8 +46,7 @@
 (defn ^:no-doc run-state-machine-wrapped [state]
   (try (async-runtime/run-state-machine state)
        (catch Throwable ex
-         (d/error! (async-runtime/aget-object state async-runtime/USER-START-IDX) ex)
-         (throw ex))))
+         (d/error! (async-runtime/aget-object state async-runtime/USER-START-IDX) ex))))
 
 (defn ^:no-doc take! [state blk d]
   (let [handler          (fn [x]
