@@ -125,7 +125,7 @@
 ;;;
 
 (in-ns 'manifold.deferred)
-(clojure.core/declare success! error! deferred realized? chain connect)
+(clojure.core/declare success! error! deferred realized? chain connect on-realized)
 (in-ns 'manifold.time)
 
 ;;;
@@ -191,8 +191,14 @@
      (reify
        IClock
        (in [this interval-millis f]
-         (swap! events update-in [(p/+ ^double @now interval-millis)] #(conj (or % []) f))
-         (advance this 0))
+         (let [t (p/+ ^double @now interval-millis)
+               cancel-fn (fn []
+                           (swap! events #(cond-> %
+                                            (contains? % t)
+                                            (update t disj f))))]
+           (swap! events update t (fnil conj #{}) f)
+           (advance this 0)
+           cancel-fn))
        (every [this delay-millis period-millis f]
          (assert (p/< 0.0 period-millis))
          (let [period    (atom period-millis)
@@ -263,7 +269,9 @@
                         (catch Throwable e
                           (manifold.deferred/error! d e)))))
         cancel-fn (.in *clock* interval f)]
-    (manifold.deferred/chain d (fn [_] (cancel-fn)))
+    (manifold.deferred/on-realized d
+                                   (fn [_] (cancel-fn))
+                                   (fn [_] (cancel-fn)))
     d))
 
 (defn every

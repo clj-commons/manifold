@@ -24,7 +24,23 @@
   (testing "delayed function returns failed deferred"
     (let [d (d/deferred)]
       (d/error! d (Exception. "BOOM"))
-      (is (thrown? Exception @(t/in 1 (fn [] d)))))))
+      (is (thrown? Exception @(t/in 1 (fn [] d))))))
+
+  (testing "cancelling by completing result deferred"
+    (let [c (t/mock-clock 0)]
+      (t/with-clock c
+        (testing "with success"
+          (let [n (atom 0)
+                d (t/in 1 #(swap! n inc))]
+            (d/success! d :cancel)
+            (t/advance c 1)
+            (is (= 0 @n))))
+        (testing "with error"
+          (let [n (atom 0)
+                d (t/in 1 #(swap! n inc))]
+            (d/error! d (Exception. "cancel"))
+            (t/advance c 1)
+            (is (= 0 @n))))))))
 
 (deftest test-every
   (let [n (atom 0)
