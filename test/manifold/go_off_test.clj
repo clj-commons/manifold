@@ -115,12 +115,12 @@
   (testing "timeouts"
     (is (= ::timeout @(go-off (<!? (d/timeout! (d/deferred) 10 ::timeout)))))
     (is (= ::timeout @(d/timeout! (go-off (<!? (d/deferred))) 10 ::timeout)))
-    (is (thrown? TimeoutException @(go-off (<!? (d/timeout! (d/deferred) 10)))))
-    (is (thrown? TimeoutException @(d/timeout! (go-off (<!? (d/deferred))) 10))))
+    (is (thrown? TimeoutException @(go-off (<!? (d/timeout! (d/deferred) 11)))))
+    (is (thrown? TimeoutException @(d/timeout! (go-off (<!? (d/deferred))) 12))))
 
   (testing "alt"
-    (is (= ::timeout @(go-off (<!? (d/alt (d/deferred) (d/timeout! (d/deferred) 10 ::timeout))))))
-    (is (= ::timeout @(d/alt (go-off (<!? (d/deferred))) (d/timeout! (d/deferred) 10 ::timeout))))
+    (is (= ::timeout @(go-off (<!? (d/alt (d/deferred) (d/timeout! (d/deferred) 13 ::timeout))))))
+    (is (= ::timeout @(d/alt (go-off (<!? (d/deferred))) (d/timeout! (d/deferred) 14 ::timeout))))
     (is (= 1 @(go-off (<!? (d/alt (d/deferred) (d/success-deferred 1))))))
     (is (= 1 @(d/alt (go-off (<!? (d/deferred))) (d/success-deferred 1))))))
 
