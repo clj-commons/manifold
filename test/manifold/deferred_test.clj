@@ -298,16 +298,24 @@
 
 (deftest test-alt
   (is (#{1 2 3} @(d/alt 1 2 3)))
-  (is (= 2 @(d/alt (d/future (Thread/sleep 100) 1) 2)))
+  (let [d (d/deferred)
+        a (d/alt d 2)]
+    (d/success! d 1)
+    (is (= 2 @a)))
 
-  (let [ef (d/future (Thread/sleep 100) (throw (Exception. "boom 1")))]
-    ;; to silence dropped error detection
-    (d/catch ef identity)
-    (is (= 2 @(d/alt ef 2))))
+  (let [d (d/deferred)
+        a (d/alt d 2)]
+    (doto d
+      (d/error! (Exception. "boom 1"))
+      ;; to silence dropped error detection
+      (d/catch identity))
+    (is (= 2 @a)))
 
-  (is (thrown-with-msg? Exception #"boom"
-                        @(d/alt (d/future (throw (Exception. "boom 2")))
-                                (d/future (Thread/sleep 100)))))
+  (let [e (d/error-deferred (Exception. "boom 2"))
+        d (d/deferred)
+        a (d/alt e d)]
+    (d/success! d 1)
+    (is (thrown-with-msg? Exception #"boom" @a)))
 
   (testing "uniformly distributed"
     (let [results (atom {})
