@@ -68,9 +68,7 @@
               :recur)
 
           ;; resume processing state machine once d has been realized
-          (do (-> d
-                  (d/chain handler)
-                  (d/catch handler))
+          (do (d/on-realized d handler handler)
               nil))))))
 
 (def ^:no-doc async-custom-terminators
