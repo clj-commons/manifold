@@ -816,13 +816,13 @@
       (d/chain' (take! in ::none)
                 (fn [s']
                   (cond
-                    (closed? out)
-                    (close! s')
-
                     (identical? ::none s')
                     (do
                       (close! out)
                       s')
+
+                    (closed? out)
+                    (close! s')
 
                     :else
                     (d/loop []
