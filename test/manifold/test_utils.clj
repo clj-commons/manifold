@@ -26,8 +26,7 @@
              "Dropped errors detected! See log output for details.")))
 
 (defn instrument-test-fn-with-dropped-error-detection [tf]
-  (if (or (::detect-dropped-errors? tf)
-          (:ignore-dropped-errors tf))
+  (if (::detect-dropped-errors? tf)
     tf
     (with-meta
       (fn []
