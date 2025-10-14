@@ -2,7 +2,6 @@
   {:no-doc true}
   (:require
     [clj-commons.primitive-math :as p]
-    [manifold.stream.graph :as g]
     [manifold.deferred :as d]
     [manifold.stream.core :as s]
     [manifold.utils :as utils])
@@ -11,7 +10,6 @@
      AtomicReference]
     [java.util.concurrent
      BlockingQueue
-     LinkedBlockingQueue
      TimeUnit]))
 
 (s/def-source BlockingQueueSource

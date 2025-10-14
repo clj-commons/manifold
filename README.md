@@ -122,6 +122,12 @@ Manifold can use any transducer, which are applied via `transform`.  It also pro
 A Clojurescript implementation of Manifold can be found here: [dm3/manifold-cljs](https://github.com/dm3/manifold-cljs).
 
 
+### Breaking Changes
+
+### 0.4.4
+- manifold now requires Clojure 1.10 or later due to use of `requiring-resolve`
+
+
 ### License
 
 Copyright © 2014-2024 Zach Tellman.

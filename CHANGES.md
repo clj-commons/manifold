@@ -1,3 +1,9 @@
+### 0.4.4
+
+* manifold now requires Clojure 1.10 or later due to use of `requiring-resolve`
+
+Contributions by Allen Rohner
+
 ### 0.4.3
 
 * Improved clj-kondo exports
@@ -71,7 +77,7 @@ Contributions by Matthew Davidson, Ryan Smith
 Contributions by Matthew Davidson, Ryan Smith
 
 * Add `go-off`, a `core-async`-style macro with a manifold flavor. Big thanks to Ryan Smith and Yummly for contributing this!
-* Switch to `bound-fn` in `let-flow` to fix bug where dynamic vars were incorrect for other threads 
+* Switch to `bound-fn` in `let-flow` to fix bug where dynamic vars were incorrect for other threads
 * Modernized indentation to match current Clojure styles and fix misalignments
 
 ### 0.1.9

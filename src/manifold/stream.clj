@@ -297,10 +297,6 @@
   ([^IEventSource source default-val ^double timeout timeout-val]
    (.take source default-val false timeout timeout-val)))
 
-;;;
-
-(require '[manifold.stream.graph])
-
 (defn connect
   "Connects a source to a sink, propagating all messages from the former into the latter.
 
@@ -331,7 +327,7 @@
          connector (.connector ^IEventSource source sink)]
      (if connector
        (connector source sink options)
-       (manifold.stream.graph/connect source sink options))
+       ((requiring-resolve 'manifold.stream.graph/connect) source sink options))
      nil)))
 
 ;;;
@@ -866,7 +862,7 @@
   (isSynchronous [_]
     false)
   (downstream [this]
-    (manifold.stream.graph/downstream this))
+    ((requiring-resolve 'manifold.stream.graph/downstream) this))
   (close [_]
     (.close ^IEventStream buf))
   (description [_]

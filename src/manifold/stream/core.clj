@@ -1,15 +1,14 @@
 (ns manifold.stream.core
   {:no-doc true}
-  (:require [manifold.utils :refer [definterface+]]
-            [potemkin.types :refer [deftype+ defprotocol+]]))
+  (:require [potemkin.types :refer [deftype+]]))
 
-(defprotocol+ Sinkable
+(defprotocol Sinkable
   (to-sink [_] "Provides a conversion mechanism to Manifold sinks."))
 
-(defprotocol+ Sourceable
+(defprotocol Sourceable
   (to-source [_] "Provides a conversion mechanism to Manifold source."))
 
-(definterface+ IEventStream
+(definterface IEventStream
   (description [])
   ; Is the underlying class synchronous by default? NB: async usage is still possible, but requires wrapping
   (isSynchronous [])
@@ -17,14 +16,14 @@
   (weakHandle [reference-queue])
   (close []))
 
-(definterface+ IEventSink
+(definterface IEventSink
   (put [x blocking?])
   (put [x blocking? timeout timeout-val])
   (markClosed [])
   (isClosed [])
   (onClosed [callback]))
 
-(definterface+ IEventSource
+(definterface IEventSource
   (take [default-val blocking?])
   (take [default-val blocking? timeout timeout-val])
   (markDrained [])
@@ -86,7 +85,7 @@
     (alterMeta [_ f# args#]
       (manifold.utils/with-lock* ~'lock
         (set! ~'__mta (apply f# ~'__mta args#))))
-    (~'downstream [this#] (manifold.stream.graph/downstream this#))
+    (~'downstream [this#] ((requiring-resolve 'manifold.stream.graph/downstream) this#))
     (~'weakHandle [this# ref-queue#]
       (manifold.utils/with-lock ~'lock
         (or ~'__weakHandle
