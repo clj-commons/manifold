@@ -76,7 +76,7 @@
 
          when-complete when-complete-async
 
-         deferred cs-default-executor)
+         cs-default-executor)
 
 ;; The potemkin abstract type for
 ;; implementations such as CompletionStage
@@ -88,94 +88,94 @@
   (thenApply [d f]
     (then-apply d f nil))
   (thenApplyAsync [d f]
-    (then-apply d f (deferred (cs-default-executor))))
+    (then-apply d f (cs-default-executor)))
   (thenApplyAsync [d f executor]
-    (then-apply d f (deferred executor)))
+    (then-apply d f executor))
 
   (thenAccept [d f]
     (then-accept d f nil))
   (thenAcceptAsync [d f]
-    (then-accept d f (deferred (cs-default-executor))))
+    (then-accept d f (cs-default-executor)))
   (thenAcceptAsync [d f executor]
-    (then-accept d f (deferred executor)))
+    (then-accept d f executor))
 
   (thenRun [d f]
     (then-run d f nil))
   (thenRunAsync [d f]
-    (then-run d f (deferred (cs-default-executor))))
+    (then-run d f (cs-default-executor)))
   (thenRunAsync [d f executor]
-    (then-run d f (deferred executor)))
+    (then-run d f executor))
 
   (thenCombine [d other f]
     (then-combine d other f nil))
   (thenCombineAsync [d other f]
-    (then-combine d other f (deferred (cs-default-executor))))
+    (then-combine d other f (cs-default-executor)))
   (thenCombineAsync [d other f executor]
-    (then-combine d other f (deferred executor)))
+    (then-combine d other f executor))
 
   (thenAcceptBoth [d other f]
     (then-accept-both d other f nil))
   (thenAcceptBothAsync [d other f]
-    (then-accept-both d other f (deferred (cs-default-executor))))
+    (then-accept-both d other f (cs-default-executor)))
   (thenAcceptBothAsync [d other f executor]
-    (then-accept-both d other f (deferred executor)))
+    (then-accept-both d other f executor))
 
   (runAfterBoth [d other f]
     (run-after-both d other f nil))
   (runAfterBothAsync [d other f]
-    (run-after-both d other f (deferred (cs-default-executor))))
+    (run-after-both d other f (cs-default-executor)))
   (runAfterBothAsync [d other f executor]
-    (run-after-both d other f (deferred executor)))
+    (run-after-both d other f executor))
 
   (applyToEither [d other f]
     (apply-to-either d other f nil))
   (applyToEitherAsync [d other f]
-    (apply-to-either d other f (deferred (cs-default-executor))))
+    (apply-to-either d other f (cs-default-executor)))
   (applyToEitherAsync [d other f executor]
-    (apply-to-either d other f (deferred executor)))
+    (apply-to-either d other f executor))
 
   (acceptEither [d other f]
     (accept-either d other f nil))
   (acceptEitherAsync [d other f]
-    (accept-either d other f (deferred (cs-default-executor))))
+    (accept-either d other f (cs-default-executor)))
   (acceptEitherAsync [d other f executor]
-    (accept-either d other f (deferred executor)))
+    (accept-either d other f executor))
 
   (runAfterEither [d other f]
     (run-after-either d other f nil))
   (runAfterEitherAsync [d other f]
-    (run-after-either d other f (deferred (cs-default-executor))))
+    (run-after-either d other f (cs-default-executor)))
   (runAfterEitherAsync [d other f executor]
-    (run-after-either d other f (deferred executor)))
+    (run-after-either d other f executor))
 
   (thenCompose [d f]
     (then-compose d f nil))
   (thenComposeAsync [d f]
-    (then-compose d f (deferred (cs-default-executor))))
+    (then-compose d f (cs-default-executor)))
   (thenComposeAsync [d f executor]
-    (then-compose d f (deferred executor)))
+    (then-compose d f executor))
 
   (handle [d f]
     (then-handle d f nil))
   (handleAsync [d f]
-    (then-handle d f (deferred (cs-default-executor))))
+    (then-handle d f (cs-default-executor)))
   (handleAsync [d f executor]
-    (then-handle d f (deferred executor)))
+    (then-handle d f executor))
 
   (exceptionally [d f]
     (then-exceptionally d f nil))
   ;; Only available since Java 12
   ;; (exceptionallyAsync [d f]
-  ;;   (then-exceptionally d f (deferred (cs-default-executor))))
+  ;;   (then-exceptionally d f (cs-default-executor)))
   ;; (exceptionallyAsync [d f executor]
-  ;;   (then-exceptionally d (deferred executor)))
+  ;;   (then-exceptionally d executor))
 
   (whenComplete [d f]
     (when-complete d f nil))
   (whenCompleteAsync [d f]
-    (when-complete d f (deferred (cs-default-executor))))
+    (when-complete d f (cs-default-executor)))
   (whenCompleteAsync [d f executor]
-    (when-complete d f (deferred executor)))
+    (when-complete d f executor))
 
   (toCompletableFuture [d]
     (to-completable-future d)))
@@ -1567,85 +1567,87 @@
                  (fn [error] (error! d' error)))
     d'))
 
-(defn- completion-stage-result [d f to]
-  (when to
-    (shallow-connect d to))
-  (shallow-chain (or to d) f))
+(defn- shallow-onto [^IDeferred d executor]
+  (if (identical? executor (.executor d))
+    d
+    (let [d' (deferred executor)]
+      (shallow-connect d d')
+      d')))
 
-(defn- then-apply [d ^Function f to]
+(defn- shallow-chain-onto [d f executor]
+  (-> d
+      (shallow-onto executor)
+      (shallow-chain f)))
+
+(defn- then-apply [d ^Function f executor]
   (assert-some f)
-  (completion-stage-result d #(.apply f %) to))
+  (shallow-chain-onto d #(.apply f %) executor))
 
-(defn- then-accept [d ^Consumer c to]
+(defn- then-accept [d ^Consumer c executor]
   (assert-some c)
-  (completion-stage-result d #(.accept c %) to))
+  (shallow-chain-onto d #(.accept c %) executor))
 
-(defn- then-run [d ^Runnable f to]
+(defn- then-run [d ^Runnable f executor]
   (assert-some f)
-  (completion-stage-result d (fn [_] (.run f)) to))
+  (shallow-chain-onto d (fn [_] (.run f)) executor))
 
-(defn- then-combine [d other ^BiFunction f to]
+(defn- then-combine [d other ^BiFunction f executor]
   (assert-some other f)
-  (completion-stage-result (zip d other)
+  (shallow-chain-onto (zip d other)
                            (fn [[x y]] (.apply f x y))
-                           to))
+                           executor))
 
-(defn- then-accept-both [d other ^BiConsumer f to]
+(defn- then-accept-both [d other ^BiConsumer f executor]
   (assert-some other f)
-  (completion-stage-result (zip d other)
+  (shallow-chain-onto (zip d other)
                            (fn [[x y]] (.accept f x y))
-                           to))
+                           executor))
 
-(defn- run-after-both [d other ^Runnable f to]
+(defn- run-after-both [d other ^Runnable f executor]
   (assert-some other f)
-  (completion-stage-result (zip d other)
+  (shallow-chain-onto (zip d other)
                            (fn [[_ _]] (.run f))
-                           to))
+                           executor))
 
-(defn- apply-to-either [d other ^Function f to]
+(defn- apply-to-either [d other ^Function f executor]
   (assert-some other f)
-  (then-apply (alt d other) f to))
+  (then-apply (alt d other) f executor))
 
-(defn- accept-either [d other ^Function f to]
+(defn- accept-either [d other ^Function f executor]
   (assert-some other f)
-  (then-accept (alt d other) f to))
+  (then-accept (alt d other) f executor))
 
-(defn- run-after-either [d other ^Function f to]
+(defn- run-after-either [d other ^Function f executor]
   (assert-some other f)
-  (then-run (alt d other) f to))
+  (then-run (alt d other) f executor))
 
-(defn- then-compose [d ^Function f to]
+(defn- then-compose [d ^Function f executor]
   (assert-some f)
   (let [d' (deferred)]
-    (-> (completion-stage-result d #(->deferred (.apply f %)) to)
+    (-> (shallow-chain-onto d #(->deferred (.apply f %)) executor)
         (on-realized (fn [fd]
                        (shallow-connect fd d'))
                      (fn [error]
                        (error! d' error))))
     d'))
 
-(defn- then-handle [d ^BiFunction f to]
+(defn- then-handle [d ^BiFunction f executor]
   (assert-some f)
-  ;; Can't use `completion-stage-result` here because it only covers
-  ;; the success case.
-  (when to
-    (shallow-connect d to))
+  ;; Can't use `shallow-chain-onto` here because it only covers the success case.
   (let [d' (deferred)]
     (on-realized
-     (or to d)
+     (shallow-onto d executor)
      (fn [val] (success! d' (.apply f val nil)))
      (fn [error] (success! d' (.apply f nil error))))
     d'))
 
-(defn- then-exceptionally [d ^Function f to]
+(defn- then-exceptionally [d ^Function f executor]
   (assert-some f)
-  ;; Can't use `completion-stage-result` here because it only covers
+  ;; Can't use `shallow-chain-onto` here because it only covers
   ;; the success case.
-  (when to
-    (shallow-connect d to))
   (let [d' (deferred)]
     (on-realized
-     (or to d)
+     (shallow-onto d executor)
      (fn [val] (success! d' val))
      (fn [error] (success! d' (.apply f error))))
     d'))
@@ -1660,14 +1662,12 @@
 
     to))
 
-(defn- when-complete [d ^BiConsumer f to]
+(defn- when-complete [d ^BiConsumer f executor]
   (assert-some f)
-  ;; Can't use `completion-stage-result` here because it only covers
+  ;; Can't use `shallow-chain-onto` here because it only covers
   ;; the success case.
-  (when to
-    (shallow-connect d to))
   (let [d' (deferred)]
-    (on-realized (or to d)
+    (on-realized (shallow-onto d executor)
                  (fn [val]
                    (try (.accept f val nil)
                         (success! d' val)
