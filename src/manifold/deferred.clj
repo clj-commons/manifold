@@ -1654,13 +1654,13 @@
 
 (defn- to-completable-future [d]
 
-  (let [to (CompletableFuture.)]
+  (let [result (CompletableFuture.)]
 
     (on-realized d
-                 #(.complete to %)
-                 #(.completeExceptionally to %))
+                 #(.complete result %)
+                 #(.completeExceptionally result %))
 
-    to))
+    result))
 
 (defn- when-complete [d ^BiConsumer f executor]
   (assert-some f)
