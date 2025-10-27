@@ -1594,20 +1594,20 @@
 (defn- then-combine [d other ^BiFunction f executor]
   (assert-some other f)
   (shallow-chain-onto (zip d other)
-                           (fn [[x y]] (.apply f x y))
-                           executor))
+                      (fn [[x y]] (.apply f x y))
+                      executor))
 
 (defn- then-accept-both [d other ^BiConsumer f executor]
   (assert-some other f)
   (shallow-chain-onto (zip d other)
-                           (fn [[x y]] (.accept f x y))
-                           executor))
+                      (fn [[x y]] (.accept f x y))
+                      executor))
 
 (defn- run-after-both [d other ^Runnable f executor]
   (assert-some other f)
   (shallow-chain-onto (zip d other)
-                           (fn [[_ _]] (.run f))
-                           executor))
+                      (fn [[_ _]] (.run f))
+                      executor))
 
 (defn- apply-to-either [d other ^Function f executor]
   (assert-some other f)
