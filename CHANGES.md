@@ -1,3 +1,9 @@
+### 0.4.4
+
+* Fix various leaked error deferreds (#245, #248, #249, #250, #252, #253)
+
+Contributions by (in alphabetical order): Balint Erdos, Dave Roberts, Matthew Davidson, Moritz Heidkamp, Renan Ribeiro
+
 ### 0.4.3
 
 * Improved clj-kondo exports
