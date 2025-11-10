@@ -2,7 +2,7 @@
   (:require
     [clojure.test :refer :all]
     [manifold.executor :as e]
-    [manifold.test-utils :refer :all])
+    [manifold.test :refer :all])
   (:import
     [io.aleph.dirigiste
      Executor

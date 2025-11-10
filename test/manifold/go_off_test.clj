@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [manifold.go-off :refer [go-off <!? go-off-with]]
             [manifold.deferred :as d]
+            [manifold.test :refer :all]
             [manifold.test-utils :refer :all]
             [manifold.executor :as ex]
             [clojure.string :as str]

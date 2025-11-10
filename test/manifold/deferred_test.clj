@@ -2,6 +2,7 @@
   (:refer-clojure :exclude (realized? future loop))
   (:require
     [clojure.test :refer :all]
+    [manifold.test :refer :all]
     [manifold.test-utils :refer :all]
     [manifold.debug :as debug]
     [manifold.deferred :as d]
