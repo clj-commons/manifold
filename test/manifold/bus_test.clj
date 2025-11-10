@@ -1,7 +1,7 @@
 (ns manifold.bus-test
   (:require
     [clojure.test :refer :all]
-    [manifold.test-utils :refer :all]
+    [manifold.test :refer :all]
     [manifold.stream :as s]
     [manifold.deferred :as d]
     [manifold.bus :as b]))

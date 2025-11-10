@@ -4,6 +4,7 @@
     [clojure.core.async :as async]
     [clojure.test :refer :all]
     [manifold.test-utils :refer :all]
+    [manifold.test :refer :all]
     [manifold.stream :as s]
     [manifold.stream.default :as sd]
     [manifold.utils :as utils]

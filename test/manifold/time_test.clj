@@ -1,7 +1,7 @@
 (ns manifold.time-test
   (:require
     [clojure.test :refer :all]
-    [manifold.test-utils :refer :all]
+    [manifold.test :refer :all]
     [manifold.deferred :as d]
     [manifold.time :as t]))
 

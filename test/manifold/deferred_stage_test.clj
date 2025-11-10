@@ -1,6 +1,6 @@
 (ns manifold.deferred-stage-test
   (:require [manifold.deferred :as d]
-            [manifold.test-utils :refer :all]
+            [manifold.test :refer :all]
             [manifold.utils :refer
              [fn->Function fn->Consumer fn->BiFunction fn->BiConsumer]]
             [clojure.test :refer [deftest is testing]])
