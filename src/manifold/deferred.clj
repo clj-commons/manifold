@@ -1522,24 +1522,39 @@
     body))
 
 
-
-(defmethod print-method IDeferred [o ^Writer w]
+(defn- print-deferred [d ^Writer w]
   (.write w
-          (str
-            "<< "
-            (if (realized? o)
-              (try
-                (let [x @o]
-                  (pr-str x))
-                (catch Throwable e
-                  (str "ERROR: " (pr-str e))))
-              "\u2026")
-            " >>")))
+          (str "<< "
+               (if (realized? d)
+                 (try
+                   (let [x @d]
+                     (pr-str x))
+                   (catch Throwable e
+                     (str "ERROR: " (pr-str e))))
+                 "\u2026")
+               " >>")))
 
-(prefer-method print-method IDeferred IDeref)
-(prefer-method print-method IDeferred CompletionStage)
+(defmethod print-method IDeferred [o w]
+  (print-deferred o w))
 
+;; Implement `print-method` for all concrete types, too, to be robust against third parties
+;; providing conflicting implementations for any of the interfaces. The alternative of using
+;; `prefer-method` would require us to also define preferences between *all* combinations of
+;; interfaces (see https://clojure.atlassian.net/browse/CLJ-396). Not only is this very laborious,
+;; it's also overstepping the scope of a library since we'd also have to do this for conflicts
+;; between external interfaces (e.g. `IDeref` and `CompletionStage`).
 
+(defmethod print-method Deferred [o w]
+  (print-deferred o w))
+
+(defmethod print-method LeakAwareDeferred [o w]
+  (print-deferred o w))
+
+(defmethod print-method SuccessDeferred [o w]
+  (print-deferred o w))
+
+(defmethod print-method ErrorDeferred [o w]
+  (print-deferred o w))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; CompletionStage helper fns
