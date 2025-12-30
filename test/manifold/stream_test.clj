@@ -468,17 +468,25 @@
 
 (deftest test-window-streams
   (testing "dropping-stream"
-    (let [s (s/->source (range 11))
+    (let [s          (s/->source (range 11))
           dropping-s (s/dropping-stream 10 s)]
       (is (= (range 10)
              (s/stream->seq dropping-s)))))
 
   (testing "sliding-stream"
-    (let [s (s/->source (range 11))
-          sliding-s (s/sliding-stream 10 s)]
-      (is (= (range 1 11)
-             (s/stream->seq sliding-s))))))
-
+    (let [in         (s/stream)
+          sliding-s (s/sliding-stream 3 in)]
+      (testing "passthrough within buffer size"
+        @(s/put! in 1)
+        (is (= 1 @(s/try-take! sliding-s 0))))
+      (testing "discards oldest elements when blocked"
+        @(s/put-all! in [1 2 3 4])
+        (is (= 2 @(s/try-take! sliding-s 0)))
+        (is (= 3 @(s/try-take! sliding-s 0)))
+        (is (= 4 @(s/try-take! sliding-s 0))))
+      (testing "propagates closes"
+        (s/close! in)
+        (is (= ::closed @(s/take! sliding-s ::closed)))))))
 ;;;
 
 (deftest ^:ignore-dropped-errors ^:stress stress-buffered-stream
