@@ -1,3 +1,10 @@
+### 0.5.0
+
+* Add `manifold.test` which provides test utilities for Manifold consumers
+* Fix another `print-method` conflict (#255, #256)
+
+Contributions by (in alphabetical order): Dave Roberts, Moritz Heidkamp
+
 ### 0.4.4
 
 * Fix various leaked error deferreds (#245, #248, #249, #250, #252, #253)

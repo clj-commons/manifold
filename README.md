@@ -11,12 +11,12 @@ A detailed discussion of Manifold's rationale can be found [here](doc/rationale.
 
 Leiningen:
 ```clojure
-[manifold "0.4.4"]
+[manifold "0.5.0"]
 ```
 
 deps.edn:
 ```clojure
-manifold/manifold {:mvn/version "0.4.4"}
+manifold/manifold {:mvn/version "0.5.0"}
 ```
 
 ### Deferreds
