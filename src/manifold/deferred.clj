@@ -406,7 +406,7 @@
   (.cancelListener deferred listener))
 
 (defn execute-callback [^Executor executor callback]
-  (if (nil? executor)
+  (if (or (nil? executor) (identical? executor (ex/current-executor)))
     (callback)
     (.execute executor
               (fn []
@@ -738,13 +738,15 @@
   ([error executor]
    (ErrorDeferred. error nil false executor)))
 
-(declare chain)
+(defn- different-executor? [d]
+  (when-let [ex (executor d)]
+    (not (identical? ex (ex/current-executor)))))
 
 (defn unwrap'
   "Like unwrap, but does not coerce deferrable values."
   [x]
   (if (deferred? x)
-    (if (executor x)
+    (if (different-executor? x)
       x
       (let [val (success-value x ::none)]
         (if (identical? val ::none)
@@ -754,11 +756,12 @@
 
 (defn unwrap
   "Recursively unwraps a deferred or deferrable until either 1) a non-deferred value is reached, or 2)
-  an unrealized deferrable is reached, or 3) a realized deferrable with an explicit executor is reached."
+  an unrealized deferrable is reached, or 3) a realized deferrable with a different executor than
+  the current one is reached."
   [x]
   (let [d (->deferred x nil)]
     (cond (nil? d) x
-          (executor d) d
+          (different-executor? d) d
           :else (let [val (success-value d ::none)]
                   (if (identical? ::none val)
                     d
@@ -1107,7 +1110,7 @@
 
                 err (try
                       (if (catch? err)
-                        (if (executor x')
+                        (if (different-executor? x')
                           (subscribe x catch? error-handler)
                           (chain' (error-handler err)))
                         (error-deferred err))
@@ -1154,7 +1157,7 @@
   (defn finally'
     "Like `finally`, but doesn't coerce deferrable values."
     [x f]
-    (if (executor x)
+    (if (different-executor? x)
       (subscribe x f)
       (success-error-unrealized x
         val (try

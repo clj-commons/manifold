@@ -25,6 +25,12 @@
 (definline executor []
   `(.get manifold.executor/executor-thread-local))
 
+
+(def ^ThreadLocal current-executor-thread-local (ThreadLocal.))
+
+(definline current-executor []
+  `(.get manifold.executor/current-executor-thread-local))
+
 (defmacro with-executor [executor & body]
   `(let [executor# (executor)]
      (.set executor-thread-local ~executor)
@@ -66,8 +72,10 @@
        (newThread [_ runnable]
          (let [name        (name-generator)
                curr-loader (.getClassLoader (class thread-factory))
-               f           #(do
-                              (.set executor-thread-local @executor-promise)
+               f           #(let [{:keys [executor onto?]} @executor-promise]
+                              (when onto?
+                                (.set executor-thread-local executor))
+                              (.set current-executor-thread-local executor)
                               (.run ^Runnable runnable))
                thread      ^Thread (new-thread nil f name (or stack-size 0))]
            (doto thread
@@ -136,35 +144,35 @@
                                  thread-factory
                                  (manifold.executor/thread-factory
                                    #(str "manifold-pool-" factory "-" (swap! thread-count inc))
-                                   (if onto?
-                                     executor-promise
-                                     (deliver (promise) nil))))
+                                   executor-promise))
         ^Executor$Controller c controller
         metrics                (if (identical? :none metrics)
                                  (EnumSet/noneOf Stats$Metric)
-                                 metrics)]
+                                 metrics)
+        executor             (Executor.
+                              thread-factory
+                              (if (and queue-length (pos? queue-length))
+                                (if (p/<= queue-length 1024)
+                                  (ArrayBlockingQueue. queue-length false)
+                                  (LinkedBlockingQueue. (int queue-length)))
+                                (SynchronousQueue. false))
+                              (if stats-callback
+                                (reify Executor$Controller
+                                  (shouldIncrement [_ n]
+                                    (.shouldIncrement c n))
+                                  (adjustment [_ s]
+                                    (stats-callback (stats->map s))
+                                    (.adjustment c s)))
+                                c)
+                              initial-thread-count
+                              metrics
+                              sample-period
+                              control-period
+                              TimeUnit/MILLISECONDS)]
     (assert controller "must specify :controller")
-    @(deliver executor-promise
-              (Executor.
-                thread-factory
-                (if (and queue-length (pos? queue-length))
-                  (if (p/<= queue-length 1024)
-                    (ArrayBlockingQueue. queue-length false)
-                    (LinkedBlockingQueue. (int queue-length)))
-                  (SynchronousQueue. false))
-                (if stats-callback
-                  (reify Executor$Controller
-                    (shouldIncrement [_ n]
-                      (.shouldIncrement c n))
-                    (adjustment [_ s]
-                      (stats-callback (stats->map s))
-                      (.adjustment c s)))
-                  c)
-                initial-thread-count
-                metrics
-                sample-period
-                control-period
-                TimeUnit/MILLISECONDS))))
+    (deliver executor-promise {:executor executor
+                               :onto? onto?})
+    executor))
 
 (defn fixed-thread-executor
   "Returns an executor which has a fixed number of threads."
