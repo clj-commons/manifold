@@ -79,6 +79,67 @@
               (d/chain #(/ 1 %))
               (d/catch ArithmeticException (constantly :foo))))))
 
+(defn capture-callback-thread
+  ([d attach]
+   (capture-callback-thread d attach (fn [_ _])))
+  ([d attach realize!]
+   (let [t (d/deferred)]
+     (-> d
+         (attach (fn [& _]
+                   (d/success! t (Thread/currentThread))))
+         ;; Silence dropped error detection for finally + error cases
+         (d/catch' identity))
+     (realize! d [attach realize!])
+     @(d/timeout! t 100 ::timeout))))
+
+(deftest test-executors
+  (let [ex (ex/fixed-thread-executor 1)]
+    (doseq [make-deferred [#'d/deferred
+                           #'d/success-deferred
+                           #'d/error-deferred]]
+      (doseq [[attach realize!] [[#'d/chain    #'d/success!]
+                                 [#'d/chain'   #'d/success!]
+                                 [#'d/catch    #'d/error!]
+                                 [#'d/catch'   #'d/error!]
+                                 [#'d/finally  #'d/success!]
+                                 [#'d/finally  #'d/error!]
+                                 [#'d/finally' #'d/success!]
+                                 [#'d/finally' #'d/error!]]]
+        (when (condp = make-deferred
+                #'d/deferred true
+                #'d/success-deferred (or (= realize! #'d/success!)
+                                         (= attach #'d/finally)
+                                         (= attach #'d/finally'))
+                #'d/error-deferred (or (= realize! #'d/error!)
+                                       (= attach #'d/finally)
+                                       (= attach #'d/finally'))
+                false)
+          (testing (str "Using " (:name (meta attach)) ":")
+            (testing "Deferreds without an executor invoke callbacks on the thread which realizes them."
+              (let [d (if (= make-deferred #'d/deferred)
+                        (make-deferred)
+                        (make-deferred ::value))]
+                (is (= (Thread/currentThread)
+                       (capture-callback-thread d attach realize!)))
+                (when (= make-deferred #'d/deferred) ; all other deferred types are immediately realized anyway
+                  (testing "This is also the case for callbacks attached after realization."
+                    (is (= (Thread/currentThread)
+                           (capture-callback-thread d attach)))))))
+            (testing "Deferreds with an executor invoke callbacks on a thread from that executor."
+              (let [d (if (= make-deferred #'d/deferred)
+                        (make-deferred ex)
+                        (make-deferred ::value ex))
+                    t (capture-callback-thread d attach realize!)]
+                (when (is (instance? Thread t))
+                  (is (not= t (Thread/currentThread)))
+                  (is (re-find #"manifold-pool" (.getName t))))
+                (when (= make-deferred #'d/deferred) ; all other deferred types are immediately realized anyway
+                  (testing "This is also the case for callbacks attached after realization."
+                    (let [t (capture-callback-thread d attach)]
+                      (when (is (instance? Thread t))
+                        (is (not= t (Thread/currentThread)))
+                        (is (re-find #"manifold-pool" (.getName t)))))))))))))))
+
 (def ^:dynamic *test-dynamic-var*)
 
 (deftest test-let-flow
@@ -297,11 +358,12 @@
          (d/loop [[x & xs] [1 2 3]] (or (= x 3) (d/recur xs))))))
 
 (deftest test-coercion
-  (is (= 1 (-> 1 clojure.core/future d/->deferred deref)))
+  (is (= 2 (-> (clojure.core/future 1) d/->deferred (d/chain inc) deref)))
+  (is (= 2 (-> (promise) (deliver 1) d/->deferred (d/chain inc) deref)))
 
   (let [f (CompletableFuture.)]
     (.obtrudeValue f 1)
-    (is (= 1 (-> f d/->deferred deref))))
+    (is (= 2 (-> f d/->deferred (d/chain inc) deref))))
 
   (let [f (CompletableFuture.)]
     (.obtrudeException f (Exception.))
