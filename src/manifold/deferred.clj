@@ -399,7 +399,19 @@
   [^IMutableDeferred deferred listener]
   (.cancelListener deferred listener))
 
+(defn execute-callback [^Executor executor callback]
+  (if (nil? executor)
+    (callback)
+    (.execute executor
+              (fn []
+                (try
+                  (callback)
+                  (catch Throwable e
+                    (log/error e "error in deferred handler")))))))
+
 (defmacro ^:private set-deferred [val token success? claimed? executor]
+  ;; Relies on all arguments being safe against double-evaluation, i.e. they're local variables at
+  ;; all callsites.
   `(if (utils/with-lock* ~'lock
          (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
@@ -412,17 +424,8 @@
        (clojure.core/loop []
          (when-let [^IDeferredListener l# (.poll ~'listeners)]
            (try
-             (if (nil? ~executor)
-               (~(if success? `.onSuccess `.onError) ^IDeferredListener l# ~val)
-               (.execute ~(with-meta executor {:tag "java.util.concurrent.Executor"})
-                         (fn []
-                           (try
-                             (~(if success? `.onSuccess `.onError) l# ~val)
-                             (catch Throwable e#
-                               #_(.printStackTrace e#)
-                               (log/error e# "error in deferred handler"))))))
+             (execute-callback ~executor #(~(if success? `.onSuccess `.onError) l# ~val))
              (catch Throwable e#
-               #_(.printStackTrace e#)
                (log/error e# "error in deferred handler")))
            (recur)))
        true)
@@ -518,9 +521,7 @@
                        (do
                          (.add listeners listener)
                          nil)))]
-        (if executor
-          (.execute executor f)
-          (f)))
+        (execute-callback executor f))
       true)
     (cancelListener [_ listener]
       (utils/with-lock* lock
@@ -595,9 +596,7 @@
   IMutableDeferred
   (claim [_] false)
   (addListener [_ listener]
-    (if (nil? executor)
-      (.onSuccess ^IDeferredListener listener val)
-      (.execute executor #(.onSuccess ^IDeferredListener listener val)))
+    (execute-callback executor #(.onSuccess ^IDeferredListener listener val))
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -613,9 +612,7 @@
   (executor [_] executor)
   (realized [this] true)
   (onRealized [this on-success on-error]
-    (if executor
-      (.execute executor #(on-success val))
-      (on-success val)))
+    (execute-callback executor #(on-success val)))
   (successValue [_ default-value]
     val)
   (errorValue [_ default-value]
@@ -654,7 +651,7 @@
   (claim [_] false)
   (addListener [_ listener]
     (set! consumed? true)
-    (.onError ^IDeferredListener listener error)
+    (execute-callback executor #(.onError ^IDeferredListener listener error))
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -671,9 +668,7 @@
   (realized [_] true)
   (onRealized [this on-success on-error]
     (set! consumed? true)
-    (if (nil? executor)
-      (on-error error)
-      (.execute executor #(on-error error))))
+    (execute-callback executor #(on-error error)))
   (successValue [_ default-value]
     default-value)
   (errorValue [_ default-value]
