@@ -140,6 +140,56 @@
                         (is (not= t (Thread/currentThread)))
                         (is (re-find #"manifold-pool" (.getName t)))))))))))))))
 
+(deftest test-executor-affinity
+  (let [ex1 (ex/fixed-thread-executor 1)
+        ex2 (ex/fixed-thread-executor 1)
+        d (d/deferred ex1)
+        calls (atom {})
+        record-call (fn [f]
+                      (fn [x]
+                        (swap! calls update (ex/current-executor) (fnil inc 0))
+                        (f x)))
+        r (d/chain d
+                   ;; ex1
+                   (record-call inc)
+                   ;; ex1
+                   (record-call
+                    (fn [n]
+                      (d/chain
+                       ;; Will inherit the executor but is not re-enqueued for execution since we're
+                       ;; already on that executor
+                       (d/success-deferred n)
+                       ;; ex1
+                       (record-call inc))))
+                   ;; ex1
+                   (record-call
+                    (fn [n]
+                      (d/chain
+                       ;; Hand over to a different executor (ex2) and then propagate the result back
+                       ;; the the current one (ex1)
+                       (d/success-deferred n ex2)
+                       ;; ex2
+                       (record-call inc))))
+                   ;; ex1
+                   (record-call inc))
+        scheduled-callbacks (atom {})
+        exec d/execute-callback]
+    (with-redefs [d/execute-callback (fn [executor callback]
+                                       (when executor
+                                         (swap! scheduled-callbacks update executor (fnil inc 0)))
+                                       (exec executor callback))]
+      (d/success! d 1)
+      (is (= 5 @r))
+      (is (nil? (d/executor r)))
+      (let [c @calls]
+        (is (= #{ex1 ex2} (set (keys c))))
+        (is (= 5 (get c ex1)))
+        (is (= 1 (get c ex2))))
+      (let [s @scheduled-callbacks]
+        (is (= #{ex1 ex2} (set (keys s))))
+        (is (<= 1 (get s ex1) 2))
+        (is (= 1 (get s ex2)))))))
+
 (def ^:dynamic *test-dynamic-var*)
 
 (deftest test-let-flow
