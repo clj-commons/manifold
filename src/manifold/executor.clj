@@ -51,6 +51,42 @@
   [group target name stack-size]
   (Thread. group target name stack-size))
 
+(defn- wrap-thread-runnable [runnable executor-promise]
+  #(let [{:keys [executor onto?]} @executor-promise]
+     (when onto?
+       (.set executor-thread-local executor))
+     (.set current-executor-thread-local executor)
+     (.run ^Runnable runnable)))
+
+(defn- wrap-thread-factory [tf executor-promise]
+  (reify ThreadFactory
+    (newThread [_ runnable]
+      (.newThread tf (wrap-thread-runnable runnable executor-promise)))))
+
+(defn wrap-executor
+  "Wraps an executor so that deferred callbacks will not be re-scheduled when they're bound to the
+  same executor.
+
+   |:---|:----
+   | `executor` | a `java.util.concurrent.Executor` or a function which accepts a `java.util.concurrent.ThreadFactory` and returns an executor for it. |
+   | `thread-factory` | an optional `java.util.concurrent.ThreadFactory` that creates the executor's threads. When given, `executor` must be a function. |
+   | `onto?` | if true, all streams and deferred generated in the scope of this executor will also be 'on' this executor. |"
+  ([executor]
+   (wrap-executor executor {}))
+  ([executor
+    {:keys [thread-factory
+            onto?]
+     :or   {onto? true}}]
+   (let [executor-promise (promise)
+         wrapped-executor (if thread-factory
+                            (executor (wrap-thread-factory thread-factory executor-promise))
+                            (reify java.util.concurrent.Executor
+                              (execute [_ runnable]
+                                (.execute executor (wrap-thread-runnable runnable executor-promise)))))]
+     (deliver executor-promise {:onto? onto?
+                                :executor wrapped-executor})
+     wrapped-executor)))
+
 (defn ^ThreadFactory thread-factory
   "Returns a `java.util.concurrent.ThreadFactory`.
 
@@ -72,12 +108,8 @@
        (newThread [_ runnable]
          (let [name        (name-generator)
                curr-loader (.getClassLoader (class thread-factory))
-               f           #(let [{:keys [executor onto?]} @executor-promise]
-                              (when onto?
-                                (.set executor-thread-local executor))
-                              (.set current-executor-thread-local executor)
-                              (.run ^Runnable runnable))
-               thread      ^Thread (new-thread nil f name (or stack-size 0))]
+               runnable    (wrap-thread-runnable runnable executor-promise)
+               thread      ^Thread (new-thread nil runnable name (or stack-size 0))]
            (doto thread
              (.setDaemon daemon?)
              (.setContextClassLoader curr-loader))))))))
