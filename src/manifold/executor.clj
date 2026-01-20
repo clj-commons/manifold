@@ -18,6 +18,8 @@
      ThreadFactory
      TimeUnit]))
 
+(set! *warn-on-reflection* true)
+
 ;;;
 
 (def ^ThreadLocal executor-thread-local (ThreadLocal.))
@@ -58,7 +60,7 @@
      (.set current-executor-thread-local executor)
      (.run ^Runnable runnable)))
 
-(defn- wrap-thread-factory [tf executor-promise]
+(defn- wrap-thread-factory [^ThreadFactory tf executor-promise]
   (reify ThreadFactory
     (newThread [_ runnable]
       (.newThread tf (wrap-thread-runnable runnable executor-promise)))))
@@ -75,7 +77,7 @@
    | `onto?` | if true, all streams and deferred generated in the scope of this executor will also be 'on' this executor. |"
   ([executor]
    (wrap-executor executor {}))
-  ([executor
+  ([^java.util.concurrent.Executor executor
     {:keys [thread-factory
             onto?]
      :or   {onto? true}}]
@@ -83,7 +85,7 @@
      executor
      (let [executor-promise (promise)
            wrapped-executor (if thread-factory
-                              (let [executor (executor (wrap-thread-factory thread-factory executor-promise))]
+                              (let [^java.util.concurrent.Executor executor (executor (wrap-thread-factory thread-factory executor-promise))]
                                 (reify java.util.concurrent.Executor
                                   (execute [_ runnable]
                                     (.execute executor runnable))
