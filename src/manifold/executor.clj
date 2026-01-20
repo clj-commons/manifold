@@ -18,12 +18,20 @@
      ThreadFactory
      TimeUnit]))
 
+(set! *warn-on-reflection* true)
+
 ;;;
 
 (def ^ThreadLocal executor-thread-local (ThreadLocal.))
 
 (definline executor []
   `(.get manifold.executor/executor-thread-local))
+
+
+(def ^ThreadLocal current-executor-thread-local (ThreadLocal.))
+
+(definline current-executor []
+  `(.get manifold.executor/current-executor-thread-local))
 
 (defmacro with-executor [executor & body]
   `(let [executor# (executor)]
@@ -44,6 +52,51 @@
   running on a `io.netty.util.concurrent.FastThreadLocalThread`."
   [group target name stack-size]
   (Thread. group target name stack-size))
+
+(defn- wrap-thread-runnable [runnable executor-promise]
+  #(let [{:keys [executor onto?]} @executor-promise]
+     (when onto?
+       (.set executor-thread-local executor))
+     (.set current-executor-thread-local executor)
+     (.run ^Runnable runnable)))
+
+(defn- wrap-thread-factory [^ThreadFactory tf executor-promise]
+  (reify ThreadFactory
+    (newThread [_ runnable]
+      (.newThread tf (wrap-thread-runnable runnable executor-promise)))))
+
+(definterface IExecutorTracking)
+
+(defn wrap-executor
+  "Wraps an executor so that deferred callbacks will not be re-scheduled when they're bound to the
+  same executor.
+
+   |:---|:----
+   | `executor` | a `java.util.concurrent.Executor` or a function which accepts a `java.util.concurrent.ThreadFactory` and returns an executor for it. |
+   | `thread-factory` | an optional `java.util.concurrent.ThreadFactory` that creates the executor's threads. When given, `executor` must be a function. |
+   | `onto?` | if true, all streams and deferred generated in the scope of this executor will also be 'on' this executor. |"
+  ([executor]
+   (wrap-executor executor {}))
+  ([^java.util.concurrent.Executor executor
+    {:keys [thread-factory
+            onto?]
+     :or   {onto? true}}]
+   (if (instance? IExecutorTracking executor)
+     executor
+     (let [executor-promise (promise)
+           wrapped-executor (if thread-factory
+                              (let [^java.util.concurrent.Executor executor (executor (wrap-thread-factory thread-factory executor-promise))]
+                                (reify java.util.concurrent.Executor
+                                  (execute [_ runnable]
+                                    (.execute executor runnable))
+                                  IExecutorTracking))
+                              (reify java.util.concurrent.Executor
+                                (execute [_ runnable]
+                                  (.execute executor (wrap-thread-runnable runnable executor-promise)))
+                                IExecutorTracking))]
+       (deliver executor-promise {:onto? onto?
+                                  :executor wrapped-executor})
+       wrapped-executor))))
 
 (defn ^ThreadFactory thread-factory
   "Returns a `java.util.concurrent.ThreadFactory`.
@@ -66,10 +119,8 @@
        (newThread [_ runnable]
          (let [name        (name-generator)
                curr-loader (.getClassLoader (class thread-factory))
-               f           #(do
-                              (.set executor-thread-local @executor-promise)
-                              (.run ^Runnable runnable))
-               thread      ^Thread (new-thread nil f name (or stack-size 0))]
+               runnable    (wrap-thread-runnable runnable executor-promise)
+               thread      ^Thread (new-thread nil runnable name (or stack-size 0))]
            (doto thread
              (.setDaemon daemon?)
              (.setContextClassLoader curr-loader))))))))
@@ -136,35 +187,35 @@
                                  thread-factory
                                  (manifold.executor/thread-factory
                                    #(str "manifold-pool-" factory "-" (swap! thread-count inc))
-                                   (if onto?
-                                     executor-promise
-                                     (deliver (promise) nil))))
+                                   executor-promise))
         ^Executor$Controller c controller
         metrics                (if (identical? :none metrics)
                                  (EnumSet/noneOf Stats$Metric)
-                                 metrics)]
+                                 metrics)
+        executor             (proxy [Executor IExecutorTracking]
+                               [thread-factory
+                                (if (and queue-length (pos? queue-length))
+                                  (if (p/<= queue-length 1024)
+                                    (ArrayBlockingQueue. queue-length false)
+                                    (LinkedBlockingQueue. (int queue-length)))
+                                  (SynchronousQueue. false))
+                                (if stats-callback
+                                  (reify Executor$Controller
+                                    (shouldIncrement [_ n]
+                                      (.shouldIncrement c n))
+                                    (adjustment [_ s]
+                                      (stats-callback (stats->map s))
+                                      (.adjustment c s)))
+                                  c)
+                                initial-thread-count
+                                metrics
+                                sample-period
+                                control-period
+                                TimeUnit/MILLISECONDS])]
     (assert controller "must specify :controller")
-    @(deliver executor-promise
-              (Executor.
-                thread-factory
-                (if (and queue-length (pos? queue-length))
-                  (if (p/<= queue-length 1024)
-                    (ArrayBlockingQueue. queue-length false)
-                    (LinkedBlockingQueue. (int queue-length)))
-                  (SynchronousQueue. false))
-                (if stats-callback
-                  (reify Executor$Controller
-                    (shouldIncrement [_ n]
-                      (.shouldIncrement c n))
-                    (adjustment [_ s]
-                      (stats-callback (stats->map s))
-                      (.adjustment c s)))
-                  c)
-                initial-thread-count
-                metrics
-                sample-period
-                control-period
-                TimeUnit/MILLISECONDS))))
+    (deliver executor-promise {:executor executor
+                               :onto? onto?})
+    executor))
 
 (defn fixed-thread-executor
   "Returns an executor which has a fixed number of threads."

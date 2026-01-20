@@ -185,6 +185,10 @@
   [x]
   `(.realized ~(with-meta x {:tag "manifold.deferred.IDeferred"})))
 
+(definline ^:no-doc executor
+  [x]
+  `(.executor ~(with-meta x {:tag "manifold.deferred.IDeferred"})))
+
 (definline ^:no-doc success-value [x default-value]
   `(.successValue ~(with-meta x {:tag "manifold.deferred.IDeferred"}) ~default-value))
 
@@ -283,6 +287,7 @@
            (realized? this))
          ADeferred
          IDeferred
+         (executor [_])
          (realized [_]
            (or (.isDone x) (.isCancelled x)))
          (onRealized [_ on-success on-error]
@@ -317,6 +322,7 @@
          (.isRealized ^IPending x))
        ADeferred
        IDeferred
+       (executor [_])
        (realized [_]
          (.isRealized ^IPending x))
        (onRealized [_ on-success on-error]
@@ -399,7 +405,19 @@
   [^IMutableDeferred deferred listener]
   (.cancelListener deferred listener))
 
+(defn execute-callback [^Executor executor callback]
+  (if (or (nil? executor) (identical? executor (ex/current-executor)))
+    (callback)
+    (.execute executor
+              (fn []
+                (try
+                  (callback)
+                  (catch Throwable e
+                    (log/error e "error in deferred handler")))))))
+
 (defmacro ^:private set-deferred [val token success? claimed? executor]
+  ;; Relies on all arguments being safe against double-evaluation, i.e. they're local variables at
+  ;; all callsites.
   `(if (utils/with-lock* ~'lock
          (when (and
                  (identical? ~(if claimed? ::claimed ::unset) ~'state)
@@ -412,17 +430,8 @@
        (clojure.core/loop []
          (when-let [^IDeferredListener l# (.poll ~'listeners)]
            (try
-             (if (nil? ~executor)
-               (~(if success? `.onSuccess `.onError) ^IDeferredListener l# ~val)
-               (.execute ~(with-meta executor {:tag "java.util.concurrent.Executor"})
-                         (fn []
-                           (try
-                             (~(if success? `.onSuccess `.onError) l# ~val)
-                             (catch Throwable e#
-                               #_(.printStackTrace e#)
-                               (log/error e# "error in deferred handler"))))))
+             (execute-callback ~executor #(~(if success? `.onSuccess `.onError) l# ~val))
              (catch Throwable e#
-               #_(.printStackTrace e#)
                (log/error e# "error in deferred handler")))
            (recur)))
        true)
@@ -518,9 +527,7 @@
                        (do
                          (.add listeners listener)
                          nil)))]
-        (if executor
-          (.execute executor f)
-          (f)))
+        (execute-callback executor f))
       true)
     (cancelListener [_ listener]
       (utils/with-lock* lock
@@ -595,9 +602,7 @@
   IMutableDeferred
   (claim [_] false)
   (addListener [_ listener]
-    (if (nil? executor)
-      (.onSuccess ^IDeferredListener listener val)
-      (.execute executor #(.onSuccess ^IDeferredListener listener val)))
+    (execute-callback executor #(.onSuccess ^IDeferredListener listener val))
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -613,9 +618,7 @@
   (executor [_] executor)
   (realized [this] true)
   (onRealized [this on-success on-error]
-    (if executor
-      (.execute executor #(on-success val))
-      (on-success val)))
+    (execute-callback executor #(on-success val)))
   (successValue [_ default-value]
     val)
   (errorValue [_ default-value]
@@ -654,7 +657,7 @@
   (claim [_] false)
   (addListener [_ listener]
     (set! consumed? true)
-    (.onError ^IDeferredListener listener error)
+    (execute-callback executor #(.onError ^IDeferredListener listener error))
     true)
   (cancelListener [_ listener] false)
   (success [_ x] false)
@@ -671,9 +674,7 @@
   (realized [_] true)
   (onRealized [this on-success on-error]
     (set! consumed? true)
-    (if (nil? executor)
-      (on-error error)
-      (.execute executor #(on-error error))))
+    (execute-callback executor #(on-error error)))
   (successValue [_ default-value]
     default-value)
   (errorValue [_ default-value]
@@ -737,29 +738,34 @@
   ([error executor]
    (ErrorDeferred. error nil false executor)))
 
-(declare chain)
+(defn- different-executor? [d]
+  (when-let [ex (executor d)]
+    (not (identical? ex (ex/current-executor)))))
 
 (defn unwrap'
   "Like unwrap, but does not coerce deferrable values."
   [x]
   (if (deferred? x)
-    (let [val (success-value x ::none)]
-      (if (identical? val ::none)
-        x
-        (recur val)))
+    (if (different-executor? x)
+      x
+      (let [val (success-value x ::none)]
+        (if (identical? val ::none)
+          x
+          (recur val))))
     x))
 
 (defn unwrap
-  "Recursively unwraps a deferred or deferrable until either 1) a non-deferred
-   value is reached, or 2) an unrealized deferrable is reached."
+  "Recursively unwraps a deferred or deferrable until either 1) a non-deferred value is reached, or 2)
+  an unrealized deferrable is reached, or 3) a realized deferrable with a different executor than
+  the current one is reached."
   [x]
   (let [d (->deferred x nil)]
-    (if (nil? d)
-      x
-      (let [val (success-value d ::none)]
-        (if (identical? ::none val)
-          d
-          (recur val))))))
+    (cond (nil? d) x
+          (different-executor? d) d
+          :else (let [val (success-value d ::none)]
+                  (if (identical? ::none val)
+                    d
+                    (recur val))))))
 
 (defn connect
   "Conveys the realized value of `a` into `b`."
@@ -1074,40 +1080,44 @@
   ([x f g & fs]
    (apply chain- nil x f g fs)))
 
-(defn catch'
-  "Like `catch`, but does not coerce deferrable values."
-  ([x error-handler]
-   (catch' x nil error-handler))
-  ([x error-class error-handler]
-   (let [x      (chain' x)
-         catch? #(or (nil? error-class) (instance? error-class %))]
-     (if-not (deferred? x)
+(let [subscribe (fn [x catch? error-handler]
+                  (let [d' (deferred)]
+                    (on-realized x
+                                 #(success! d' %)
+                                 #(try
+                                    (if (catch? %)
+                                      (chain'- d' (error-handler %))
+                                      (chain'- d' (error-deferred %)))
+                                    (catch Throwable e
+                                      (error! d' e))))
 
-       ;; not a deferred value, skip over it
-       x
+                    d'))]
+  (defn catch'
+    "Like `catch`, but does not coerce deferrable values."
+    ([x error-handler]
+     (catch' x nil error-handler))
+    ([x error-class error-handler]
+     (let [catch? #(or (nil? error-class) (instance? error-class %))]
+       (if (not (deferred? x))
+         ;; not a deferred value, skip over it
+         x
+         (let [x' (unwrap' x)]
+           (if (not (deferred? x'))
+             ;; successfully realized, skip over it
+             x
+             (success-error-unrealized x'
+                val x
 
-       (success-error-unrealized x
-         val x
+                err (try
+                      (if (catch? err)
+                        (if (different-executor? x')
+                          (subscribe x catch? error-handler)
+                          (chain' (error-handler err)))
+                        (error-deferred err))
+                      (catch Throwable e
+                        (error-deferred e)))
 
-         err (try
-               (if (catch? err)
-                 (chain' (error-handler err))
-                 (error-deferred err))
-               (catch Throwable e
-                 (error-deferred e)))
-
-         (let [d' (deferred)]
-
-           (on-realized x
-                        #(success! d' %)
-                        #(try
-                           (if (catch? %)
-                             (chain'- d' (error-handler %))
-                             (chain'- d' (error-deferred %)))
-                           (catch Throwable e
-                             (error! d' e))))
-
-           d'))))))
+                (subscribe x catch? error-handler)))))))))
 
 (defn catch
   "An equivalent of the catch clause, which takes an `error-handler` function that will be invoked
@@ -1130,36 +1140,39 @@
          chain)
      x)))
 
-(defn finally'
-  "Like `finally`, but doesn't coerce deferrable values."
-  [x f]
-  (success-error-unrealized x
+(let [subscribe (fn [x f]
+                  (let [d (deferred)]
+                    (on-realized x
+                                 #(try
+                                    (f)
+                                    (success! d %)
+                                    (catch Throwable e
+                                      (error! d e)))
+                                 #(try
+                                    (f)
+                                    (error! d %)
+                                    (catch Throwable e
+                                      (error! d e))))
+                    d))]
+  (defn finally'
+    "Like `finally`, but doesn't coerce deferrable values."
+    [x f]
+    (if (different-executor? x)
+      (subscribe x f)
+      (success-error-unrealized x
+        val (try
+              (f)
+              x
+              (catch Throwable e
+                (error-deferred e)))
 
-    val (try
-          (f)
-          x
-          (catch Throwable e
-            (error-deferred e)))
+        err (try
+              (f)
+              (error-deferred err)
+              (catch Throwable e
+                (error-deferred e)))
 
-    err (try
-          (f)
-          (error-deferred err)
-          (catch Throwable e
-            (error-deferred e)))
-
-    (let [d (deferred)]
-      (on-realized x
-                   #(try
-                      (f)
-                      (success! d %)
-                      (catch Throwable e
-                        (error! d e)))
-                   #(try
-                      (f)
-                      (error! d %)
-                      (catch Throwable e
-                        (error! d e))))
-      d)))
+        (subscribe x f)))))
 
 (defn finally
   "An equivalent of the finally clause, which takes a no-arg side-effecting function that executes
