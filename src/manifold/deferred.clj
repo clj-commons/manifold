@@ -55,26 +55,26 @@
   (successValue [default])
   (errorValue [default]))
 
-(declare then-apply then-apply-async
-         then-accept then-accept-async
-         then-run then-run-async
+(declare then-apply
+         then-accept
+         then-run
 
-         then-combine then-combine-async
-         then-accept-both then-accept-both-async
-         run-after-both run-after-both-async
+         then-combine
+         then-accept-both
+         run-after-both
 
-         apply-to-either apply-to-either-async
-         accept-either accept-either-async
-         run-after-either run-after-either-async
+         apply-to-either
+         accept-either
+         run-after-either
 
-         then-compose then-compose-async
+         then-compose
 
-         then-handle then-handle-async
+         then-handle
          then-exceptionally
 
          to-completable-future
 
-         when-complete when-complete-async
+         when-complete
 
          cs-default-executor)
 
