@@ -466,16 +466,23 @@
     (is (s/closed? sink))
     (is (s/closed? src))))
 
+(defn await-drained [s timeout]
+  (let [d (d/deferred)]
+    (s/on-drained s (fn [] (d/success! d true)))
+    (deref d timeout false)))
+
 (deftest test-window-streams
   (testing "dropping-stream"
     (let [s (s/->source (range 11))
           dropping-s (s/dropping-stream 10 s)]
+      (is (await-drained s 100))
       (is (= (range 10)
              (s/stream->seq dropping-s)))))
 
   (testing "sliding-stream"
     (let [s (s/->source (range 11))
           sliding-s (s/sliding-stream 10 s)]
+      (is (await-drained s 100))
       (is (= (range 1 11)
              (s/stream->seq sliding-s))))))
 

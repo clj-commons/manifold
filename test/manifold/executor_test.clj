@@ -1,6 +1,7 @@
 (ns manifold.executor-test
   (:require
     [clojure.test :refer :all]
+    [manifold.deferred :as d]
     [manifold.executor :as e]
     [manifold.test :refer :all])
   (:import
@@ -69,5 +70,23 @@
             500)
         thread (.newThread tf (constantly nil))]
     (is (= "custom-name" (.getName thread)))))
+
+(deftest test-wrap-executor
+  (testing "with thread-factory"
+    (let [ex (e/wrap-executor #(Executors/newFixedThreadPool 1 %)
+                              {:thread-factory (Executors/defaultThreadFactory)})
+          d (d/deferred)]
+      (-> (d/success-deferred ::value ex)
+          (d/chain' (fn [_]
+                      (d/success! d (d/executor (d/deferred))))))
+      (is (= ex (deref d 100 ::timeout)))))
+
+  (testing "without thread-factory"
+    (let [ex (e/wrap-executor (Executors/newFixedThreadPool 1))
+          d (d/deferred)]
+      (-> (d/success-deferred ::value ex)
+          (d/chain' (fn [_]
+                      (d/success! d (d/executor (d/deferred))))))
+      (is (= ex (deref d 100 ::timeout))))))
 
 (instrument-tests-with-dropped-error-detection!)
