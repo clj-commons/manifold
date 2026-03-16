@@ -1154,23 +1154,31 @@
          out (sliding-stream n in)]
      (splice in out)))
   ([n source]
-   (let [sink (stream n)]
-     (connect-via
-       source
-       (fn [val]
-         (d/loop []
-           (d/chain
-             (try-put! sink val 0 ::timeout)
-             (fn [put-result]
-               (case put-result
-                 true     true
-                 false    false
-                 ::timeout (d/chain (take! sink)
-                                   (fn [_] (d/recur))))))))
-       sink
-       {:upstream?   true
-        :downstream? true})
-     sink)))
+   (let [buf  (stream)
+         sink (stream n)]
+     (connect-via-proxy source buf sink {:description {:op "sliding_stream"}})
+     (d/loop []
+       (d/chain'
+         (take! buf ::none)
+         (fn [val]
+           (if (identical? val ::none)
+             (close! sink)
+             (d/chain'
+               (d/loop []
+                 (d/chain'
+                   (try-put! sink val 0 ::timeout)
+                   (fn [put-result]
+                     (case put-result
+                       (true false) put-result
+                       ::timeout
+                       (d/chain'
+                         (take! sink ::empty)
+                         (fn [x]
+                           (when-not (identical? x ::empty)
+                             (d/recur))))))))
+               (fn [_]
+                 (d/recur)))))))
+     (->sink sink))))
 
 ;;;
 
